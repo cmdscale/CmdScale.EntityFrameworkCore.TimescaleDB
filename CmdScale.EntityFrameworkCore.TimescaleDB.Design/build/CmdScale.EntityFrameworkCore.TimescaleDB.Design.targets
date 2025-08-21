@@ -1,0 +1,20 @@
+﻿<Project>
+	<Target Name="InjectTimescaleDesignTimeServices" BeforeTargets="CoreCompile">
+
+		<PropertyGroup>
+			<_TimescaleDesignTimeServicesAttribute>
+				[assembly: Microsoft.EntityFrameworkCore.Design.DesignTimeServicesReference("CmdScale.EntityFrameworkCore.TimescaleDB.Design.TimescaleDBDesignTimeServices, CmdScale.EntityFrameworkCore.TimescaleDB.Design")]
+			</_TimescaleDesignTimeServicesAttribute>
+		</PropertyGroup>
+
+		<WriteLinesToFile
+		  File="$(IntermediateOutputPath)GeneratedTimescaleDesignTimeServices.g.cs"
+		  Lines="$(_TimescaleDesignTimeServicesAttribute)"
+		  Overwrite="true" />
+
+		<ItemGroup>
+			<Compile Include="$(IntermediateOutputPath)GeneratedTimescaleDesignTimeServices.g.cs" />
+		</ItemGroup>
+
+	</Target>
+</Project>

@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "CmdScale.EntityFrameworkCore.TimescaleDB.Example": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    },
+    "ef migrations debugger": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\dotnet\\dotnet.exe",
+      "commandLineArgs": "ef add migrations --project CmdScale.EntityFrameworkCore.TimescaleDB.Example \"Test Migration\"",
+      "nativeDebugging": true
+    }
+  }
+}

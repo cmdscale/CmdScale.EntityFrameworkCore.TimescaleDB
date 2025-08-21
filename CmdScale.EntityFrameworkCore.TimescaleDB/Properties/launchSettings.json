@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "CmdScale.EntityFrameworkCore.TimescaleDB": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    },
+    "Profile 1": {
+      "commandName": "Executable",
+      "executablePath": "dotnet",
+      "nativeDebugging": true
+    }
+  }
+}

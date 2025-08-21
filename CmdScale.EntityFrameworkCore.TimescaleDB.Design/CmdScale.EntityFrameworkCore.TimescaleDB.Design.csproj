@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PackageId>CmdScale.EntityFrameworkCore.TimescaleDB.Design</PackageId>
+    <Version>1.0.30</Version>
+    <Authors>CmdScale</Authors>
+    <Description>Design time for code first migration.</Description>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Title>CmdScale.EntityFrameworkCore.TimescaleDB.Design</Title>
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CmdScale.EntityFrameworkCore.TimescaleDB" Version="1.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.8" />
+  </ItemGroup>
+</Project>

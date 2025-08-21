@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg17
+    container_name: cmdscale-ef-timescaledb
+    restart: always
+    ports:
+      - "5432:5432"
+
+    environment:
+      POSTGRES_PASSWORD: R#!kro#GP43ra8Ae
+      POSTGRES_USER: timescale_admin
+      POSTGRES_DB: cmdscale-ef-timescaledb
+
+    volumes:
+      - cmdscale_ef_timescaledb_data_volume:/var/lib/postgresql/data
+
+volumes:
+  cmdscale_ef_timescaledb_data_volume:
