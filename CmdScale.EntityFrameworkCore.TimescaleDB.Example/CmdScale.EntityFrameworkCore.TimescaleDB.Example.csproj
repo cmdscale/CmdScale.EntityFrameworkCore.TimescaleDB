@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CmdScale.EntityFrameworkCore.TimescaleDB.Design" Version="1.0.49" />
+    <PackageReference Include="CmdScale.EntityFrameworkCore.TimescaleDB.Design" Version="1.0.51" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.8" />
   </ItemGroup>
 

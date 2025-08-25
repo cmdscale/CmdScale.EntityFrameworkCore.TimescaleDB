@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>CmdScale.EntityFrameworkCore.TimescaleDB.Design</PackageId>
-    <Version>1.0.49</Version>
+    <Version>1.0.51</Version>
     <Authors>CmdScale</Authors>
     <Description>Design time for code first migration.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -14,5 +14,8 @@
   <ItemGroup>
     <PackageReference Include="CmdScale.EntityFrameworkCore.TimescaleDB" Version="1.0.17" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.8" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="build\CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>
 </Project>
