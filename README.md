@@ -98,7 +98,9 @@ From the solution root, run:
 docker-compose up -d
 ```
 
-### EF Core CLI Setup
+---
+
+## EF Core CLI Setup
 Make sure you have the EF Core command-line tools installed globally:
 
 ```bash
