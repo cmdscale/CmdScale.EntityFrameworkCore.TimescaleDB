@@ -9,4 +9,4 @@ have the following NuGet-Packages installed:
 
 Then you need to run the following command:
 
-``dotnet ef dbcontext scaffold "Host=localhost;Database=cmdscale-ef-timescaledb;Username=timescale_admin;Password=R#!kro#GP43ra8Ae" CmdScale.EntityFrameworkCore.TimescaleDB.Design --output-dir Models --context-dir . --context MyTimescaleDbContext --force``
+``dotnet ef dbcontext scaffold "Host=localhost;Database=cmdscale-ef-timescaledb;Username=timescale_admin;Password=R#!kro#GP43ra8Ae" CmdScale.EntityFrameworkCore.TimescaleDB.Design --output-dir Models --context-dir . --context MyTimescaleDbContext``

@@ -27,41 +27,54 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
         {
             // Get the standard migration operations (CreateTable, AddColumn, etc.) from the base MigrationsModelDiffer.
             List<MigrationOperation> operations = [.. base.GetDifferences(source, target)];
+            List<CreateHypertableOperation> targetHypertables = [.. GetHypertables(target)];
+            List<CreateHypertableOperation> sourceHypertables = [.. GetHypertables(source)];
 
-            // --- Custom TimescaleDB Operations ---
+            // Identify new hypertables
+            List<CreateHypertableOperation> newHypertables = [.. targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName))];
 
-            // Identify Hypertables in the target model that are new (or newly configured) compared to the source model.
-            List<CreateHypertableOperation> newHypertables = [.. GetHypertables(target)
-                .Where(targetHypertable =>
-                {
-                    // Check if this hypertable (table name and time column) existed in the source model
-                    // and if its configuration has changed significantly.
-
-                    CreateHypertableOperation? sourceHypertable = GetHypertables(source)
-                                            .FirstOrDefault(s =>
-                                                s.TableName == targetHypertable.TableName &&
-                                                s.TimeColumnName == targetHypertable.TimeColumnName);
-
-                    // If it's completely new or a 'regular' table becoming a hypertable
-                    return sourceHypertable == null;
-                })];
-
-            // Add CreateHypertable operations for new hypertables
             foreach (CreateHypertableOperation? hypertable in newHypertables)
             {
-                // Find the index of the CreateTableOperation for this table.
                 int createTableOpIndex = operations.FindIndex(op =>
                     op is CreateTableOperation createTable &&
                     createTable.Name == hypertable.TableName);
 
                 if (createTableOpIndex != -1)
                 {
-                    operations.Insert(createTableOpIndex + 1, new CreateHypertableOperation
-                    {
-                        TableName = hypertable.TableName,
-                        TimeColumnName = hypertable.TimeColumnName
-                    });
+                    operations.Insert(createTableOpIndex + 1, hypertable);
                 }
+            }
+
+            // Identity updated hypertables
+            var updatedHypertables = targetHypertables
+                .Join(
+                    sourceHypertables,
+                    target => target.TableName,
+                    source => source.TableName,
+                    (target, source) => new { Target = target, Source = source }
+                )
+                .Where(x =>
+                    x.Target.ChunkTimeInterval != x.Source.ChunkTimeInterval ||
+                    x.Target.EnableCompression != x.Source.EnableCompression ||
+                    !AreChunkSkipColumnsEqual(x.Target.ChunkSkipColumns, x.Source.ChunkSkipColumns)
+                )
+                .ToList();
+
+            foreach (var hypertable in updatedHypertables)
+            {
+                AlterHypertableOperation alterOperation = new()
+                {
+                    TableName = hypertable.Target.TableName,
+                    ChunkTimeInterval = hypertable.Target.ChunkTimeInterval,
+                    EnableCompression = hypertable.Target.EnableCompression,
+                    ChunkSkipColumns = hypertable.Target.ChunkSkipColumns,
+
+                    OldChunkTimeInterval = hypertable.Source.ChunkTimeInterval,
+                    OldEnableCompression = hypertable.Source.EnableCompression,
+                    OldChunkSkipColumns = hypertable.Source.ChunkSkipColumns
+                };
+
+                operations.Add(alterOperation);
             }
 
             return operations;
@@ -81,15 +94,36 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 bool isHypertable = entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value as bool? ?? false;
                 string? timeColumnName = entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value as string;
 
+                string chunkTimeInterval = entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value as string ?? DefaultValues.ChunkTimeInterval;
+
+                string? chunkSkipColumnsString = entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns)?.Value as string;
+                List<string>? chunkSkipColumns = chunkSkipColumnsString?.Split(',', StringSplitOptions.TrimEntries).ToList();
+
+                bool enableCompression = entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value as bool? ?? false;
+
                 if (isHypertable && !string.IsNullOrWhiteSpace(timeColumnName))
                 {
                     yield return new CreateHypertableOperation
                     {
                         TableName = entityType.GetTableName()!,
                         TimeColumnName = timeColumnName,
+                        ChunkTimeInterval = chunkTimeInterval,
+                        EnableCompression = enableCompression,
+                        ChunkSkipColumns = chunkSkipColumns
                     };
                 }
             }
+        }
+
+        // Helper method to compare two lists of chunk skip columns
+        private static bool AreChunkSkipColumnsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)
+        {
+            if (list1 == null && list2 == null) return true;
+            if (list1 == null || list2 == null) return false;
+            if (list1.Count != list2.Count) return false;
+
+            HashSet<string> set1 = [.. list1];
+            return set1.SetEquals(list2);
         }
     }
 #pragma warning restore EF1001

@@ -17,6 +17,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Annotation
             return entityTypeBuilder;
         }
 
+        public static EntityTypeBuilder<TEntity> WithChunkTimeInterval<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string interval) where TEntity : class
+        {
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkTimeInterval, interval);
+            return entityTypeBuilder;
+        }
+
+        public static EntityTypeBuilder<TEntity> WithChunkSkipping<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            params Expression<Func<TEntity, object>>[] chunkSkipColumns) where TEntity : class
+        {
+            // You can't use chunk skipping without compression enabled
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+
+            string[] columnNames = [.. chunkSkipColumns.Select(GetPropertyName)];
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, string.Join(",", columnNames));
+            return entityTypeBuilder;
+        }
+
+        public static EntityTypeBuilder<TEntity> EnableCompression<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            bool enable = true) where TEntity : class
+        {
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, enable);
+            return entityTypeBuilder;
+        }
+
         // Helper method to extract the property name from the lambda expression
         private static string GetPropertyName<TEntity>(Expression<Func<TEntity, object>> propertyExpression)
         {

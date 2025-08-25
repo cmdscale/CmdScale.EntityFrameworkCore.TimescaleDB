@@ -26,6 +26,39 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Annotation
                 // Apply the annotations that the Fluent API would have applied.
                 entityTypeBuilder.HasAnnotation(HypertableAnnotations.IsHypertable, true);
                 entityTypeBuilder.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, attribute.TimeColumnName);
+
+                if (!string.IsNullOrEmpty(attribute.ChunkTimeInterval))
+                {
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkTimeInterval, attribute.ChunkTimeInterval);
+                }
+
+                if (attribute.EnableCompression == true)
+                {
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                }
+
+                if (attribute.ChunkSkipColumns != null && attribute.ChunkSkipColumns.Length > 0)
+                {
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, string.Join(",", attribute.ChunkSkipColumns));
+                }
+
+                bool hasChunkSkipping = attribute.ChunkSkipColumns != null && attribute.ChunkSkipColumns.Length > 0;
+                if (hasChunkSkipping)
+                {
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, string.Join(",", attribute.ChunkSkipColumns ?? []));
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                }
+
+                bool compressionAnnotationValue = attribute.EnableCompression;
+                if (hasChunkSkipping)
+                {
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                }
+                else
+                {
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, compressionAnnotationValue);
+                }
             }
         }
     }

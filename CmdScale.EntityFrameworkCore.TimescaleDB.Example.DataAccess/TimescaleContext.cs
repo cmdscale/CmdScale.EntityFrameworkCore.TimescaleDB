@@ -10,15 +10,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
     /// Reset all migrations: <code>dotnet ef database update 0 --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example</code>
     /// </summary>
     /// <seealso cref="DbContext" />
-    public class TimescaleContext : DbContext
+    public class TimescaleContext(DbContextOptions<TimescaleContext> options) : DbContext(options)
     {
         public DbSet<DeviceReading> DeviceReadings { get; set; }
         public DbSet<WeatherData> WeatherData { get; set; }
-
-        public TimescaleContext(DbContextOptions<TimescaleContext> options) : base(options)
-        {
-
-        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

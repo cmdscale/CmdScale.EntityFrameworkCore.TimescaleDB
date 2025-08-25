@@ -7,7 +7,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example
     {
         public void ConfigureDesignTimeServices(IServiceCollection services)
         {
-            Console.WriteLine("=== This is another design time in the consumer project to test if it will overwrite the ICSharpMigrationOperationGenerator back to defualt. ===");
+            Console.WriteLine("=== This is another design time in the consumer project to test if it will overwrite the ICSharpMigrationOperationGenerator back to default. ===");
         }
     }
 }

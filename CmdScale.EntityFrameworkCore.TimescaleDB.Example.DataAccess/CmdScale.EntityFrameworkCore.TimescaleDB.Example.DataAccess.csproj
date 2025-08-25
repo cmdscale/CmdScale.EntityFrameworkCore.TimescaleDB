@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CmdScale.EntityFrameworkCore.TimescaleDB" Version="1.0.3" />
+    <PackageReference Include="CmdScale.EntityFrameworkCore.TimescaleDB" Version="1.0.17" />
   </ItemGroup>
 
 </Project>
