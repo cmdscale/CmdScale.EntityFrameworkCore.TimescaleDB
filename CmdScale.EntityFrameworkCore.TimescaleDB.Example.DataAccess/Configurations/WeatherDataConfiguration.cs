@@ -10,7 +10,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Configurat
         public void Configure(EntityTypeBuilder<WeatherData> builder)
         {
             builder.HasKey(x => new { x.Id, x.Time });
-            builder.IsHypertable(x => x.Time).WithChunkTimeInterval("86400000");
+            builder.IsHypertable(x => x.Time).WithChunkSkipping(x => x.Time).WithChunkTimeInterval("86400000");
         }
     }
 }

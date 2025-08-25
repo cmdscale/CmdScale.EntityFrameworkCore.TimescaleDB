@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
 {
 
-    [Hypertable(nameof(Time), ChunkSkipColumns = new[] { "Id", "DeviceId" }, ChunkTimeInterval = "86400000")]
+    [Hypertable(nameof(Time), ChunkSkipColumns = new[] { "Time" }, ChunkTimeInterval = "86400000")]
     [PrimaryKey(nameof(Id), nameof(Time))]
     public class DeviceReading
     {

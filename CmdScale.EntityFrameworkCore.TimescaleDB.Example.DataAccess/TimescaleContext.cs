@@ -3,12 +3,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
 {
-
-    /// <summary>
-    /// Add migration: <code>dotnet ef migrations add --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example *MigrationName*</code>
-    /// Rollout migration: <code>dotnet ef database update --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example</code>
-    /// Reset all migrations: <code>dotnet ef database update 0 --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example</code>
-    /// </summary>
     /// <seealso cref="DbContext" />
     public class TimescaleContext(DbContextOptions<TimescaleContext> options) : DbContext(options)
     {
