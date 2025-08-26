@@ -3,8 +3,9 @@
     /// <summary>
     /// Default values for TimescaleDB properties
     /// </summary>
-    internal static class DefaultValues
+    public static class DefaultValues
     {
         public const string ChunkTimeInterval = "7 days";
+        public const long ChunkTimeIntervalLong = 604_800_000_000L;
     }
 }

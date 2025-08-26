@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using System.Reflection;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Annotation
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
 {
     /// <summary>
     /// A convention that configures an entity as a hypertable based on the presence of

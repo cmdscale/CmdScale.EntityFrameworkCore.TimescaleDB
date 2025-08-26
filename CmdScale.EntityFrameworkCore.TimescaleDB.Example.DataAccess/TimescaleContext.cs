@@ -8,6 +8,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
     {
         public DbSet<DeviceReading> DeviceReadings { get; set; }
         public DbSet<WeatherData> WeatherData { get; set; }
+        public DbSet<OrderStatusEvent> OrderStatusEvents { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

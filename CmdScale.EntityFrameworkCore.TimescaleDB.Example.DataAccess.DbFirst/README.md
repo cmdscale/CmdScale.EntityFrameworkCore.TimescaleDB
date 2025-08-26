@@ -21,6 +21,7 @@ dotnet ef dbcontext scaffold
   "Host=localhost;Database=cmdscale-ef-timescaledb;Username=timescale_admin;Password=R#!kro#GP43ra8Ae"
   CmdScale.EntityFrameworkCore.TimescaleDB.Design
   --output-dir Models
+  --schema public
   --context-dir .
   --context MyTimescaleDbContext
 ```
@@ -31,7 +32,7 @@ This command will:
 - Place the `MyTimescaleDbContext` in the current directory
 - Use the specified connection string to connect to the TimescaleDB instance
 
-> **Note**: You can customize the output paths, context name, and namespaces as needed.
+> **Note**: When scaffolding your `DbContext`, use the `--schema` flag to target only your data schema (usually `public`). This prevents the tool from unintentionally including TimescaleDB's internal management tables from schemas like `_timescaledb_internal`.
 
 ---
 

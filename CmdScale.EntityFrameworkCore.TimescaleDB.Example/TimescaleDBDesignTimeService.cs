@@ -15,8 +15,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example
             // NOTE: When using project references, instead of package referneces, you need to uncomment these lines to find inject the correct ICSharpMigrationOperationGenerator
             // The reason for this is, because the CmdScale.EntityFrameworkCore.TimescaleDB.Design project only copies the required assembly-attribute when being packaged.
 
-            //services.AddSingleton<ICSharpMigrationOperationGenerator, TimescaleCSharpMigrationOperationGenerator>()
-            //        .AddSingleton<IDatabaseModelFactory, TimescaleDatabaseModelFactory>();
+            services.AddSingleton<ICSharpMigrationOperationGenerator, TimescaleCSharpMigrationOperationGenerator>()
+                    .AddSingleton<IDatabaseModelFactory, TimescaleDatabaseModelFactory>();
         }
     }
 }

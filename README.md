@@ -98,6 +98,15 @@ From the solution root, run:
 docker-compose up -d
 ```
 
+### Resetting the Database Environment 
+If you need to start with a completely fresh, empty database, you can stop the running container and permanently delete all of its data.
+> **Warning**: This command is destructive and will erase all tables and data stored in your local TimescaleDB instance.
+```bash
+docker-compose down -v
+```
+
+
+
 ---
 
 ## 🧪 Scripts

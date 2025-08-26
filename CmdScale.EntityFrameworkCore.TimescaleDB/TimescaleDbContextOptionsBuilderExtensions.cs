@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Annotation;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;

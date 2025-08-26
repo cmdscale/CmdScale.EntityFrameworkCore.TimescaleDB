@@ -1,4 +1,4 @@
-﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.Annotation
+﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
 {
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
     public sealed class HypertableAttribute : Attribute

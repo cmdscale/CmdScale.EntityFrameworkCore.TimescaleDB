@@ -11,25 +11,19 @@ Use the following commands to manage your EF Core migrations and database update
 ### 📌 Add a New Migration
 
 ```bash
-dotnet ef migrations add <MigrationName>
-  --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
-  --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example
+dotnet ef migrations add --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example <MigrationName>
 ```
 
 ### ✅ Apply Migrations to the Database
 
 ```bash
-dotnet ef database update
-  --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
-  --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example
+dotnet ef database update --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example
 ```
 
 ### 🧹 Reset All Migrations (Rollback to Initial State)
 
 ```bash
-dotnet ef database update 0
-  --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
-  --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example
+dotnet ef database update 0 --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess --startup-project CmdScale.EntityFrameworkCore.TimescaleDB.Example
 ```
 
 ---

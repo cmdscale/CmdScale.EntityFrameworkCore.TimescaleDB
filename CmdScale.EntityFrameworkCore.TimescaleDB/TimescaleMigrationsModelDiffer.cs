@@ -1,12 +1,15 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Annotation;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Internal;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update.Internal;
+using System.Text.Json;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB
 {
@@ -101,6 +104,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
 
                 bool enableCompression = entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value as bool? ?? false;
 
+                IAnnotation? additionalDimensionsAnnotations = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions);
+                List<Dimension>? additionalDimensions = null;
+
+                if (additionalDimensionsAnnotations?.Value is string json && !string.IsNullOrWhiteSpace(json))
+                {
+                    additionalDimensions = JsonSerializer.Deserialize<List<Dimension>>(json);
+                }
+
                 if (isHypertable && !string.IsNullOrWhiteSpace(timeColumnName))
                 {
                     yield return new CreateHypertableOperation
@@ -109,7 +120,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                         TimeColumnName = timeColumnName,
                         ChunkTimeInterval = chunkTimeInterval,
                         EnableCompression = enableCompression,
-                        ChunkSkipColumns = chunkSkipColumns
+                        ChunkSkipColumns = chunkSkipColumns,
+                        AdditionalDimensions = additionalDimensions
                     };
                 }
             }

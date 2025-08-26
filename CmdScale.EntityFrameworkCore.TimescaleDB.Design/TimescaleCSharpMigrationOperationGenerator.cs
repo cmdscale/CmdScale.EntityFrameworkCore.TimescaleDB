@@ -1,4 +1,5 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations.Design;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -37,7 +38,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             // ChunkTimeInterval
             if (!string.IsNullOrEmpty(operation.ChunkTimeInterval))
             {
-                statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', {operation.ChunkTimeInterval});");
+                // Check if the interval is a plain number (e.g., for microseconds).
+                if (long.TryParse(operation.ChunkTimeInterval, out _))
+                {
+                    // If it's a number, don't wrap it in quotes.
+                    statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', {operation.ChunkTimeInterval}::bigint);");
+                }
+                else
+                {
+                    // If it's a string like '7 days', wrap it in quotes.
+                    statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', INTERVAL '{operation.ChunkTimeInterval}');");
+                }
             }
 
             // EnableCompression
@@ -49,9 +60,27 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             // ChunkSkipColumns
             if (operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0)
             {
+                statements.Add("SET timescaledb.enable_chunk_skipping = 'ON';");
+
                 foreach (string column in operation.ChunkSkipColumns)
                 {
                     statements.Add($"SELECT enable_chunk_skipping('\"\"{operation.TableName}\"\"', '{column}');");
+                }
+            }
+
+            // AdditionalDimensions
+            if (operation.AdditionalDimensions != null && operation.AdditionalDimensions.Count > 0)
+            {
+                foreach (Dimension dimension in operation.AdditionalDimensions)
+                {
+                    if (dimension.Type == EDimensionType.Range)
+                    {
+                        statements.Add($"SELECT add_dimension('\"\"{operation.TableName}\"\"', by_range('{dimension.ColumnName}', INTERVAL '{dimension.Interval}'));");
+                    }
+                    else if (dimension.Type == EDimensionType.Hash)
+                    {
+                        statements.Add($"SELECT add_dimension('\"\"{operation.TableName}\"\"', by_hash('{dimension.ColumnName}', {dimension.NumberOfPartitions}));");
+                    }
                 }
             }
 
@@ -67,7 +96,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             {
                 if (operation.ChunkTimeInterval != operation.OldChunkTimeInterval)
                 {
-                    statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', {operation.ChunkTimeInterval});");
+                    // Check if the interval is a plain number (e.g., for microseconds).
+                    if (long.TryParse(operation.ChunkTimeInterval, out _))
+                    {
+                        // If it's a number, don't wrap it in quotes.
+                        statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', {operation.ChunkTimeInterval}::bigint);");
+                    }
+                    else
+                    {
+                        // If it's a string like '7 days', wrap it in quotes.
+                        statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', INTERVAL '{operation.ChunkTimeInterval}');");
+                    }
                 }
             }
 
@@ -85,6 +124,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
 
             if (addedColumns.Count != 0)
             {
+                statements.Add("SET timescaledb.enable_chunk_skipping = 'ON';");
+
                 foreach (string column in addedColumns)
                 {
                     statements.Add($"SELECT enable_chunk_skipping('\"\"{operation.TableName}\"\"', '{column}');");

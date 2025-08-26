@@ -1,10 +1,9 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Annotation;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
 {
-
-    [Hypertable(nameof(Time), ChunkSkipColumns = new[] { "Time" }, ChunkTimeInterval = "86400000")]
+    [Hypertable(nameof(Time), ChunkSkipColumns = new[] { "Time" }, ChunkTimeInterval = "1 day")]
     [PrimaryKey(nameof(Id), nameof(Time))]
     public class DeviceReading
     {

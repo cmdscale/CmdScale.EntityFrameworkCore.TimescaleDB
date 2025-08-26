@@ -4,6 +4,7 @@
     {
         public Guid Id { get; set; }
         public DateTime Time { get; set; }
+        public DateTime Duration { get; set; }
         public double Temperature { get; set; }
         public double Humidity { get; set; }
     }

@@ -1,12 +1,12 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Annotation;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Scaffolding.Internal;
-using NpgsqlTypes;
-using System.Data;
 using System.Data.Common;
+using System.Text.Json;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
 {
@@ -18,14 +18,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             string TimeColumnName,
             string ChunkTimeInterval,
             bool CompressionEnabled,
-            List<string> ChunkSkipColumns
+            List<string> ChunkSkipColumns,
+            List<Dimension> AdditionalDimensions
         );
 
         public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)
         {
             DatabaseModel databaseModel = base.Create(connection, options);
-
-            // Query for TimescaleDB hypertables
             Dictionary<(string, string), HypertableInfo> hypertables = GetHypertables(connection);
 
             // Annotate the tables in the model
@@ -41,6 +40,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                     if (info.ChunkSkipColumns.Count > 0)
                     {
                         table[HypertableAnnotations.ChunkSkipColumns] = string.Join(",", info.ChunkSkipColumns);
+                    }
+
+                    if (info.AdditionalDimensions.Count > 0)
+                    {
+                        table[HypertableAnnotations.AdditionalDimensions] = JsonSerializer.Serialize(info.AdditionalDimensions);
                     }
                 }
             }
@@ -59,37 +63,82 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             try
             {
                 Dictionary<(string, string), HypertableInfo> hypertables = [];
+                Dictionary<(string, string), bool> compressionSettings = [];
+
+                // Get compression settings for hypertables
+                using (DbCommand command = connection.CreateCommand())
+                {
+                    command.CommandText = "SELECT hypertable_schema, hypertable_name, compression_enabled FROM timescaledb_information.hypertables;";
+                    using DbDataReader reader = command.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        compressionSettings[(reader.GetString(0), reader.GetString(1))] = reader.GetBoolean(2);
+                    }
+                }
+
 
                 // Get main hypertable settings
                 using (DbCommand command = connection.CreateCommand())
                 {
                     command.CommandText = @"
                         SELECT
-                            h.hypertable_schema,
-                            h.hypertable_name,
-                            d.column_name AS time_column_name,
-                            EXTRACT(EPOCH FROM d.time_interval) * 1000 AS chunk_time_interval_microseconds,
-                            h.compression_enabled
-                        FROM timescaledb_information.hypertables h
-                        JOIN timescaledb_information.dimensions d
-                          ON h.hypertable_schema = d.hypertable_schema AND h.hypertable_name = d.hypertable_name
-                        WHERE d.dimension_type = 'Time';";
+                            hypertable_schema,
+                            hypertable_name,
+                            column_name,
+                            dimension_number,
+                            num_partitions,
+                            EXTRACT(EPOCH FROM time_interval) * 1000 AS time_interval_microseconds
+                        FROM timescaledb_information.dimensions
+                        ORDER BY hypertable_schema, hypertable_name, dimension_number;";
 
                     using DbDataReader reader = command.ExecuteReader();
                     while (reader.Read())
                     {
                         string schema = reader.GetString(0);
                         string name = reader.GetString(1);
-                        string timeColumn = reader.GetString(2);
-                        long chunkTimeInterval = (long)reader.GetDouble(3);
-                        bool compressionEnabled = reader.GetBoolean(4);
+                        string columnName = reader.GetString(2);
+                        int dimensionNumber = reader.GetInt32(3);
 
-                        hypertables[(schema, name)] = new HypertableInfo(
-                            TimeColumnName: timeColumn,
-                            ChunkTimeInterval: chunkTimeInterval.ToString(),
-                            CompressionEnabled: compressionEnabled,
-                            ChunkSkipColumns: []
-                        );
+                        (string schema, string name) key = (schema, name);
+
+                        // If it's the first dimension, it defines the primary hypertable settings
+                        if (dimensionNumber == 1)
+                        {
+                            // long chunkTimeInterval = (long)reader.GetDouble(5);
+                            long chunkInterval = reader.IsDBNull(5) ? DefaultValues.ChunkTimeIntervalLong : (long)reader.GetDouble(5);
+                            bool compressionEnabled = compressionSettings.TryGetValue(key, out bool enabled) && enabled;
+
+                            hypertables[key] = new HypertableInfo(
+                                TimeColumnName: columnName,
+                                ChunkTimeInterval: chunkInterval.ToString(),
+                                CompressionEnabled: compressionEnabled,
+                                ChunkSkipColumns: [],
+                                AdditionalDimensions: []
+                            );
+                        }
+                        // For all other dimensions, add them to the AdditionalDimensions list
+                        else
+                        {
+                            if (hypertables.TryGetValue(key, out HypertableInfo? info))
+                            {
+                                Dimension dimension;
+
+                                if (!reader.IsDBNull(4) && reader.GetInt32(4) > 0)
+                                {
+                                    // Space dimension
+                                    dimension = Dimension.CreateHash(columnName, reader.GetInt32(4));
+                                }
+                                else if (!reader.IsDBNull(5))
+                                {
+                                    // Time dimension
+                                    long interval = (long)reader.GetDouble(5);
+                                    dimension = Dimension.CreateRange(columnName, interval.ToString());
+                                }
+                                else continue;
+
+                                info.AdditionalDimensions.Add(dimension);
+                            }
+                        }
                     }
                 }
 

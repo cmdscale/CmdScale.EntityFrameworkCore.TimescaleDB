@@ -1,4 +1,4 @@
-﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.Annotation
+﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
 {
     /// <summary>
     /// Contains constants for annotations used by the TimescaleDB provider extension.
@@ -10,5 +10,6 @@
         public const string EnableCompression = "TimescaleDB:EnableCompression";
         public const string ChunkTimeInterval ="TimescaleDB:ChunkTimeInterval";
         public const string ChunkSkipColumns = "TimescaleDB:ChunkSkipColumns";
+        public const string AdditionalDimensions = "TimescaleDB:AdditionalDimensions";
     }
 }
