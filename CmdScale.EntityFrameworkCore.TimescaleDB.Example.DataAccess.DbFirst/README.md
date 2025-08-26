@@ -54,12 +54,6 @@ CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.DbFirst/
   docker-compose up -d
   ```
 
-- You’ll need the EF Core CLI tools installed:
-
-  ```bash
-  dotnet tool install --global dotnet-ef
-  ```
-
 - Connection string settings should match the configuration in your `docker-compose.yml`.
 
 ---

@@ -100,17 +100,6 @@ docker-compose up -d
 
 ---
 
-## EF Core CLI Setup
-Make sure you have the EF Core command-line tools installed globally:
-
-```bash
-dotnet tool install --global dotnet-ef
-```
-
-Ensure your connection string (e.g., in `appsettings.json`) matches the matches the user, password, and port settings defined in the `docker-compose.yml` file.
-
----
-
 ## 🧪 Scripts
 This repository includes PowerShell scripts to streamline the development workflow, particularly for switching between local project development and package-based testing.
 
