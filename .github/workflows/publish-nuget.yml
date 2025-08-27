@@ -1,0 +1,105 @@
+# .github/workflows/publish-nuget.yml
+
+name: Publish NuGet Packages
+
+# This workflow is triggered manually from the GitHub Actions tab
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Which part of the version to bump'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+
+jobs:
+  publish:
+    name: Build, Pack, and Publish
+    runs-on: ubuntu-latest
+
+    # Environment variables for your project names
+    env:
+      CORE_PROJECT_NAME: "CmdScale.EntityFrameworkCore.TimescaleDB"
+      DESIGN_PROJECT_NAME: "CmdScale.EntityFrameworkCore.TimescaleDB.Design"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Use GitVersion to determine the next version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v1.1.1
+        with:
+          useConfigFile: true
+          overrideConfig: |
+            next-version: 0.0.0
+            branches:
+              main:
+                increment: Patch
+                tag: ''
+
+      - name: Bump Version and Push Tag
+        id: bump_version
+        run: |
+          # The version calculated by GitVersion (e.g., 1.2.3)
+          VERSION=${{ steps.gitversion.outputs.semVer }}
+
+          # Split the version into parts
+          IFS='.' read -r -a version_parts <<< "$VERSION"
+          major=${version_parts[0]}
+          minor=${version_parts[1]}
+          patch=${version_parts[2]}
+
+          # Increment the version based on the workflow input
+          case "${{ github.event.inputs.version_bump }}" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+
+          NEW_VERSION="$major.$minor.$patch"
+          echo "Bumping to new version: $NEW_VERSION"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+          # Configure Git
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          # Create and push the new tag
+          git tag "v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+
+      - name: Build and Pack Core Library
+        run: |
+          dotnet pack "$CORE_PROJECT_NAME/$CORE_PROJECT_NAME.csproj" \
+            -c Release \
+            -p:Version="${{ env.NEW_VERSION }}" \
+            -o ./packages
+
+      - name: Build and Pack Design Library
+        run: |
+          dotnet pack "$DESIGN_PROJECT_NAME/$DESIGN_PROJECT_NAME.csproj" \
+            -c Release \
+            -p:Version="${{ env.NEW_VERSION }}" \
+            -o ./packages
+
+      - name: Publish to NuGet.org
+        run: dotnet nuget push "./packages/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json"
