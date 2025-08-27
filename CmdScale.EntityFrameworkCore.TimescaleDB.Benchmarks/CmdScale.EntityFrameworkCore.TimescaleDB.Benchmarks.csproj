@@ -8,8 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CmdScale.EntityFrameworkCore.TimescaleDB.Design" Version="1.0.52" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.8" />
+    <Compile Remove="C:\Users\Sebastian\.nuget\packages\microsoft.visualstudio.diagnosticshub.benchmarkdotnetdiagnosers\18.0.36421.1\contentFiles\cs\any\BenchmarkProfilerAgentConfig.g.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.2" />
   </ItemGroup>
 
   <ItemGroup>

@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>CmdScale.EntityFrameworkCore.TimescaleDB</PackageId>
-    <Version>1.0.17</Version>
+    <Version>1.0.18</Version>
     <Authors>CmdScale</Authors>
     <Description>EF Core extension for TimescaleDB.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

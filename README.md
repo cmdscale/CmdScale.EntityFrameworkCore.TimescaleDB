@@ -4,6 +4,31 @@ This repository provides the essential libraries and tooling to seamlessly integ
 
 - **CmdScale.EntityFrameworkCore.TimescaleDB**: The core runtime library. You include this in your project to enable TimescaleDB-specific features when configuring your `DbContext`.
 - **CmdScale.EntityFrameworkCore.TimescaleDB.Design**: Provides crucial design-time extensions. This package enhances the EF Core CLI tools (`dotnet ef`) to understand TimescaleDB concepts, enabling correct schema generation for migrations and scaffolding.
+---
+
+## ✨ Features
+
+This package extends **Entity Framework Core** with powerful, first-class support for **TimescaleDB's** core features, allowing you to build high-performance time-series applications in .NET.
+
+### Hypertable Creation and Configuration
+
+Seamlessly define and manage **TimescaleDB hypertables** using standard EF Core conventions, including both data attributes and a rich **Fluent API**. This allows you to control partitioning and other optimizations directly from your `DbContext`.
+
+- **Time Partitioning**: Easily specify the primary time column and set the `chunk_time_interval`.
+- **Space Partitioning**: Add additional dimensions for hash or range partitioning to further optimize queries.
+- **Chunk Time Interval**: Configure chunk intervals to balance performance and storage efficiency.
+- **Compression & Chunk Skipping**: Enable TimescaleDB's native compression and configure chunk skipping to improve query performance.
+
+### High-Performance Data Ingestion
+
+For time-series workloads where ingestion speed is critical, the package provides a highly optimized **bulk copy utility**. This method bypasses the standard `SaveChanges()` change tracker and leverages **PostgreSQL's native COPY command** for maximum throughput.
+
+- **Blazing Fast**: Ingest hundreds of thousands of records per second.
+- **Parallelism**: Automatically distributes the workload across multiple concurrent workers.
+- **Configurable**: Easily configure batch sizes, worker counts, and column mappings.
+- **Generic**: Works with any POCO, with automatic mapping of properties to table columns.
+
+
 
 ---
 
@@ -124,13 +149,13 @@ These script modify your `.csproj` files to switch between referencing the core 
 Switch to **project references** (ideal for active development):
 
 ```powershell
-.\SwitchToProjectReferences.ps1
+.\SwitchToProjectReferences.ps1 -Mode Project
 ```
 
 Switch to **NuGet package references** (to simulate a real-world consumer):
 
 ```powershell
-.\SwitchToPackageReferences.ps1
+.\SwitchToPackageReferences.ps1 -Mode Package
 ```
 
 ---
