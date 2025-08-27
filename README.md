@@ -203,3 +203,89 @@ Or, configure it in Visual Studio:
 
 - [TimescaleDB Documentation](https://docs.timescale.com/)
 - [Entity Framework Core Documentation](https://learn.microsoft.com/en-us/ef/core/)
+
+---
+
+## Contributing 🤝
+
+We welcome contributions to help improve this package and make it even more powerful for the .NET and TimescaleDB communities!
+
+Whether you're fixing bugs, adding new features, improving documentation, or sharing examples — every bit helps. 🙌
+
+### How to Contribute
+
+1. **Fork the Repository**
+
+   Create a personal fork of the repository on GitHub and clone it to your local machine.
+
+2. **Create a Branch**
+
+   Use a descriptive branch name based on the feature or fix you're working on using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+
+   ```bash
+   git checkout -b feature/improve-bulk-copy
+   git checkout -b fix/bulk-copy-complex-type-bug
+   ```
+
+3. **Make Your Changes**
+
+   - Follow the existing code style and patterns.
+   - Write unit tests for any new logic. [COMING SOON]
+   - Update the documentation if necessary. [COMING SOON]
+
+4. **Run Tests** [COMING SOON]
+
+   Make sure all tests pass before submitting a pull request:
+
+   ```bash
+   dotnet test
+   ```
+
+5. **Submit a Pull Request**
+
+   Push your branch and open a pull request (PR) against the `main` branch. Include a clear description of what you changed and why.
+
+---
+
+### Guidelines
+
+- Keep pull requests focused and minimal.
+- Reference any related issues using keywords (e.g. `Fixes #42`).
+- Be respectful in code reviews and discussions.
+- Use [BenchmarkDotNet](https://benchmarkdotnet.org/) where performance-related changes are involved.
+
+---
+
+### Questions or Ideas?
+
+If you have questions, ideas, or need help getting started, feel free to [open an issue](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/issues). We’re happy to help and discuss!
+
+---
+
+Thank you for contributing! 💜
+
+---
+
+# 📄 License
+```
+MIT License
+Copyright (c) 2025 CmdScale GmbH
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
