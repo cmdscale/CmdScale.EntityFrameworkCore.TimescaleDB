@@ -245,8 +245,6 @@ Whether you're fixing bugs, adding new features, improving documentation, or sha
 
    Push your branch and open a pull request (PR) against the `main` branch. Include a clear description of what you changed and why.
 
----
-
 ### Guidelines
 
 - Keep pull requests focused and minimal.
@@ -254,13 +252,9 @@ Whether you're fixing bugs, adding new features, improving documentation, or sha
 - Be respectful in code reviews and discussions.
 - Use [BenchmarkDotNet](https://benchmarkdotnet.org/) where performance-related changes are involved.
 
----
-
 ### Questions or Ideas?
 
 If you have questions, ideas, or need help getting started, feel free to [open an issue](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/issues). We’re happy to help and discuss!
-
----
 
 Thank you for contributing! 💜
 
