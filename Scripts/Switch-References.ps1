@@ -34,7 +34,7 @@ $CoreLibraryNames = @(
 # --- Script Body ---
 try {
     # Get the script's directory
-    $SolutionRoot = $PSScriptRoot
+    $SolutionRoot = (Get-Item $PSScriptRoot).Parent.FullName
     Write-Host "Solution root identified as: $SolutionRoot" -ForegroundColor Green
 
     # Find all projects in the solution

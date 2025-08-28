@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 
 # --- SCRIPT CONFIGURATION ---
 $LocalNuGetRepo = "C:\_DEV\NuGet Packages"
-$SolutionRoot = $PSScriptRoot
+$SolutionRoot = (Get-Item $PSScriptRoot).Parent.FullName
 
 try {
     # Find the specified project file

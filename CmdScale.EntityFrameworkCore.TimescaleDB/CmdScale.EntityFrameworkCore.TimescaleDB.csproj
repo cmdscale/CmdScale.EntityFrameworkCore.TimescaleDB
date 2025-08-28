@@ -6,11 +6,35 @@
     <PackageId>CmdScale.EntityFrameworkCore.TimescaleDB</PackageId>
     <Version>0.1.1</Version>
     <Authors>CmdScale</Authors>
-    <Description>EF Core extension for TimescaleDB.</Description>
+    <Description>The core runtime library. You include this in your project to enable TimescaleDB-specific features when configuring your DbContext.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Title>CmdScale.EntityFrameworkCore.TimescaleDB</Title>
     <EnablePackageValidation>true</EnablePackageValidation>
+    <Copyright>CmdScale</Copyright>
+    <PackageProjectUrl>https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB</PackageProjectUrl>
+    <PackageIcon>cmd-nuget-logo.jpg</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB</RepositoryUrl>
+    <IncludeSymbols>True</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <PackageTags>timescaledb;timescale;efcore;ef-core;entityframeworkcore;postgresql;postgres;time-series;timeseries;data;database;efcore-provider;</PackageTags>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\assets\cmd-nuget-logo.jpg">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
   </ItemGroup>
