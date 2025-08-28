@@ -149,13 +149,13 @@ These script modify your `.csproj` files to switch between referencing the core 
 Switch to **project references** (ideal for active development):
 
 ```powershell
-.\SwitchToProjectReferences.ps1 -Mode Project
+.\Scripts\Switch-References.ps1 -Mode Project
 ```
 
 Switch to **NuGet package references** (to simulate a real-world consumer):
 
 ```powershell
-.\SwitchToPackageReferences.ps1 -Mode Package
+.\Scripts\Switch-References.ps1 -Mode Package
 ```
 
 ---

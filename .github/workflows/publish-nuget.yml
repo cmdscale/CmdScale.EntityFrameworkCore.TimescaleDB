@@ -81,7 +81,7 @@ jobs:
           git tag "v${{ steps.version_bumper.outputs.NEW_VERSION }}"
           git push origin "v${{ steps.version_bumper.outputs.NEW_VERSION }}"
 
-      - name: Pack and Publish
+      - name: Build and Pack
         run: |
           # Build the entire solution
           dotnet build -c Release
@@ -90,5 +90,6 @@ jobs:
           dotnet pack ${{ env.CORE_PROJECT_PATH }} -c Release --no-build -o ./packages
           dotnet pack ${{ env.DESIGN_PROJECT_PATH }} -c Release --no-build -o ./packages
 
-          # Publish to NuGet
+      - name: Publish to NuGet.org
+        run: |
           dotnet nuget push "./packages/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json"

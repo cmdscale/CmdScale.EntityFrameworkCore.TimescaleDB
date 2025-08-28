@@ -37,7 +37,8 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
-    <None Include="build\CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets" Pack="true" PackagePath="buildTransitive\" />
+	<Content Include="build\**" Pack="true" PackagePath="build\" />
+	<Content Include="build\**" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CmdScale.EntityFrameworkCore.TimescaleDB\CmdScale.EntityFrameworkCore.TimescaleDB.csproj" />
