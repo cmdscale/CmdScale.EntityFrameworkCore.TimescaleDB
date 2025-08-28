@@ -20,8 +20,6 @@ jobs:
   publish:
     name: Build, Pack, and Publish
     runs-on: ubuntu-latest
-
-    # Environment variables for your project names
     env:
       CORE_PROJECT_PATH: "CmdScale.EntityFrameworkCore.TimescaleDB/CmdScale.EntityFrameworkCore.TimescaleDB.csproj"
       DESIGN_PROJECT_PATH: "CmdScale.EntityFrameworkCore.TimescaleDB.Design/CmdScale.EntityFrameworkCore.TimescaleDB.Design.csproj"
@@ -67,7 +65,7 @@ jobs:
           echo "Bumping to new version: $NEW_VERSION"
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-          # 4. Update the <Version> tag in both .csproj files
+          # Update the <Version> tag in both .csproj files
           sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|g" ${{ env.CORE_PROJECT_PATH }}
           sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|g" ${{ env.DESIGN_PROJECT_PATH }}
 
@@ -84,9 +82,10 @@ jobs:
       - name: Build and Pack
         run: |
           # Build the entire solution
+          dotnet clean
           dotnet build -c Release
 
-          # Pack both projects (no need to pass version, it's read from the updated .csproj)
+          # Pack both projects
           dotnet pack ${{ env.CORE_PROJECT_PATH }} -c Release --no-build -o ./packages
           dotnet pack ${{ env.DESIGN_PROJECT_PATH }} -c Release --no-build -o ./packages
 
