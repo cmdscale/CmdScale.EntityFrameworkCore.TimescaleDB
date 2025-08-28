@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version_bump:
-        description: 'Which part of the version to bump'
+        description: 'release version'
         required: true
         default: 'patch'
         type: choice
@@ -23,8 +23,8 @@ jobs:
 
     # Environment variables for your project names
     env:
-      CORE_PROJECT_NAME: "CmdScale.EntityFrameworkCore.TimescaleDB"
-      DESIGN_PROJECT_NAME: "CmdScale.EntityFrameworkCore.TimescaleDB.Design"
+      CORE_PROJECT_PATH: "CmdScale.EntityFrameworkCore.TimescaleDB/CmdScale.EntityFrameworkCore.TimescaleDB.csproj"
+      DESIGN_PROJECT_PATH: "CmdScale.EntityFrameworkCore.TimescaleDB.Design/CmdScale.EntityFrameworkCore.TimescaleDB.Design.csproj"
 
     steps:
       - name: Checkout repository
@@ -37,25 +37,15 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Use GitVersion to determine the next version
-        id: gitversion
-        uses: gittools/actions/gitversion/execute@v1.1.1
-        with:
-          overrideConfig: |
-            next-version: 0.0.0
-            branches:
-              main:
-                increment: Patch
-                tag: ''
-
-      - name: Bump Version and Push Tag
-        id: bump_version
+      - name: Read, Bump, and Update Version
+        id: version_bumper
         run: |
-          # The version calculated by GitVersion (e.g., 1.2.3)
-          VERSION=${{ steps.gitversion.outputs.semVer }}
+          # Read the current version from the main .csproj file
+          CURRENT_VERSION=$(grep '<Version>' ${{ env.CORE_PROJECT_PATH }} | sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p')
+          echo "Current version: $CURRENT_VERSION"
 
           # Split the version into parts
-          IFS='.' read -r -a version_parts <<< "$VERSION"
+          IFS='.' read -r -a version_parts <<< "$CURRENT_VERSION"
           major=${version_parts[0]}
           minor=${version_parts[1]}
           patch=${version_parts[2]}
@@ -63,13 +53,10 @@ jobs:
           # Increment the version based on the workflow input
           case "${{ github.event.inputs.version_bump }}" in
             major)
-              major=$((major + 1))
-              minor=0
-              patch=0
+              major=$((major + 1)); minor=0; patch=0
               ;;
             minor)
-              minor=$((minor + 1))
-              patch=0
+              minor=$((minor + 1)); patch=0
               ;;
             patch)
               patch=$((patch + 1))
@@ -78,29 +65,30 @@ jobs:
 
           NEW_VERSION="$major.$minor.$patch"
           echo "Bumping to new version: $NEW_VERSION"
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-          # Configure Git
+          # 4. Update the <Version> tag in both .csproj files
+          sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|g" ${{ env.CORE_PROJECT_PATH }}
+          sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|g" ${{ env.DESIGN_PROJECT_PATH }}
+
+      - name: Commit and Tag Version Bump
+        run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
+          git add ${{ env.CORE_PROJECT_PATH }} ${{ env.DESIGN_PROJECT_PATH }}
+          git commit -m "Bump version to ${{ steps.version_bumper.outputs.NEW_VERSION }}"
+          git push
+          git tag "v${{ steps.version_bumper.outputs.NEW_VERSION }}"
+          git push origin "v${{ steps.version_bumper.outputs.NEW_VERSION }}"
 
-          # Create and push the new tag
-          git tag "v$NEW_VERSION"
-          git push origin "v$NEW_VERSION"
-
-      - name: Build and Pack Core Library
+      - name: Pack and Publish
         run: |
-          dotnet pack "$CORE_PROJECT_NAME/$CORE_PROJECT_NAME.csproj" \
-            -c Release \
-            -p:Version="${{ env.NEW_VERSION }}" \
-            -o ./packages
+          # Build the entire solution
+          dotnet build -c Release
 
-      - name: Build and Pack Design Library
-        run: |
-          dotnet pack "$DESIGN_PROJECT_NAME/$DESIGN_PROJECT_NAME.csproj" \
-            -c Release \
-            -p:Version="${{ env.NEW_VERSION }}" \
-            -o ./packages
+          # Pack both projects (no need to pass version, it's read from the updated .csproj)
+          dotnet pack ${{ env.CORE_PROJECT_PATH }} -c Release --no-build -o ./packages
+          dotnet pack ${{ env.DESIGN_PROJECT_PATH }} -c Release --no-build -o ./packages
 
-      - name: Publish to NuGet.org
-        run: dotnet nuget push "./packages/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json"
+          # Publish to NuGet
+          dotnet nuget push "./packages/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json"
