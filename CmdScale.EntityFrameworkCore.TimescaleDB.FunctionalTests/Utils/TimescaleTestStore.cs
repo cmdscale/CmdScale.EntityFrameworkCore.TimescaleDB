@@ -27,9 +27,9 @@ public class TimescaleTestStore : RelationalTestStore
     public static TimescaleTestStore GetOrCreateShared(string name, string connectionString)
         => _sharedStores.GetOrAdd(name, _ =>
         {
-            var store = new TimescaleTestStore(name, shared: true, connectionString);
+            TimescaleTestStore store = new(name, shared: true, connectionString);
 
-            var options = new DbContextOptionsBuilder<MigrationsInfrastructureFixtureBase.MigrationsContext>()
+            DbContextOptions<MigrationsInfrastructureFixtureBase.MigrationsContext> options = new DbContextOptionsBuilder<MigrationsInfrastructureFixtureBase.MigrationsContext>()
                 .UseNpgsql(connectionString).UseTimescaleDb().Options;
             store.Initialize(null, () => new MigrationsInfrastructureFixtureBase.MigrationsContext(options), null);
             return store;

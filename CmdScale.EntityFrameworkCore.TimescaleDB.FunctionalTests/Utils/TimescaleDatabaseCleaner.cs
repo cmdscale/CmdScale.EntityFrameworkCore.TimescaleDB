@@ -9,7 +9,7 @@ public static class TimescaleDatabaseCleaner
 {
     public static void EnsureClean(this DatabaseFacade database)
     {
-        var dbCreator = database.GetService<IRelationalDatabaseCreator>();
+        IRelationalDatabaseCreator dbCreator = database.GetService<IRelationalDatabaseCreator>();
         if (!dbCreator.Exists())
         {
             dbCreator.Create();

@@ -9,7 +9,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Snapshots
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
             // Reuse 2.1 structure but with 2.2 product version
-            var builder21 = new AspNetIdentity21ModelSnapshot();
+            AspNetIdentity21ModelSnapshot builder21 = new();
             builder21.GetType().GetMethod("BuildModel", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                 ?.Invoke(builder21, new object[] { modelBuilder });
 

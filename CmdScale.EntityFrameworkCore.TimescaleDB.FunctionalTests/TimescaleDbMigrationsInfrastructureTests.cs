@@ -78,7 +78,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests
         [ConditionalFact]
         public override void Can_diff_against_2_1_ASP_NET_Identity_model()
         {
-            using var context = new AspNetIdentityDbContext(
+            using AspNetIdentityDbContext context = new(
                 Fixture.TestStore.AddProviderOptions(new DbContextOptionsBuilder()).Options);
 
             DiffSnapshot(new AspNetIdentity21ModelSnapshot(), context);
@@ -87,7 +87,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests
         [ConditionalFact]
         public override void Can_diff_against_2_2_ASP_NET_Identity_model()
         {
-            using var context = new AspNetIdentityDbContext(
+            using AspNetIdentityDbContext context = new(
                 Fixture.TestStore.AddProviderOptions(new DbContextOptionsBuilder()).Options);
 
             DiffSnapshot(new AspNetIdentity22ModelSnapshot(), context);
@@ -96,14 +96,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests
         [ConditionalFact]
         public override void Can_diff_against_2_2_model()
         {
-            using var context = Fixture.CreateContext();
+            using MigrationsInfrastructureFixtureBase.MigrationsContext context = Fixture.CreateContext();
             DiffSnapshot(new EfCore22ModelSnapshot(), context);
         }
 
         [ConditionalFact]
         public override void Can_diff_against_3_0_ASP_NET_Identity_model()
         {
-            using var context = new AspNetIdentityDbContext(
+            using AspNetIdentityDbContext context = new(
                 Fixture.TestStore.AddProviderOptions(new DbContextOptionsBuilder()).Options);
 
             DiffSnapshot(new AspNetIdentity30ModelSnapshot(), context);
@@ -111,11 +111,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests
 
         protected virtual void DiffSnapshotWithDebug(ModelSnapshot snapshot, DbContext context)
         {
-            var sourceModel = context.GetService<IModelRuntimeInitializer>().Initialize(
+            IModel sourceModel = context.GetService<IModelRuntimeInitializer>().Initialize(
                 snapshot.Model, designTime: true, validationLogger: null);
 
-            var modelDiffer = context.GetService<IMigrationsModelDiffer>();
-            var operations = modelDiffer.GetDifferences(
+            IMigrationsModelDiffer modelDiffer = context.GetService<IMigrationsModelDiffer>();
+            IReadOnlyList<MigrationOperation> operations = modelDiffer.GetDifferences(
                 sourceModel.GetRelationalModel(),
                 context.GetService<IDesignTimeModel>().Model.GetRelationalModel());
 
@@ -124,7 +124,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests
                 _testOutputHelper.WriteLine($"Found {operations.Count} differences:");
                 for (int i = 0; i < operations.Count; i++)
                 {
-                    var op = operations[i];
+                    MigrationOperation op = operations[i];
                     _testOutputHelper.WriteLine($"  {i + 1}. {op.GetType().Name}:");
 
                     if (op is AlterColumnOperation alterColumn)
