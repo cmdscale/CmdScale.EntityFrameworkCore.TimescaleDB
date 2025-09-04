@@ -16,17 +16,27 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
         /// <summary>
         /// Configures the DbContext to use TimescaleDB-aware migrations and conventions.
         /// </summary>
+        /// <typeparam name="TContext">The type of the DbContext.</typeparam>
+        /// <param name="optionsBuilder">The options builder for the DbContext.</param>
+        public static DbContextOptionsBuilder<TContext> UseTimescaleDb<TContext>(
+            this DbContextOptionsBuilder<TContext> optionsBuilder)
+            where TContext : DbContext
+        {
+            ((DbContextOptionsBuilder)optionsBuilder).UseTimescaleDb();
+            return optionsBuilder;
+        }
+
+        /// <summary>
+        /// Configures the DbContext to use TimescaleDB-aware migrations and conventions.
+        /// </summary>
         /// <param name="optionsBuilder">The options builder for the DbContext.</param>
         public static DbContextOptionsBuilder UseTimescaleDb(this DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.ReplaceService<IMigrationsModelDiffer, TimescaleMigrationsModelDiffer>();
-
             TimescaleDbOptionsExtension extension = optionsBuilder.Options.FindExtension<TimescaleDbOptionsExtension>() ?? new TimescaleDbOptionsExtension();
             ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
 
             return optionsBuilder;
         }
-
 
         /// <summary>
         /// The internal options extension that carries the TimescaeDB configuration.
@@ -39,6 +49,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             public void ApplyServices(IServiceCollection services)
             {
                 services.AddSingleton<IConventionSetPlugin, HypertableConventionSetPlugin>();
+                services.AddScoped<IMigrationsModelDiffer, TimescaleMigrationsModelDiffer>();
             }
 
             public void Validate(IDbContextOptions options) { }
@@ -51,8 +62,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 public override bool IsDatabaseProvider => false;
                 public override string LogFragment => "using TimescaleDB extensions";
                 public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) => other is ExtensionInfo;
-                public override int GetServiceProviderHashCode() => 0;
-                public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }
+                public override int GetServiceProviderHashCode() => GetType().GetHashCode();
+                public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) => debugInfo["TimescaleDB:Enabled"] = "True";
             }
         }
 
