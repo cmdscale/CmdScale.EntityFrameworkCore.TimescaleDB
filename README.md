@@ -248,7 +248,7 @@ Whether you're fixing bugs, adding new features, improving documentation, or sha
 
 5. **Submit a Pull Request**
 
-   Push your branch and open a pull request (PR) against the `main` branch. Include a clear description of what you changed and why.
+   Push your branch and open a pull request (PR) and include a clear description of what you changed and why.
 
 ### Guidelines
 
