@@ -1,4 +1,10 @@
-﻿# CmdScale.EntityFrameworkCore.TimescaleDB
+﻿[![Test Workflow](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml/badge.svg)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/tag/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/tags)
+[![GitHub issues](https://img.shields.io/github/issues/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/issues)
+[![GitHub license](https://img.shields.io/github/license/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/blob/main/LICENSE)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+
+# CmdScale.EntityFrameworkCore.TimescaleDB
 
 This repository provides the essential libraries and tooling to seamlessly integrate [TimescaleDB](https://www.timescale.com/), the leading open-source time-series database, with Entity Framework Core. It is designed to give you the full power of TimescaleDB's features, like hypertables and compression, directly within the familiar EF Core environment.
 
