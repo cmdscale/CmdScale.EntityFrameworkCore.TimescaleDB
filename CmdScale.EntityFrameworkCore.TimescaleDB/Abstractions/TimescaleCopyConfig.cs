@@ -42,7 +42,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions
         /// The order of the properties in this dictionary is critical. It must precisely match the
         /// column order in the SQL COPY command (and in the database) to ensure a successful binary copy operation.
         /// </remarks>
-        public Dictionary<string, (PropertyInfo PropertyInfo, NpgsqlDbType DbType)> ColumnMappings { get; } = [];
+        public Dictionary<string, (Func<T, object?> Getter, NpgsqlDbType DbType)> ColumnMappings { get; } = [];
 
         public TimescaleCopyConfig()
         {
@@ -57,8 +57,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions
                 // Attempt to map the C# type to an NpgsqlDbType
                 if (MapClrTypeToNpgsqlDbType(property.PropertyType, out NpgsqlDbType dbType))
                 {
-                    // By default, the column name is the same as the property name
-                    ColumnMappings[property.Name] = (property, dbType);
+                    // Auto-discover properties and create compiled getters for them.
+                    var parameter = Expression.Parameter(typeof(T), "x");
+                    var member = Expression.Property(parameter, property);
+                    var conversion = Expression.Convert(member, typeof(object));
+                    var lambda = Expression.Lambda<Func<T, object>>(conversion, parameter);
+
+                    ColumnMappings[property.Name] = (lambda.Compile(), dbType);
                 }
             }
         }
@@ -108,26 +113,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions
         /// <returns>The same configuration instance for fluent chaining.</returns>
         public TimescaleCopyConfig<T> MapColumn(string columnName, Expression<Func<T, object>> propertySelector, NpgsqlDbType dbType)
         {
-            MemberExpression memberExpression;
-
-            // Check if the expression body is a direct member access or needs to be unwrapped from a convert operation.
-            if (propertySelector.Body is MemberExpression directMember)
-            {
-                memberExpression = directMember;
-            }
-            else if (propertySelector.Body is UnaryExpression unary && unary.Operand is MemberExpression indirectMember)
-            {
-                memberExpression = indirectMember;
-            }
-            else
-            {
-                throw new ArgumentException("Expression must be a property selector.", nameof(propertySelector));
-            }
-
-            MemberExpression memberExpr = memberExpression ?? (MemberExpression)((UnaryExpression)propertySelector.Body).Operand;
-            PropertyInfo propertyInfo = (PropertyInfo)memberExpr.Member;
-
-            ColumnMappings[columnName] = (propertyInfo, dbType);
+            Func<T, object> getter = propertySelector.Compile();
+            ColumnMappings[columnName] = (getter, dbType);
             return this;
         }
 

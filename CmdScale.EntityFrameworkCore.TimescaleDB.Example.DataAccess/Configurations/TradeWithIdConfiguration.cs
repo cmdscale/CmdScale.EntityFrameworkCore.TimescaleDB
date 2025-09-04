@@ -5,13 +5,13 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Configurations
 {
-    public class TradeConfiguration : IEntityTypeConfiguration<Trade>
+    public class TradeWithIdConfiguration : IEntityTypeConfiguration<TradeWithId>
     {
-        public void Configure(EntityTypeBuilder<Trade> builder)
+        public void Configure(EntityTypeBuilder<TradeWithId> builder)
         {
-            builder.ToTable("Trades");
-            builder.HasNoKey()
-                   .IsHypertable(x => x.Timestamp)
+            builder.ToTable("TradesWithId");
+            builder.HasKey(x => new { x.Id, x.Timestamp });
+            builder.IsHypertable(x => x.Timestamp)
                    .WithChunkTimeInterval("1 day");
         }
     }

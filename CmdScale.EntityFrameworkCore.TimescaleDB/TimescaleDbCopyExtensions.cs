@@ -1,7 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using Npgsql;
-using NpgsqlTypes;
-using System.Reflection;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB
 {
@@ -16,7 +14,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
         /// <param name="connectionString">The database connection string.</param>
         /// <param name="config">A <see cref="TimescaleCopyConfig{T}"/> object that configures the bulk copy operation, including table name, column mappings, and parallelism.</param>
         /// <returns>A <see cref="Task"/> that represents the asynchronous completion of the entire bulk copy operation.</returns>
-        public static async Task BulkCopyToAsync<T>(
+        public static async Task BulkCopyAsync<T>(
             this IEnumerable<T> data,
             string connectionString,
             TimescaleCopyConfig<T>? config = null)
@@ -28,16 +26,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
 
             // Create parallel workers to ingest the data
             List<Task> tasks = [];
-            List<T> dataList = [.. data];
-            int totalRecords = dataList.Count;
+            int totalRecords = data.Count();
             int workerChunkSize = (int)Math.Ceiling((double)totalRecords / config.NumberOfWorkers);
 
             for (int i = 0; i < config.NumberOfWorkers; i++)
             {
                 int startIndex = i * workerChunkSize;
-                List<T> workerData = [.. dataList.Skip(startIndex).Take(workerChunkSize)];
+                IEnumerable<T> workerData = [.. data.Skip(startIndex).Take(workerChunkSize)];
 
-                if (workerData.Count == 0)
+                if (!workerData.Any())
                 {
                     break;
                 }
@@ -47,7 +44,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     using NpgsqlConnection connection = new(connectionString);
                     await connection.OpenAsync();
 
-                    for (int j = 0; j < workerData.Count; j += config.MaxBatchSize)
+                    for (int j = 0; j < workerData.Count(); j += config.MaxBatchSize)
                     {
                         IEnumerable<T> batch = workerData.Skip(j).Take(config.MaxBatchSize);
 
@@ -58,10 +55,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                             await writer.StartRowAsync();
 
                             // Write each configured column in the specified order
-                            foreach (KeyValuePair<string, (PropertyInfo PropertyInfo, NpgsqlDbType DbType)> mapping in config.ColumnMappings)
+                            foreach (var (Getter, DbType) in config.ColumnMappings.Values)
                             {
-                                object? value = mapping.Value.PropertyInfo.GetValue(item);
-                                await writer.WriteAsync(value, mapping.Value.DbType);
+                                object? value = Getter(item);
+                                await writer.WriteAsync(value, DbType);
                             }
                         }
                         await writer.CompleteAsync();

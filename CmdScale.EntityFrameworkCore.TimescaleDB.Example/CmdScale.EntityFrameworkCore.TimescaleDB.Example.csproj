@@ -8,12 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CmdScale.EntityFrameworkCore.TimescaleDB.Design" Version="0.1.3" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.8" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess\CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.csproj" />
+    <ProjectReference Include="..\CmdScale.EntityFrameworkCore.TimescaleDB.Design\CmdScale.EntityFrameworkCore.TimescaleDB.Design.csproj" />
   </ItemGroup>
 
 </Project>

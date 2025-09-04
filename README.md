@@ -1,4 +1,5 @@
-﻿[![Test Workflow](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml/badge.svg)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml)
+﻿![CmdScale Project](https://github.com/cmdscale/.github/raw/main/profile/assets/CmdShield.svg)
+[![Test Workflow](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml/badge.svg)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/tag/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/tags)
 [![GitHub issues](https://img.shields.io/github/issues/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/issues)
 [![GitHub license](https://img.shields.io/github/license/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/blob/main/LICENSE)
@@ -24,17 +25,6 @@ Seamlessly define and manage **TimescaleDB hypertables** using standard EF Core 
 - **Space Partitioning**: Add additional dimensions for hash or range partitioning to further optimize queries.
 - **Chunk Time Interval**: Configure chunk intervals to balance performance and storage efficiency.
 - **Compression & Chunk Skipping**: Enable TimescaleDB's native compression and configure chunk skipping to improve query performance.
-
-### High-Performance Data Ingestion
-
-For time-series workloads where ingestion speed is critical, the package provides a highly optimized **bulk copy utility**. This method bypasses the standard `SaveChanges()` change tracker and leverages **PostgreSQL's native COPY command** for maximum throughput.
-
-- **Blazing Fast**: Ingest hundreds of thousands of records per second.
-- **Parallelism**: Automatically distributes the workload across multiple concurrent workers.
-- **Configurable**: Easily configure batch sizes, worker counts, and column mappings.
-- **Generic**: Works with any POCO, with automatic mapping of properties to table columns.
-
-
 
 ---
 
@@ -171,10 +161,10 @@ To build and publish the core libraries to a local NuGet feed for testing, use t
 
 ```powershell
 # Publish the design-time package
-./Publish-Local.ps1 -ProjectName "CmdScale.EntityFrameworkCore.TimescaleDB.Design"
+.\Scripts\Publish-Local.ps1 -ProjectName "CmdScale.EntityFrameworkCore.TimescaleDB.Design"
 
 # Publish the runtime package
-./Publish-Local.ps1 -ProjectName "CmdScale.EntityFrameworkCore.TimescaleDB"
+.\Scripts\Publish-Local.ps1 -ProjectName "CmdScale.EntityFrameworkCore.TimescaleDB"
 ```
 
 By default, this script outputs the `.nupkg` files to:

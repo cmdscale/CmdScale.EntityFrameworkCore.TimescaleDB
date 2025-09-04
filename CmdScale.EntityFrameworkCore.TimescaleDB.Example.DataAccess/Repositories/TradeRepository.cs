@@ -20,7 +20,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Repositori
                 .WithWorkers(8)
                 .WithBatchSize(20_000);
 
-            await trades.BulkCopyToAsync(_connectionString, config);
+            await trades.BulkCopyAsync(_connectionString, config);
         }
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Repositori
                 .MapColumn("Size", t => t.Size, NpgsqlDbType.Integer)
                 .MapColumn("Exchange", t => t.Exchange, NpgsqlDbType.Text);
 
-            await trades.BulkCopyToAsync(_connectionString, config);
+            await trades.BulkCopyAsync(_connectionString, config);
         }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Repositori
         /// <returns></returns>
         public async Task IngestTradesAsyncWithDefaultConfig(List<Trade> trades)
         {
-            await trades.BulkCopyToAsync(_connectionString);
+            await trades.BulkCopyAsync(_connectionString);
         }
     }
 }
