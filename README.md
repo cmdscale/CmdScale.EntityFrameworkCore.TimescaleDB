@@ -230,10 +230,9 @@ Whether you're fixing bugs, adding new features, improving documentation, or sha
 3. **Make Your Changes**
 
    - Follow the existing code style and patterns.
-   - Write unit tests for any new logic. [COMING SOON]
-   - Update the documentation if necessary. [COMING SOON]
+   - Write meaningful tests for any new logic. Check out the [Wiki](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/wiki) to gain knowledge about writing tests.
 
-4. **Run Tests** [COMING SOON]
+4. **Run Tests**
 
    Make sure all tests pass before submitting a pull request:
 
