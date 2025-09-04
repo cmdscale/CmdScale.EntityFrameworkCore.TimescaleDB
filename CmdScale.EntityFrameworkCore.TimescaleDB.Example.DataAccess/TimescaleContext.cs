@@ -10,6 +10,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
         public DbSet<WeatherData> WeatherData { get; set; }
         public DbSet<OrderStatusEvent> OrderStatusEvents { get; set; }
         public DbSet<Trade> Trades { get; set; }
+        public DbSet<TradeWithId> TradesWithId { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
