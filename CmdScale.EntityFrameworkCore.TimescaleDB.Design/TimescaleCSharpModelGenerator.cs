@@ -26,7 +26,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
 
         private sealed record ReorderPolicyInfo(
             string IndexName, 
-            DateTime? InitialStart
+            DateTime? InitialStart,
+            string? ScheduleInterval,
+            string? MaxRuntime,
+            int? MaxRetries,
+            string? RetryPeriod
         );
 
         public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)
@@ -70,6 +74,27 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                     if (policyInfo.InitialStart.HasValue)
                     {
                         table[ReorderPolicyAnnotations.InitialStart] = policyInfo.InitialStart.Value;
+                    }
+
+                    // Set annotations only if they differ from TimescaleDB defaults
+                    if (policyInfo.ScheduleInterval != DefaultValues.ReorderPolicyScheduleInterval)
+                    {
+                        table[ReorderPolicyAnnotations.ScheduleInterval] = policyInfo.ScheduleInterval;
+                    }
+
+                    if (policyInfo.MaxRuntime != DefaultValues.ReorderPolicyMaxRuntime)
+                    {
+                        table[ReorderPolicyAnnotations.MaxRuntime] = policyInfo.MaxRuntime;
+                    }
+
+                    if (policyInfo.MaxRetries != DefaultValues.ReorderPolicyMaxRetries)
+                    {
+                        table[ReorderPolicyAnnotations.MaxRetries] = policyInfo.MaxRetries;
+                    }
+
+                    if (policyInfo.RetryPeriod != DefaultValues.ReorderPolicyRetryPeriod)
+                    {
+                        table[ReorderPolicyAnnotations.RetryPeriod] = policyInfo.RetryPeriod;
                     }
                 }
             }
@@ -221,7 +246,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                             j.hypertable_schema,
                             j.hypertable_name,
                             j.config ->> 'index_name' AS index_name,
-                            j.initial_start
+                            j.initial_start,
+                            j.schedule_interval::text,
+                            j.max_runtime::text,
+                            j.max_retries,
+                            j.retry_period::text
                         FROM timescaledb_information.jobs AS j
                         WHERE j.proc_name = 'policy_reorder';";
 
@@ -233,9 +262,21 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                         string indexName = reader.GetString(2);
                         DateTime? initialStart = reader.IsDBNull(3) ? null : reader.GetDateTime(3);
 
+                        string? scheduleInterval = reader.IsDBNull(4) ? null : reader.GetString(4);
+                        string? maxRuntime = reader.IsDBNull(5) ? null : reader.GetString(5);
+                        int? maxRetries = reader.IsDBNull(6) ? null : reader.GetInt32(6);
+                        string? retryPeriod = reader.IsDBNull(7) ? null : reader.GetString(7);
+
                         if (!string.IsNullOrEmpty(indexName))
                         {
-                            reorderPolicies[(schema, name)] = new ReorderPolicyInfo(indexName, initialStart);
+                            reorderPolicies[(schema, name)] = new ReorderPolicyInfo(
+                                indexName,
+                                initialStart,
+                                scheduleInterval,
+                                maxRuntime,
+                                maxRetries,
+                                retryPeriod
+                            );
                         }
                     }
                 }

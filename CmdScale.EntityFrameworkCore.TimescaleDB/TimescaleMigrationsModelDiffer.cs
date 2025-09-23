@@ -101,7 +101,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 )
                 .Where(x =>
                     x.Target.IndexName != x.Source.IndexName ||
-                    x.Target.InitialStart != x.Source.InitialStart
+                    x.Target.InitialStart != x.Source.InitialStart ||
+                    x.Target.ScheduleInterval != x.Source.ScheduleInterval ||
+                    x.Target.MaxRuntime != x.Source.MaxRuntime ||
+                    x.Target.MaxRetries != x.Source.MaxRetries ||
+                    x.Target.RetryPeriod != x.Source.RetryPeriod
                 );
 
             foreach (var policy in updatedReorderPolicies)
@@ -111,8 +115,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     TableName = policy.Target.TableName,
                     IndexName = policy.Target.IndexName,
                     InitialStart = policy.Target.InitialStart,
+                    ScheduleInterval = policy.Target.ScheduleInterval,
+                    MaxRuntime = policy.Target.MaxRuntime,
+                    MaxRetries = policy.Target.MaxRetries,
+                    RetryPeriod = policy.Target.RetryPeriod,
+
                     OldIndexName = policy.Source.IndexName,
                     OldInitialStart = policy.Source.InitialStart,
+                    OldScheduleInterval = policy.Source.ScheduleInterval,
+                    OldMaxRuntime = policy.Source.MaxRuntime,
+                    OldMaxRetries = policy.Source.MaxRetries,
+                    OldRetryPeriod = policy.Source.RetryPeriod
                 });
             }
 
@@ -188,6 +201,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                         TableName = entityType.GetTableName()!,
                         IndexName = indexName!,
                         InitialStart = initialStart,
+                        ScheduleInterval = entityType.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval)?.Value as string ?? DefaultValues.ReorderPolicyScheduleInterval,
+                        MaxRuntime = entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRuntime)?.Value as string ?? DefaultValues.ReorderPolicyMaxRuntime,
+                        MaxRetries = entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRetries)?.Value as int? ?? DefaultValues.ReorderPolicyMaxRetries,
+                        RetryPeriod = entityType.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod)?.Value as string ?? DefaultValues.ReorderPolicyRetryPeriod
                     };
                 }
             }

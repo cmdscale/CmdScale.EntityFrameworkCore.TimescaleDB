@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
 {
     [Hypertable(nameof(Time), ChunkSkipColumns = new[] { "Time" }, ChunkTimeInterval = "1 day")]
-    [ReorderPolicy("DeviceReadings_Time_idx")]
+    [ReorderPolicy("DeviceReadings_Time_idx", InitialStart = "2025-09-23T09:15:19.3905112Z", ScheduleInterval = "1 day", MaxRuntime = "00:00:00", RetryPeriod = "00:05:00")]
     [PrimaryKey(nameof(Id), nameof(Time))]
     public class DeviceReading
     {
