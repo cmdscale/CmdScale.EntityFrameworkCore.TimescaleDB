@@ -1,4 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -72,6 +73,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             public ConventionSet ModifyConventions(ConventionSet conventionSet)
             {
                 conventionSet.EntityTypeAddedConventions.Add(new HypertableConvention());
+                conventionSet.EntityTypeAddedConventions.Add(new ReorderPolicyConvention());
                 return conventionSet;
             }
         }

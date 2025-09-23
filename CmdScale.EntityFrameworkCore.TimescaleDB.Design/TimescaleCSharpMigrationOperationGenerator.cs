@@ -3,6 +3,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations.Design;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using System.Globalization;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
 {
@@ -20,6 +21,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                     break;
                 case AlterHypertableOperation alter:
                     Generate(alter, builder);
+                    break;
+                case AddReorderPolicyOperation addReorder:
+                    Generate(addReorder, builder);
+                    break;
+                case AlterReorderPolicyOperation alterReorder:
+                    Generate(alterReorder, builder);
+                    break;
+                case DropReorderPolicyOperation dropReorder:
+                    Generate(dropReorder, builder);
                     break;
 
                 default:
@@ -142,6 +152,61 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             }
 
             BuildQueryString(statements, builder);
+        }
+
+        private static void Generate(AddReorderPolicyOperation operation, IndentedStringBuilder builder)
+        {
+            List<string> statements =
+            [
+                BuildAddReorderPolicySql(operation.TableName, operation.IndexName, operation.InitialStart)
+            ];
+
+            BuildQueryString(statements, builder);
+        }
+
+        private static void Generate(AlterReorderPolicyOperation operation, IndentedStringBuilder builder)
+        {
+            List<string> statements =
+            [
+                // Drop the existing policy
+                $"SELECT remove_reorder_policy('\"\"{operation.TableName}\"\"', if_exists => true);",
+
+                // Add the new policy with the updated settings
+                BuildAddReorderPolicySql(operation.TableName, operation.IndexName, operation.InitialStart)
+            ];
+            BuildQueryString(statements, builder);
+        }
+
+        private static void Generate(DropReorderPolicyOperation operation, IndentedStringBuilder builder)
+        {
+            List<string> statements =
+            [
+                $"SELECT remove_reorder_policy('\"\"{operation.TableName}\"\"', if_exists => true);"
+            ];
+            BuildQueryString(statements, builder);
+        }
+
+        private static string BuildAddReorderPolicySql(string tableName, string indexName, DateTime? initialStart)
+        {
+            string baseSql = $"SELECT add_reorder_policy('\"\"{tableName}\"\"', '{indexName}'";
+
+            List<string> optionalArgs = [];
+
+            // Add optional arguments if they are provided
+            if (initialStart.HasValue)
+            {
+                // Use ISO 8601 format for timestamps to avoid ambiguity
+                string timestamp = initialStart.Value.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
+                optionalArgs.Add($"initial_start => '{timestamp}'");
+            }
+
+            if (optionalArgs.Count > 0)
+            {
+                baseSql += $", {string.Join(", ", optionalArgs)}";
+            }
+
+            baseSql += ");";
+            return baseSql;
         }
 
         private static void BuildQueryString(List<string> statements, IndentedStringBuilder builder)
