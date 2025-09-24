@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
+﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
 {
     /// <summary>
     /// Represents a single trade event with a standard primary key.
@@ -12,7 +10,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
         /// The unique identifier for the trade record.
         /// This is the primary key.
         /// </summary>
-        [Key]
         public long Id { get; set; }
 
         /// <summary>

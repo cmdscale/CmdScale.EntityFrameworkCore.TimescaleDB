@@ -172,7 +172,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     {
                         TableName = entityType.GetTableName()!,
                         TimeColumnName = timeColumnName,
-                        ChunkTimeInterval = chunkTimeInterval,
+                        ChunkTimeInterval = chunkTimeInterval ?? DefaultValues.ChunkTimeInterval,
                         EnableCompression = enableCompression,
                         ChunkSkipColumns = chunkSkipColumns,
                         AdditionalDimensions = additionalDimensions

@@ -7,9 +7,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
     {
         public string TableName { get; set; } = string.Empty;
         public string TimeColumnName { get; set; } = string.Empty;
-        public string ChunkTimeInterval { get; set; } = DefaultValues.ChunkTimeInterval;
-        public bool EnableCompression { get; set; } = false;
-        public IReadOnlyList<string>? ChunkSkipColumns { get; set; } = null;
-        public IReadOnlyList<Dimension>? AdditionalDimensions { get; set; } = null;
+        public string ChunkTimeInterval { get; set; } = string.Empty;
+        public bool EnableCompression { get; set; }
+        public IReadOnlyList<string>? ChunkSkipColumns { get; set; }
+        public IReadOnlyList<Dimension>? AdditionalDimensions { get; set; }
     }
 }

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
 {
-    internal class HypertableOperationGenerator
+    public class HypertableOperationGenerator
     {
         public static void Generate(CreateHypertableOperation operation, IndentedStringBuilder builder)
         {
@@ -30,9 +30,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
             }
 
             // EnableCompression
-            if (operation.EnableCompression)
+            if (operation.EnableCompression || operation.ChunkSkipColumns?.Count > 0)
             {
-                statements.Add($"ALTER TABLE \"\"{operation.TableName}\"\" SET (timescaledb.compress = true);");
+                bool enableCompression = operation.EnableCompression || (operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0);
+                statements.Add($"ALTER TABLE \"\"{operation.TableName}\"\" SET (timescaledb.compress = {enableCompression.ToString().ToLower()});");
             }
 
             // ChunkSkipColumns
@@ -89,9 +90,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
             }
 
             // Check for EnableCompression change
-            if (operation.EnableCompression != operation.OldEnableCompression)
+            bool newCompressionState = operation.EnableCompression || (operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Any());
+            bool oldCompressionState = operation.OldEnableCompression || (operation.OldChunkSkipColumns != null && operation.OldChunkSkipColumns.Any());
+
+            if (newCompressionState != oldCompressionState)
             {
-                string compressionValue = operation.EnableCompression.ToString().ToLower();
+                string compressionValue = newCompressionState.ToString().ToLower();
                 statements.Add($"ALTER TABLE \"\"{operation.TableName}\"\" SET (timescaledb.compress = {compressionValue});");
             }
 
