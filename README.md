@@ -26,6 +26,10 @@ Seamlessly define and manage **TimescaleDB hypertables** using standard EF Core 
 - **Chunk Time Interval**: Configure chunk intervals to balance performance and storage efficiency.
 - **Compression & Chunk Skipping**: Enable TimescaleDB's native compression and configure chunk skipping to improve query performance.
 
+### Reorder Policies
+
+Take full control over how your hypertable data is organized on disk with **TimescaleDB's** reorder policies. By defining a reorder policy, you can automatically re-sort chunks of data by a specified index, significantly improving the performance of queries that scan large time ranges or specific index values.
+
 ---
 
 ## 📦 NuGet Packages
