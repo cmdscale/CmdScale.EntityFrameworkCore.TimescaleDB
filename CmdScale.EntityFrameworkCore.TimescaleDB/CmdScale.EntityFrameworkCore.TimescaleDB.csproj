@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>CmdScale.EntityFrameworkCore.TimescaleDB</PackageId>
-    <Version>0.1.5</Version>
+    <Version>0.2.0</Version>
     <Authors>CmdScale</Authors>
     <Description>The core runtime library. You include this in your project to enable TimescaleDB-specific features when configuring your DbContext.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
