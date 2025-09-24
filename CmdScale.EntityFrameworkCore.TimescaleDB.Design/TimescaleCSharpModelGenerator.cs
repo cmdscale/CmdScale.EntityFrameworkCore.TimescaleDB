@@ -1,10 +1,12 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Scaffolding.Internal;
+using System.Data;
 using System.Data.Common;
 using System.Text.Json;
 
@@ -22,15 +24,30 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             List<Dimension> AdditionalDimensions
         );
 
+        private sealed record ReorderPolicyInfo(
+            string IndexName, 
+            DateTime? InitialStart,
+            string? ScheduleInterval,
+            string? MaxRuntime,
+            int? MaxRetries,
+            string? RetryPeriod
+        );
+
         public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)
         {
             DatabaseModel databaseModel = base.Create(connection, options);
             Dictionary<(string, string), HypertableInfo> hypertables = GetHypertables(connection);
+            Dictionary<(string, string), ReorderPolicyInfo> reorderPolicies = GetReorderPolicies(connection);
 
             // Annotate the tables in the model
             foreach (DatabaseTable table in databaseModel.Tables)
             {
-                if (table?.Schema != null && hypertables.TryGetValue((table.Schema, table.Name), out HypertableInfo? info))
+                if (table?.Schema == null) continue;
+
+                (string Schema, string Name) tableKey = (table.Schema, table.Name);
+
+                // Annotations for Hypertables
+                if (hypertables.TryGetValue(tableKey, out HypertableInfo? info))
                 {
                     table[HypertableAnnotations.IsHypertable] = true;
                     table[HypertableAnnotations.HypertableTimeColumn] = info.TimeColumnName;
@@ -45,6 +62,39 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                     if (info.AdditionalDimensions.Count > 0)
                     {
                         table[HypertableAnnotations.AdditionalDimensions] = JsonSerializer.Serialize(info.AdditionalDimensions);
+                    }
+                }
+
+                // Annotate for Reorder Policies
+                if (reorderPolicies.TryGetValue(tableKey, out ReorderPolicyInfo? policyInfo))
+                {
+                    table[ReorderPolicyAnnotations.HasReorderPolicy] = true;
+                    table[ReorderPolicyAnnotations.IndexName] = policyInfo.IndexName;
+
+                    if (policyInfo.InitialStart.HasValue)
+                    {
+                        table[ReorderPolicyAnnotations.InitialStart] = policyInfo.InitialStart.Value;
+                    }
+
+                    // Set annotations only if they differ from TimescaleDB defaults
+                    if (policyInfo.ScheduleInterval != DefaultValues.ReorderPolicyScheduleInterval)
+                    {
+                        table[ReorderPolicyAnnotations.ScheduleInterval] = policyInfo.ScheduleInterval;
+                    }
+
+                    if (policyInfo.MaxRuntime != DefaultValues.ReorderPolicyMaxRuntime)
+                    {
+                        table[ReorderPolicyAnnotations.MaxRuntime] = policyInfo.MaxRuntime;
+                    }
+
+                    if (policyInfo.MaxRetries != DefaultValues.ReorderPolicyMaxRetries)
+                    {
+                        table[ReorderPolicyAnnotations.MaxRetries] = policyInfo.MaxRetries;
+                    }
+
+                    if (policyInfo.RetryPeriod != DefaultValues.ReorderPolicyRetryPeriod)
+                    {
+                        table[ReorderPolicyAnnotations.RetryPeriod] = policyInfo.RetryPeriod;
                     }
                 }
             }
@@ -168,6 +218,69 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                 }
 
                 return hypertables;
+            }
+            finally
+            {
+                if (!wasOpen)
+                {
+                    connection.Close();
+                }
+            }
+        }
+
+        private static Dictionary<(string, string), ReorderPolicyInfo> GetReorderPolicies(DbConnection connection)
+        {
+            bool wasOpen = connection.State == ConnectionState.Open;
+            if (!wasOpen)
+            {
+                connection.Open();
+            }
+
+            try
+            {
+                Dictionary<(string, string), ReorderPolicyInfo> reorderPolicies = [];
+                using (DbCommand command = connection.CreateCommand())
+                {
+                    command.CommandText = @"
+                        SELECT
+                            j.hypertable_schema,
+                            j.hypertable_name,
+                            j.config ->> 'index_name' AS index_name,
+                            j.initial_start,
+                            j.schedule_interval::text,
+                            j.max_runtime::text,
+                            j.max_retries,
+                            j.retry_period::text
+                        FROM timescaledb_information.jobs AS j
+                        WHERE j.proc_name = 'policy_reorder';";
+
+                    using DbDataReader reader = command.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        string schema = reader.GetString(0);
+                        string name = reader.GetString(1);
+                        string indexName = reader.GetString(2);
+                        DateTime? initialStart = reader.IsDBNull(3) ? null : reader.GetDateTime(3);
+
+                        string? scheduleInterval = reader.IsDBNull(4) ? null : reader.GetString(4);
+                        string? maxRuntime = reader.IsDBNull(5) ? null : reader.GetString(5);
+                        int? maxRetries = reader.IsDBNull(6) ? null : reader.GetInt32(6);
+                        string? retryPeriod = reader.IsDBNull(7) ? null : reader.GetString(7);
+
+                        if (!string.IsNullOrEmpty(indexName))
+                        {
+                            reorderPolicies[(schema, name)] = new ReorderPolicyInfo(
+                                indexName,
+                                initialStart,
+                                scheduleInterval,
+                                maxRuntime,
+                                maxRetries,
+                                retryPeriod
+                            );
+                        }
+                    }
+                }
+                return reorderPolicies;
             }
             finally
             {

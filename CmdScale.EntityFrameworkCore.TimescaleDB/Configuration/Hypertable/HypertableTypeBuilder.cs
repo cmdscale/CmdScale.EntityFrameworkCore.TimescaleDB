@@ -105,9 +105,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             params Expression<Func<TEntity, object>>[] chunkSkipColumns) where TEntity : class
         {
-            // You can't use chunk skipping without compression enabled
-            entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
-
             string[] columnNames = [.. chunkSkipColumns.Select(GetPropertyName)];
             entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, string.Join(",", columnNames));
             return entityTypeBuilder;

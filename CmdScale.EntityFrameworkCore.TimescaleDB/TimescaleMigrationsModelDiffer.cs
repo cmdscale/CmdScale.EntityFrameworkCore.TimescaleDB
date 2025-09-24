@@ -1,5 +1,6 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -30,6 +31,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
         {
             // Get the standard migration operations (CreateTable, AddColumn, etc.) from the base MigrationsModelDiffer.
             List<MigrationOperation> operations = [.. base.GetDifferences(source, target)];
+
+            // Hypertable diffs
             List<CreateHypertableOperation> targetHypertables = [.. GetHypertables(target)];
             List<CreateHypertableOperation> sourceHypertables = [.. GetHypertables(source)];
 
@@ -80,6 +83,57 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 operations.Add(alterOperation);
             }
 
+            // Reorder diffs
+            List<AddReorderPolicyOperation> sourcePolicies = [.. GetReorderPolicies(source)];
+            List<AddReorderPolicyOperation> targetPolicies = [.. GetReorderPolicies(target)];
+
+            // Identiy new reorder policies
+            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName));
+            operations.AddRange(newReorderPolicies);
+
+            // Identify updated reorder policies
+            var updatedReorderPolicies = targetPolicies
+                .Join(
+                    sourcePolicies,
+                    targetPolicy => targetPolicy.TableName,
+                    sourcePolicy => sourcePolicy.TableName,
+                    (targetPolicy, sourcePolicy) => new { Target = targetPolicy, Source = sourcePolicy }
+                )
+                .Where(x =>
+                    x.Target.IndexName != x.Source.IndexName ||
+                    x.Target.InitialStart != x.Source.InitialStart ||
+                    x.Target.ScheduleInterval != x.Source.ScheduleInterval ||
+                    x.Target.MaxRuntime != x.Source.MaxRuntime ||
+                    x.Target.MaxRetries != x.Source.MaxRetries ||
+                    x.Target.RetryPeriod != x.Source.RetryPeriod
+                );
+
+            foreach (var policy in updatedReorderPolicies)
+            {
+                operations.Add(new AlterReorderPolicyOperation
+                {
+                    TableName = policy.Target.TableName,
+                    IndexName = policy.Target.IndexName,
+                    InitialStart = policy.Target.InitialStart,
+                    ScheduleInterval = policy.Target.ScheduleInterval,
+                    MaxRuntime = policy.Target.MaxRuntime,
+                    MaxRetries = policy.Target.MaxRetries,
+                    RetryPeriod = policy.Target.RetryPeriod,
+
+                    OldIndexName = policy.Source.IndexName,
+                    OldInitialStart = policy.Source.InitialStart,
+                    OldScheduleInterval = policy.Source.ScheduleInterval,
+                    OldMaxRuntime = policy.Source.MaxRuntime,
+                    OldMaxRetries = policy.Source.MaxRetries,
+                    OldRetryPeriod = policy.Source.RetryPeriod
+                });
+            }
+
+            IEnumerable<DropReorderPolicyOperation> removedReorderPolicies = sourcePolicies
+                .Where(s => !targetPolicies.Any(t => t.TableName == s.TableName))
+                .Select(p => new DropReorderPolicyOperation { TableName = p.TableName });
+            operations.AddRange(removedReorderPolicies);
+
             return operations;
         }
 
@@ -118,10 +172,39 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     {
                         TableName = entityType.GetTableName()!,
                         TimeColumnName = timeColumnName,
-                        ChunkTimeInterval = chunkTimeInterval,
+                        ChunkTimeInterval = chunkTimeInterval ?? DefaultValues.ChunkTimeInterval,
                         EnableCompression = enableCompression,
                         ChunkSkipColumns = chunkSkipColumns,
                         AdditionalDimensions = additionalDimensions
+                    };
+                }
+            }
+        }
+
+        private static IEnumerable<AddReorderPolicyOperation> GetReorderPolicies(IRelationalModel? relationalModel)
+        {
+            if (relationalModel == null)
+            {
+                yield break;
+            }
+            foreach (IEntityType entityType in relationalModel.Model.GetEntityTypes())
+            {
+                // Retrieve the annotations set by the convention
+                bool hasReorderPolicy = entityType.FindAnnotation(ReorderPolicyAnnotations.HasReorderPolicy)?.Value as bool? ?? false;
+                string? indexName = entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value as string;
+                DateTime? initialStart = entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart)?.Value as DateTime?;
+
+                if (hasReorderPolicy && !string.IsNullOrWhiteSpace(indexName) && !string.IsNullOrWhiteSpace(indexName))
+                {
+                    yield return new AddReorderPolicyOperation
+                    {
+                        TableName = entityType.GetTableName()!,
+                        IndexName = indexName!,
+                        InitialStart = initialStart,
+                        ScheduleInterval = entityType.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval)?.Value as string ?? DefaultValues.ReorderPolicyScheduleInterval,
+                        MaxRuntime = entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRuntime)?.Value as string ?? DefaultValues.ReorderPolicyMaxRuntime,
+                        MaxRetries = entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRetries)?.Value as int? ?? DefaultValues.ReorderPolicyMaxRetries,
+                        RetryPeriod = entityType.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod)?.Value as string ?? DefaultValues.ReorderPolicyRetryPeriod
                     };
                 }
             }

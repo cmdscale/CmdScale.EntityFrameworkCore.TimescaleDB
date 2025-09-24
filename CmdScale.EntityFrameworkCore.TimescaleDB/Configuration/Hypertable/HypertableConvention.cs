@@ -49,16 +49,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, string.Join(",", attribute.ChunkSkipColumns ?? []));
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
                 }
-
-                bool compressionAnnotationValue = attribute.EnableCompression;
-                if (hasChunkSkipping)
-                {
-                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
-                }
-                else
-                {
-                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, compressionAnnotationValue);
-                }
             }
         }
     }

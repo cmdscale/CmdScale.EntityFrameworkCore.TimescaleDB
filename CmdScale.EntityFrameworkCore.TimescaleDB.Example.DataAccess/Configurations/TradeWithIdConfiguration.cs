@@ -12,7 +12,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Configurat
             builder.ToTable("TradesWithId");
             builder.HasKey(x => new { x.Id, x.Timestamp });
             builder.IsHypertable(x => x.Timestamp)
-                   .WithChunkTimeInterval("1 day");
+                   .WithChunkTimeInterval("2 day");
         }
     }
 }

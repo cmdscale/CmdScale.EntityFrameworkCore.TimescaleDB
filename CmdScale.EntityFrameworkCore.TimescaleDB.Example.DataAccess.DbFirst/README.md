@@ -24,6 +24,7 @@ dotnet ef dbcontext scaffold
   --schema public
   --context-dir .
   --context MyTimescaleDbContext
+  --project CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.DbFirst
 ```
 
 This command will:
