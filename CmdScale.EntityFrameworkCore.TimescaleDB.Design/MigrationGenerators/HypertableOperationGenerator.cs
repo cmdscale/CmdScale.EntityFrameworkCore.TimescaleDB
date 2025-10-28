@@ -2,7 +2,7 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
 {
     public class HypertableOperationGenerator
     {
@@ -32,7 +32,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
             // EnableCompression
             if (operation.EnableCompression || operation.ChunkSkipColumns?.Count > 0)
             {
-                bool enableCompression = operation.EnableCompression || (operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0);
+                bool enableCompression = operation.EnableCompression || operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0;
                 statements.Add($"ALTER TABLE \"\"{operation.TableName}\"\" SET (timescaledb.compress = {enableCompression.ToString().ToLower()});");
             }
 
@@ -90,8 +90,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
             }
 
             // Check for EnableCompression change
-            bool newCompressionState = operation.EnableCompression || (operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Any());
-            bool oldCompressionState = operation.OldEnableCompression || (operation.OldChunkSkipColumns != null && operation.OldChunkSkipColumns.Any());
+            bool newCompressionState = operation.EnableCompression || operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Any();
+            bool oldCompressionState = operation.OldEnableCompression || operation.OldChunkSkipColumns != null && operation.OldChunkSkipColumns.Any();
 
             if (newCompressionState != oldCompressionState)
             {

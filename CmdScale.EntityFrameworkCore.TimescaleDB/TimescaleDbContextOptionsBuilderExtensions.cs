@@ -1,5 +1,7 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -49,7 +51,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
 
             public void ApplyServices(IServiceCollection services)
             {
-                services.AddSingleton<IConventionSetPlugin, HypertableConventionSetPlugin>();
+                services.AddSingleton<IConventionSetPlugin, TimescaleDbConventionSetPlugin>();
                 services.AddScoped<IMigrationsModelDiffer, TimescaleMigrationsModelDiffer>();
             }
 
@@ -68,12 +70,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             }
         }
 
-        public class HypertableConventionSetPlugin : IConventionSetPlugin
+        public class TimescaleDbConventionSetPlugin : IConventionSetPlugin
         {
             public ConventionSet ModifyConventions(ConventionSet conventionSet)
             {
                 conventionSet.EntityTypeAddedConventions.Add(new HypertableConvention());
                 conventionSet.EntityTypeAddedConventions.Add(new ReorderPolicyConvention());
+                conventionSet.EntityTypeAddedConventions.Add(new ContinuousAggregateConvention());
                 return conventionSet;
             }
         }

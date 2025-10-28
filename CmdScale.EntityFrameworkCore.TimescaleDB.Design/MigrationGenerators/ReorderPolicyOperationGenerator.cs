@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Globalization;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
 {
     public class ReorderPolicyOperationGenerator
     {

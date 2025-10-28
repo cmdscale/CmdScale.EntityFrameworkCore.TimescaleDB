@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
 {
     public static class MigrationBuilderSqlHelper
     {
