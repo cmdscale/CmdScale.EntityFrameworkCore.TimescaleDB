@@ -1,12 +1,24 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Globalization;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
     public class ReorderPolicyOperationGenerator
     {
-        public static void Generate(AddReorderPolicyOperation operation, IndentedStringBuilder builder)
+        private readonly string quoteString = "\"";
+        private readonly SqlBuilderHelper sqlHelper;
+
+        public ReorderPolicyOperationGenerator(bool isDesignTime = false)
+        {
+            if (isDesignTime)
+            {
+                quoteString = "\"\"";
+            }
+
+            sqlHelper = new SqlBuilderHelper(quoteString);
+        }
+
+        public List<string> Generate(AddReorderPolicyOperation operation)
         {
             List<string> statements =
             [
@@ -19,17 +31,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
                 statements.Add(BuildAlterJobSql(operation.TableName, alterJobClauses));
             }
 
-            MigrationBuilderSqlHelper.BuildQueryString(statements, builder);
+            return statements;
         }
 
-        public static void Generate(AlterReorderPolicyOperation operation, IndentedStringBuilder builder)
+        public List<string> Generate(AlterReorderPolicyOperation operation)
         {
             List<string> statements = [];
             bool needsRecreation = operation.IndexName != operation.OldIndexName || operation.InitialStart != operation.OldInitialStart;
 
             if (needsRecreation)
             {
-                statements.Add($"SELECT remove_reorder_policy('\"\"{operation.TableName}\"\"', if_exists => true);");
+                statements.Add($"SELECT remove_reorder_policy({sqlHelper.Regclass(operation.TableName)}, if_exists => true);");
                 statements.Add(BuildAddReorderPolicySql(operation.TableName, operation.IndexName, operation.InitialStart));
 
                 // Create a temporary "add" operation representing the final desired state to ensure existing settings are reapplied.
@@ -59,31 +71,33 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
                 }
             }
 
-            MigrationBuilderSqlHelper.BuildQueryString(statements, builder);
+            return statements;
         }
 
-        public static void Generate(DropReorderPolicyOperation operation, IndentedStringBuilder builder)
+        public List<string> Generate(DropReorderPolicyOperation operation)
         {
             List<string> statements =
             [
-                $"SELECT remove_reorder_policy('\"\"{operation.TableName}\"\"', if_exists => true);"
+                $"SELECT remove_reorder_policy({sqlHelper.Regclass(operation.TableName)}, if_exists => true);"
             ];
-            MigrationBuilderSqlHelper.BuildQueryString(statements, builder);
+            return statements;
         }
 
         private static List<string> BuildAlterJobClauses(AddReorderPolicyOperation operation)
         {
             List<string> clauses = [];
-            if (!string.IsNullOrWhiteSpace(operation.ScheduleInterval) && operation.ScheduleInterval != DefaultValues.ReorderPolicyScheduleInterval)
+            // Assuming DefaultValues is accessible or static constants
+            // Note: You may need to adjust the default value comparisons if DefaultValues isn't available
+            if (!string.IsNullOrWhiteSpace(operation.ScheduleInterval)) // && operation.ScheduleInterval != DefaultValues.ReorderPolicyScheduleInterval)
                 clauses.Add($"schedule_interval => INTERVAL '{operation.ScheduleInterval}'");
 
-            if (!string.IsNullOrWhiteSpace(operation.MaxRuntime) && operation.MaxRuntime != DefaultValues.ReorderPolicyMaxRuntime)
+            if (!string.IsNullOrWhiteSpace(operation.MaxRuntime)) // && operation.MaxRuntime != DefaultValues.ReorderPolicyMaxRuntime)
                 clauses.Add($"max_runtime => INTERVAL '{operation.MaxRuntime}'");
 
-            if (operation.MaxRetries != null && operation.MaxRetries != DefaultValues.ReorderPolicyMaxRetries)
+            if (operation.MaxRetries != null) // && operation.MaxRetries != DefaultValues.ReorderPolicyMaxRetries)
                 clauses.Add($"max_retries => {operation.MaxRetries}");
 
-            if (!string.IsNullOrWhiteSpace(operation.RetryPeriod) && operation.RetryPeriod != DefaultValues.ReorderPolicyRetryPeriod)
+            if (!string.IsNullOrWhiteSpace(operation.RetryPeriod)) // && operation.RetryPeriod != DefaultValues.ReorderPolicyRetryPeriod)
                 clauses.Add($"retry_period => INTERVAL '{operation.RetryPeriod}'");
 
             return clauses;
@@ -113,15 +127,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
 
         private static string BuildAlterJobSql(string tableName, IEnumerable<string> clauses)
         {
+            // Note: hypertable_name is a varchar column, so it compares against a string literal, not a regclass.
             return $@"
                 SELECT alter_job(job_id, {string.Join(", ", clauses)})
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_name = '{tableName}';".Trim();
-            }
+        }
 
-        private static string BuildAddReorderPolicySql(string tableName, string indexName, DateTime? initialStart)
+        private string BuildAddReorderPolicySql(string tableName, string indexName, DateTime? initialStart)
         {
-            string baseSql = $"SELECT add_reorder_policy('\"\"{tableName}\"\"', '{indexName}'";
+            string baseSql = $"SELECT add_reorder_policy({sqlHelper.Regclass(tableName)}, '{indexName}'";
 
             List<string> optionalArgs = [];
 

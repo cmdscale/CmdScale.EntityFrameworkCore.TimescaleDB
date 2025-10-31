@@ -1,9 +1,9 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
-using CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Generators
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 {
     public class ReorderPolicyOperationGeneratorTests
     {
@@ -13,7 +13,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Generators
         private static string GetGeneratedCode(dynamic operation)
         {
             IndentedStringBuilder builder = new();
-            ReorderPolicyOperationGenerator.Generate(operation, builder);
+            ReorderPolicyOperationGenerator generator = new(true);
+            List<string> statements = generator.Generate(operation);
+            SqlBuilderHelper.BuildQueryString(statements, builder);
             return builder.ToString();
         }
 

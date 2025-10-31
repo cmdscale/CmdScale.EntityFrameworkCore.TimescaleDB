@@ -1,4 +1,4 @@
-﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils
+﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils
 {
     internal static class SqlHelper
     {

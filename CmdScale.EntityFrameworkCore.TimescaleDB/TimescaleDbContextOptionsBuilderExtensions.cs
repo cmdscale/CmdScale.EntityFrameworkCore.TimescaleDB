@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB
 {
@@ -51,6 +52,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             {
                 services.AddSingleton<IConventionSetPlugin, HypertableConventionSetPlugin>();
                 services.AddScoped<IMigrationsModelDiffer, TimescaleMigrationsModelDiffer>();
+                services.Replace(ServiceDescriptor.Scoped<IMigrationsSqlGenerator, TimescaleDbMigrationsSqlGenerator>());
             }
 
             public void Validate(IDbContextOptions options) { }

@@ -16,4 +16,9 @@
     <ProjectReference Include="..\CmdScale.EntityFrameworkCore.TimescaleDB.Design\CmdScale.EntityFrameworkCore.TimescaleDB.Design.csproj" />
   </ItemGroup>
 
+	<ItemGroup>
+		<Content Include="appsettings.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
 </Project>

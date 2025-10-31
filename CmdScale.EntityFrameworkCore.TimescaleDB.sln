@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CmdScale.EntityFrameworkCor
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests", "CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests\CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.csproj", "{D22AA10F-D852-462F-B882-EE7725D9FED4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CmdScale.EntityFrameworkCore.TimescaleDB.Tests", "CmdScale.EntityFrameworkCore.TimescaleDB.Tests\CmdScale.EntityFrameworkCore.TimescaleDB.Tests.csproj", "{7F541214-56B8-428A-8913-4AD2C194471D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -61,6 +63,10 @@ Global
 		{D22AA10F-D852-462F-B882-EE7725D9FED4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D22AA10F-D852-462F-B882-EE7725D9FED4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D22AA10F-D852-462F-B882-EE7725D9FED4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7F541214-56B8-428A-8913-4AD2C194471D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F541214-56B8-428A-8913-4AD2C194471D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7F541214-56B8-428A-8913-4AD2C194471D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7F541214-56B8-428A-8913-4AD2C194471D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
