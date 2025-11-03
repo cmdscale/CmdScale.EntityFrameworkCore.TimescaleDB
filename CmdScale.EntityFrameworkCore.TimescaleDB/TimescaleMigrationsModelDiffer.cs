@@ -37,13 +37,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             List<CreateHypertableOperation> sourceHypertables = [.. GetHypertables(source)];
 
             // Identify new hypertables
-            List<CreateHypertableOperation> newHypertables = [.. targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName))];
+            List<CreateHypertableOperation> newHypertables = [.. targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName && s.Schema == t.Schema))];
 
             foreach (CreateHypertableOperation? hypertable in newHypertables)
             {
                 int createTableOpIndex = operations.FindIndex(op =>
                     op is CreateTableOperation createTable &&
-                    createTable.Name == hypertable.TableName);
+                    createTable.Name == hypertable.TableName &&
+                    createTable.Schema == hypertable.Schema);
 
                 if (createTableOpIndex != -1)
                 {
@@ -55,8 +56,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             var updatedHypertables = targetHypertables
                 .Join(
                     sourceHypertables,
-                    target => target.TableName,
-                    source => source.TableName,
+                    target => (target.Schema, target.TableName),
+                    source => (source.Schema, source.TableName),
                     (target, source) => new { Target = target, Source = source }
                 )
                 .Where(x =>
@@ -71,6 +72,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 AlterHypertableOperation alterOperation = new()
                 {
                     TableName = hypertable.Target.TableName,
+                    Schema = hypertable.Target.Schema,
                     ChunkTimeInterval = hypertable.Target.ChunkTimeInterval,
                     EnableCompression = hypertable.Target.EnableCompression,
                     ChunkSkipColumns = hypertable.Target.ChunkSkipColumns,
@@ -88,15 +90,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             List<AddReorderPolicyOperation> targetPolicies = [.. GetReorderPolicies(target)];
 
             // Identiy new reorder policies
-            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName));
+            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName && s.Schema == t.Schema));
             operations.AddRange(newReorderPolicies);
 
             // Identify updated reorder policies
             var updatedReorderPolicies = targetPolicies
                 .Join(
                     sourcePolicies,
-                    targetPolicy => targetPolicy.TableName,
-                    sourcePolicy => sourcePolicy.TableName,
+                    targetPolicy => (targetPolicy.Schema, targetPolicy.TableName),
+                    sourcePolicy => (sourcePolicy.Schema, sourcePolicy.TableName),
                     (targetPolicy, sourcePolicy) => new { Target = targetPolicy, Source = sourcePolicy }
                 )
                 .Where(x =>
@@ -113,6 +115,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 operations.Add(new AlterReorderPolicyOperation
                 {
                     TableName = policy.Target.TableName,
+                    Schema = policy.Target.Schema,
                     IndexName = policy.Target.IndexName,
                     InitialStart = policy.Target.InitialStart,
                     ScheduleInterval = policy.Target.ScheduleInterval,
@@ -130,8 +133,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             }
 
             IEnumerable<DropReorderPolicyOperation> removedReorderPolicies = sourcePolicies
-                .Where(s => !targetPolicies.Any(t => t.TableName == s.TableName))
-                .Select(p => new DropReorderPolicyOperation { TableName = p.TableName });
+                .Where(s => !targetPolicies.Any(t => t.TableName == s.TableName && t.Schema == s.Schema))
+                .Select(p => new DropReorderPolicyOperation { TableName = p.TableName, Schema = p.Schema });
             operations.AddRange(removedReorderPolicies);
 
             return operations;
@@ -171,6 +174,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     yield return new CreateHypertableOperation
                     {
                         TableName = entityType.GetTableName()!,
+                        Schema = entityType.GetSchema() ?? DefaultValues.DefaultSchema,
                         TimeColumnName = timeColumnName,
                         ChunkTimeInterval = chunkTimeInterval ?? DefaultValues.ChunkTimeInterval,
                         EnableCompression = enableCompression,
@@ -199,6 +203,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     yield return new AddReorderPolicyOperation
                     {
                         TableName = entityType.GetTableName()!,
+                        Schema = entityType.GetSchema() ?? DefaultValues.DefaultSchema,
                         IndexName = indexName!,
                         InitialStart = initialStart,
                         ScheduleInterval = entityType.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval)?.Value as string ?? DefaultValues.ReorderPolicyScheduleInterval,

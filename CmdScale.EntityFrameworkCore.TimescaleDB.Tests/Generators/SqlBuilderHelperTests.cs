@@ -19,7 +19,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Arrange
             SqlBuilderHelper helper = new(quoteString: "\"");
             string tableName = "MyTable";
-            string expected = "'\"MyTable\"'";
+            string expected = "'public.\"MyTable\"'";
 
             // Act
             string result = helper.Regclass(tableName);
@@ -34,7 +34,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Arrange
             SqlBuilderHelper helper = new(quoteString: "\"");
             string tableName = "MyTable";
-            string expected = "\"MyTable\"";
+            string expected = "\"public\".\"MyTable\"";
 
             // Act
             string result = helper.QualifiedIdentifier(tableName);
@@ -49,7 +49,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Arrange
             SqlBuilderHelper helper = new(quoteString: "\"\"");
             string tableName = "MyTable";
-            string expected = "'\"\"MyTable\"\"'";
+            string expected = "'public.\"\"MyTable\"\"'";
 
             // Act
             string result = helper.Regclass(tableName);
@@ -64,7 +64,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Arrange
             SqlBuilderHelper helper = new(quoteString: "\"\"");
             string tableName = "MyTable";
-            string expected = "\"\"MyTable\"\"";
+            string expected = "\"\"public\"\".\"\"MyTable\"\"";
 
             // Act
             string result = helper.QualifiedIdentifier(tableName);
