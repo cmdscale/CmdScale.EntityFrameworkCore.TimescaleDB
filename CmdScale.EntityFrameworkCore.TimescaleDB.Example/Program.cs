@@ -9,7 +9,7 @@ HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 string? connectionString = builder.Configuration.GetConnectionString("Timescale");
 builder.Services.AddDbContext<TimescaleContext>(options =>
-    options.UseNpgsql(connectionString).UseTimescaleDb());
+    options.UseNpgsql(connectionString).UseTimescaleDb().UseSnakeCaseNamingConvention());
 
 IHost host = builder.Build();
 
