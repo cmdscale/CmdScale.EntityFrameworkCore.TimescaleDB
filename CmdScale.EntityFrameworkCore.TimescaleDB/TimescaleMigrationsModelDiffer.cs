@@ -152,36 +152,72 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             {
                 // Retrieve the annotations set by the convention
                 bool isHypertable = entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value as bool? ?? false;
-                string? timeColumnName = entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value as string;
+                if (!isHypertable)
+                {
+                    continue;
+                }
 
-                string chunkTimeInterval = entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value as string ?? DefaultValues.ChunkTimeInterval;
+                // Get convention-aware store identifier for the table
+                StoreObjectIdentifier storeIdentifier = StoreObjectIdentifier.Table(entityType.GetTableName()!, entityType.GetSchema());
 
+                string? timeColumnModelName = entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value as string;
+                if (string.IsNullOrWhiteSpace(timeColumnModelName))
+                {
+                    continue;
+                }
+
+                string? timeColumnName = entityType.FindProperty(timeColumnModelName)?.GetColumnName(storeIdentifier);
+                if (string.IsNullOrWhiteSpace(timeColumnName))
+                {
+                    continue;
+                }
+
+               
                 string? chunkSkipColumnsString = entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns)?.Value as string;
-                List<string>? chunkSkipColumns = chunkSkipColumnsString?.Split(',', StringSplitOptions.TrimEntries).ToList();
+                List<string>? chunkSkipColumns = null;
+                if (!string.IsNullOrWhiteSpace(chunkSkipColumnsString))
+                {
+                    chunkSkipColumns = chunkSkipColumnsString.Split(',', StringSplitOptions.TrimEntries)
+                        .Select(modelPropName => entityType.FindProperty(modelPropName)?.GetColumnName(storeIdentifier))
+                        .Where(name => name != null)
+                        .ToList()!;
+                }
 
-                bool enableCompression = entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value as bool? ?? false;
 
-                IAnnotation? additionalDimensionsAnnotations = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions);
                 List<Dimension>? additionalDimensions = null;
-
+                IAnnotation? additionalDimensionsAnnotations = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions);
                 if (additionalDimensionsAnnotations?.Value is string json && !string.IsNullOrWhiteSpace(json))
                 {
-                    additionalDimensions = JsonSerializer.Deserialize<List<Dimension>>(json);
+                    List<Dimension>? modelDimensions = JsonSerializer.Deserialize<List<Dimension>>(json);
+                    if (modelDimensions != null)
+                    {
+                        additionalDimensions = [];
+                        foreach (Dimension dim in modelDimensions)
+                        {
+                            string? conventionalColumnName = entityType.FindProperty(dim.ColumnName)?.GetColumnName(storeIdentifier);
+                            if (conventionalColumnName != null)
+                            {
+                                Dimension newDimension = JsonSerializer.Deserialize<Dimension>(JsonSerializer.Serialize(dim))!;
+                                newDimension.ColumnName = conventionalColumnName;
+                                additionalDimensions.Add(newDimension);
+                            }
+                        }
+                    }
                 }
 
-                if (isHypertable && !string.IsNullOrWhiteSpace(timeColumnName))
+                string chunkTimeInterval = entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value as string ?? DefaultValues.ChunkTimeInterval;
+                bool enableCompression = entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value as bool? ?? false;
+
+                yield return new CreateHypertableOperation
                 {
-                    yield return new CreateHypertableOperation
-                    {
-                        TableName = entityType.GetTableName()!,
-                        Schema = entityType.GetSchema() ?? DefaultValues.DefaultSchema,
-                        TimeColumnName = timeColumnName,
-                        ChunkTimeInterval = chunkTimeInterval ?? DefaultValues.ChunkTimeInterval,
-                        EnableCompression = enableCompression,
-                        ChunkSkipColumns = chunkSkipColumns,
-                        AdditionalDimensions = additionalDimensions
-                    };
-                }
+                    TableName = entityType.GetTableName()!,
+                    Schema = entityType.GetSchema() ?? DefaultValues.DefaultSchema,
+                    TimeColumnName = timeColumnName,
+                    ChunkTimeInterval = chunkTimeInterval ?? DefaultValues.ChunkTimeInterval,
+                    EnableCompression = enableCompression,
+                    ChunkSkipColumns = chunkSkipColumns,
+                    AdditionalDimensions = additionalDimensions
+                };      
             }
         }
 
@@ -191,27 +227,44 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             {
                 yield break;
             }
+
             foreach (IEntityType entityType in relationalModel.Model.GetEntityTypes())
             {
                 // Retrieve the annotations set by the convention
                 bool hasReorderPolicy = entityType.FindAnnotation(ReorderPolicyAnnotations.HasReorderPolicy)?.Value as bool? ?? false;
-                string? indexName = entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value as string;
-                DateTime? initialStart = entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart)?.Value as DateTime?;
-
-                if (hasReorderPolicy && !string.IsNullOrWhiteSpace(indexName) && !string.IsNullOrWhiteSpace(indexName))
+                if (!hasReorderPolicy)
                 {
-                    yield return new AddReorderPolicyOperation
-                    {
-                        TableName = entityType.GetTableName()!,
-                        Schema = entityType.GetSchema() ?? DefaultValues.DefaultSchema,
-                        IndexName = indexName!,
-                        InitialStart = initialStart,
-                        ScheduleInterval = entityType.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval)?.Value as string ?? DefaultValues.ReorderPolicyScheduleInterval,
-                        MaxRuntime = entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRuntime)?.Value as string ?? DefaultValues.ReorderPolicyMaxRuntime,
-                        MaxRetries = entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRetries)?.Value as int? ?? DefaultValues.ReorderPolicyMaxRetries,
-                        RetryPeriod = entityType.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod)?.Value as string ?? DefaultValues.ReorderPolicyRetryPeriod
-                    };
+                    continue;
                 }
+
+                // Get convention-aware store identifier for the table
+                StoreObjectIdentifier storeIdentifier = StoreObjectIdentifier.Table(entityType.GetTableName()!, entityType.GetSchema());
+
+                string? indexModelName = entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value as string;
+                if (string.IsNullOrWhiteSpace(indexModelName))
+                {
+                    continue;
+                }
+
+                string? indexName = entityType.FindIndex(indexModelName)?.GetDatabaseName(storeIdentifier);
+                if (string.IsNullOrWhiteSpace(indexName))
+                {
+                    continue;
+                }
+
+                DateTime? initialStart = entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart)?.Value as DateTime?;
+ 
+                yield return new AddReorderPolicyOperation
+                {
+                    TableName = entityType.GetTableName()!,
+                    Schema = entityType.GetSchema() ?? DefaultValues.DefaultSchema,
+                    IndexName = indexName!,
+                    InitialStart = initialStart,
+                    ScheduleInterval = entityType.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval)?.Value as string ?? DefaultValues.ReorderPolicyScheduleInterval,
+                    MaxRuntime = entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRuntime)?.Value as string ?? DefaultValues.ReorderPolicyMaxRuntime,
+                    MaxRetries = entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRetries)?.Value as int? ?? DefaultValues.ReorderPolicyMaxRetries,
+                    RetryPeriod = entityType.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod)?.Value as string ?? DefaultValues.ReorderPolicyRetryPeriod
+                };
             }
         }
 
