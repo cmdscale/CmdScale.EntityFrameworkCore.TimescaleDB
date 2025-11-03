@@ -22,13 +22,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         {
             List<string> statements =
             [
-                BuildAddReorderPolicySql(operation.TableName, operation.IndexName, operation.InitialStart)
+                BuildAddReorderPolicySql(operation.TableName, operation.Schema, operation.IndexName, operation.InitialStart)
             ];
 
             List<string> alterJobClauses = BuildAlterJobClauses(operation);
             if (alterJobClauses.Count != 0)
             {
-                statements.Add(BuildAlterJobSql(operation.TableName, alterJobClauses));
+                statements.Add(BuildAlterJobSql(operation.TableName, operation.Schema, alterJobClauses));
             }
 
             return statements;
@@ -36,13 +36,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
         public List<string> Generate(AlterReorderPolicyOperation operation)
         {
+            string qualifiedTableName = sqlHelper.Regclass(operation.TableName, operation.Schema);
+
             List<string> statements = [];
             bool needsRecreation = operation.IndexName != operation.OldIndexName || operation.InitialStart != operation.OldInitialStart;
 
             if (needsRecreation)
             {
-                statements.Add($"SELECT remove_reorder_policy({sqlHelper.Regclass(operation.TableName)}, if_exists => true);");
-                statements.Add(BuildAddReorderPolicySql(operation.TableName, operation.IndexName, operation.InitialStart));
+                statements.Add($"SELECT remove_reorder_policy({qualifiedTableName}, if_exists => true);");
+                statements.Add(BuildAddReorderPolicySql(operation.TableName, operation.Schema, operation.IndexName, operation.InitialStart));
 
                 // Create a temporary "add" operation representing the final desired state to ensure existing settings are reapplied.
                 AddReorderPolicyOperation finalStateOperation = new()
@@ -59,7 +61,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 List<string> finalStateClauses = BuildAlterJobClauses(finalStateOperation);
                 if (finalStateClauses.Count != 0)
                 {
-                    statements.Add(BuildAlterJobSql(operation.TableName, finalStateClauses));
+                    statements.Add(BuildAlterJobSql(operation.TableName, operation.Schema, finalStateClauses));
                 }
             }
             else
@@ -67,7 +69,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 List<string> changedClauses = BuildAlterJobClauses(operation);
                 if (changedClauses.Count != 0)
                 {
-                    statements.Add(BuildAlterJobSql(operation.TableName, changedClauses));
+                    statements.Add(BuildAlterJobSql(operation.TableName, operation.Schema, changedClauses));
                 }
             }
 
@@ -76,9 +78,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
         public List<string> Generate(DropReorderPolicyOperation operation)
         {
+            string qualifiedTableName = sqlHelper.Regclass(operation.TableName, operation.Schema);
+
             List<string> statements =
             [
-                $"SELECT remove_reorder_policy({sqlHelper.Regclass(operation.TableName)}, if_exists => true);"
+                $"SELECT remove_reorder_policy({qualifiedTableName}, if_exists => true);"
             ];
             return statements;
         }
@@ -125,18 +129,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             return clauses;
         }
 
-        private static string BuildAlterJobSql(string tableName, IEnumerable<string> clauses)
+        private static string BuildAlterJobSql(string tableName, string schema, IEnumerable<string> clauses)
         {
             // Note: hypertable_name is a varchar column, so it compares against a string literal, not a regclass.
             return $@"
                 SELECT alter_job(job_id, {string.Join(", ", clauses)})
                 FROM timescaledb_information.jobs
-                WHERE proc_name = 'policy_reorder' AND hypertable_name = '{tableName}';".Trim();
+                WHERE proc_name = 'policy_reorder' AND hypertable_schema = '{schema}' AND hypertable_name = '{tableName}';".Trim();
         }
 
-        private string BuildAddReorderPolicySql(string tableName, string indexName, DateTime? initialStart)
+        private string BuildAddReorderPolicySql(string tableName, string schema, string indexName, DateTime? initialStart)
         {
-            string baseSql = $"SELECT add_reorder_policy({sqlHelper.Regclass(tableName)}, '{indexName}'";
+            string qualifiedTableName = sqlHelper.Regclass(tableName, schema);
+
+            string baseSql = $"SELECT add_reorder_policy({qualifiedTableName}, '{indexName}'";
 
             List<string> optionalArgs = [];
 

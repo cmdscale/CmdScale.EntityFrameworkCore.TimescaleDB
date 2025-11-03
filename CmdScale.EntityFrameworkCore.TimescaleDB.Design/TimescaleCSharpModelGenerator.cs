@@ -104,7 +104,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
 
         private static Dictionary<(string, string), HypertableInfo> GetHypertables(DbConnection connection)
         {
-            bool wasOpen = connection.State == System.Data.ConnectionState.Open;
+            bool wasOpen = connection.State == ConnectionState.Open;
             if (!wasOpen)
             {
                 connection.Open();

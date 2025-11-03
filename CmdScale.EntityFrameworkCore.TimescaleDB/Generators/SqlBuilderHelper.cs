@@ -33,14 +33,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             }
         }
 
-        public string Regclass(string tableName)
+        public string Regclass(string tableName, string schema = DefaultValues.DefaultSchema)
         {
-            return $"'{quoteString}{tableName}{quoteString}'";
+            return $"'{schema}.{quoteString}{tableName}{quoteString}'";
         }
 
-        public string QualifiedIdentifier(string tableName)
+        public string QualifiedIdentifier(string tableName, string schema = DefaultValues.DefaultSchema)
         {
-            return $"{quoteString}{tableName}{quoteString}";
+            return $"{quoteString}{schema}{quoteString}.{quoteString}{tableName}{quoteString}";
         }
     }
 }

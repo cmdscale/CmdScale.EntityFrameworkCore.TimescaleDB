@@ -30,11 +30,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             CreateHypertableOperation operation = new()
             {
                 TableName = "MinimalTable",
+                Schema = "public",
                 TimeColumnName = "Timestamp"
             };
 
             string expected = @".Sql(@""
-                SELECT create_hypertable('""""MinimalTable""""', 'Timestamp');
+                SELECT create_hypertable('public.""""MinimalTable""""', 'Timestamp');
             "")";
 
             // Act
@@ -51,6 +52,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             CreateHypertableOperation operation = new()
             {
                 TableName = "FullTable",
+                Schema = "custom_schema",
                 TimeColumnName = "EventTime",
                 ChunkTimeInterval = "1 day",
                 EnableCompression = true,
@@ -62,12 +64,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @".Sql(@""
-                SELECT create_hypertable('""""FullTable""""', 'EventTime');
-                SELECT set_chunk_time_interval('""""FullTable""""', INTERVAL '1 day');
-                ALTER TABLE """"FullTable"""" SET (timescaledb.compress = true);
+                SELECT create_hypertable('custom_schema.""""FullTable""""', 'EventTime');
+                SELECT set_chunk_time_interval('custom_schema.""""FullTable""""', INTERVAL '1 day');
+                ALTER TABLE """"custom_schema"""".""""FullTable"""" SET (timescaledb.compress = true);
                 SET timescaledb.enable_chunk_skipping = 'ON';
-                SELECT enable_chunk_skipping('""""FullTable""""', 'DeviceId');
-                SELECT add_dimension('""""FullTable""""', by_hash('LocationId', 4));
+                SELECT enable_chunk_skipping('custom_schema.""""FullTable""""', 'DeviceId');
+                SELECT add_dimension('custom_schema.""""FullTable""""', by_hash('LocationId', 4));
             "")";
 
             // Act
@@ -84,6 +86,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             AlterHypertableOperation operation = new()
             {
                 TableName = "Metrics",
+                Schema = "custom_schema",
                 OldEnableCompression = false,
                 OldChunkSkipColumns = [],
                 EnableCompression = false,
@@ -91,9 +94,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @".Sql(@""
-                ALTER TABLE """"Metrics"""" SET (timescaledb.compress = true);
+                ALTER TABLE """"custom_schema"""".""""Metrics"""" SET (timescaledb.compress = true);
                 SET timescaledb.enable_chunk_skipping = 'ON';
-                SELECT enable_chunk_skipping('""""Metrics""""', 'device_id');
+                SELECT enable_chunk_skipping('custom_schema.""""Metrics""""', 'device_id');
             "")";
 
             // Act
@@ -112,12 +115,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             AlterHypertableOperation operation = new()
             {
                 TableName = "SensorData",
+                Schema = "public",
                 EnableCompression = true,
                 OldEnableCompression = false
             };
 
             string expected = @".Sql(@""
-                ALTER TABLE """"SensorData"""" SET (timescaledb.compress = true);
+                ALTER TABLE """"public"""".""""SensorData"""" SET (timescaledb.compress = true);
             "")";
 
             // Act
@@ -134,14 +138,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             AlterHypertableOperation operation = new()
             {
                 TableName = "Metrics",
+                Schema = "metrics_schema",
                 ChunkSkipColumns = ["host", "service"],
                 OldChunkSkipColumns = ["host", "region"]
             };
 
             string expected = @".Sql(@""
                 SET timescaledb.enable_chunk_skipping = 'ON';
-                SELECT enable_chunk_skipping('""""Metrics""""', 'service');
-                SELECT disable_chunk_skipping('""""Metrics""""', 'region');
+                SELECT enable_chunk_skipping('metrics_schema.""""Metrics""""', 'service');
+                SELECT disable_chunk_skipping('metrics_schema.""""Metrics""""', 'region');
             "")";
 
             // Act
@@ -158,6 +163,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             AlterHypertableOperation operation = new()
             {
                 TableName = "NoChangeTable",
+                Schema = "public",
                 EnableCompression = true,
                 OldEnableCompression = true,
                 ChunkTimeInterval = "7 days",
@@ -180,14 +186,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             AlterHypertableOperation operation = new()
             {
                 TableName = "Logs",
+                Schema = "public",
                 OldEnableCompression = false,
                 OldChunkSkipColumns = ["trace_id"],
                 EnableCompression = false,
                 ChunkSkipColumns = []
             };
             string expected = @".Sql(@""
-                ALTER TABLE """"Logs"""" SET (timescaledb.compress = false);
-                SELECT disable_chunk_skipping('""""Logs""""', 'trace_id');
+                ALTER TABLE """"public"""".""""Logs"""" SET (timescaledb.compress = false);
+                SELECT disable_chunk_skipping('public.""""Logs""""', 'trace_id');
             "")";
 
             // Act
