@@ -1,16 +1,32 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
     public class HypertableOperationGenerator
     {
-        public static void Generate(CreateHypertableOperation operation, IndentedStringBuilder builder)
+        private readonly string quoteString = "\"";
+        private readonly SqlBuilderHelper sqlHelper;
+
+        public HypertableOperationGenerator(bool isDesignTime = false)
         {
+            if (isDesignTime)
+            {
+                quoteString = "\"\"";
+            }
+
+            sqlHelper = new SqlBuilderHelper(quoteString);
+
+        }
+
+        public List<string> Generate(CreateHypertableOperation operation)
+        {
+            string qualifiedTableName = sqlHelper.Regclass(operation.TableName, operation.Schema);
+            string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
+
             List<string> statements =
             [
-                $"SELECT create_hypertable('\"\"{operation.TableName}\"\"', '{operation.TimeColumnName}');"
+                $"SELECT create_hypertable({qualifiedTableName}, '{operation.TimeColumnName}');"
             ];
 
             // ChunkTimeInterval
@@ -20,12 +36,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
                 if (long.TryParse(operation.ChunkTimeInterval, out _))
                 {
                     // If it's a number, don't wrap it in quotes.
-                    statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', {operation.ChunkTimeInterval}::bigint);");
+                    statements.Add($"SELECT set_chunk_time_interval({qualifiedTableName}, {operation.ChunkTimeInterval}::bigint);");
                 }
                 else
                 {
                     // If it's a string like '7 days', wrap it in quotes.
-                    statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', INTERVAL '{operation.ChunkTimeInterval}');");
+                    statements.Add($"SELECT set_chunk_time_interval({qualifiedTableName}, INTERVAL '{operation.ChunkTimeInterval}');");
                 }
             }
 
@@ -33,7 +49,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
             if (operation.EnableCompression || operation.ChunkSkipColumns?.Count > 0)
             {
                 bool enableCompression = operation.EnableCompression || operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0;
-                statements.Add($"ALTER TABLE \"\"{operation.TableName}\"\" SET (timescaledb.compress = {enableCompression.ToString().ToLower()});");
+                statements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {enableCompression.ToString().ToLower()});");
             }
 
             // ChunkSkipColumns
@@ -43,7 +59,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
 
                 foreach (string column in operation.ChunkSkipColumns)
                 {
-                    statements.Add($"SELECT enable_chunk_skipping('\"\"{operation.TableName}\"\"', '{column}');");
+                    statements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{column}');");
                 }
             }
 
@@ -54,38 +70,38 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
                 {
                     if (dimension.Type == EDimensionType.Range)
                     {
-                        statements.Add($"SELECT add_dimension('\"\"{operation.TableName}\"\"', by_range('{dimension.ColumnName}', INTERVAL '{dimension.Interval}'));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{dimension.ColumnName}', INTERVAL '{dimension.Interval}'));");
                     }
                     else if (dimension.Type == EDimensionType.Hash)
                     {
-                        statements.Add($"SELECT add_dimension('\"\"{operation.TableName}\"\"', by_hash('{dimension.ColumnName}', {dimension.NumberOfPartitions}));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{dimension.ColumnName}', {dimension.NumberOfPartitions}));");
                     }
                 }
             }
 
-            MigrationBuilderSqlHelper.BuildQueryString(statements, builder);
+            return statements;
         }
 
-        public static void Generate(AlterHypertableOperation operation, IndentedStringBuilder builder)
+        public List<string> Generate(AlterHypertableOperation operation)
         {
+            string qualifiedTableName = sqlHelper.Regclass(operation.TableName, operation.Schema);
+            string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
+
             List<string> statements = [];
 
             // Check for ChunkTimeInterval change
             if (operation.ChunkTimeInterval != operation.OldChunkTimeInterval)
             {
-                if (operation.ChunkTimeInterval != operation.OldChunkTimeInterval)
+                // Check if the interval is a plain number (e.g., for microseconds).
+                if (long.TryParse(operation.ChunkTimeInterval, out _))
                 {
-                    // Check if the interval is a plain number (e.g., for microseconds).
-                    if (long.TryParse(operation.ChunkTimeInterval, out _))
-                    {
-                        // If it's a number, don't wrap it in quotes.
-                        statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', {operation.ChunkTimeInterval}::bigint);");
-                    }
-                    else
-                    {
-                        // If it's a string like '7 days', wrap it in quotes.
-                        statements.Add($"SELECT set_chunk_time_interval('\"\"{operation.TableName}\"\"', INTERVAL '{operation.ChunkTimeInterval}');");
-                    }
+                    // If it's a number, don't wrap it in quotes.
+                    statements.Add($"SELECT set_chunk_time_interval({qualifiedTableName}, {operation.ChunkTimeInterval}::bigint);");
+                }
+                else
+                {
+                    // If it's a string like '7 days', wrap it in quotes.
+                    statements.Add($"SELECT set_chunk_time_interval({qualifiedTableName}, INTERVAL '{operation.ChunkTimeInterval}');");
                 }
             }
 
@@ -96,7 +112,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
             if (newCompressionState != oldCompressionState)
             {
                 string compressionValue = newCompressionState.ToString().ToLower();
-                statements.Add($"ALTER TABLE \"\"{operation.TableName}\"\" SET (timescaledb.compress = {compressionValue});");
+                statements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {compressionValue});");
             }
 
             // Handle ChunkSkipColumns
@@ -110,7 +126,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
 
                 foreach (string column in addedColumns)
                 {
-                    statements.Add($"SELECT enable_chunk_skipping('\"\"{operation.TableName}\"\"', '{column}');");
+                    statements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{column}');");
                 }
             }
 
@@ -119,11 +135,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.MigrationGenerators
             {
                 foreach (string column in removedColumns)
                 {
-                    statements.Add($"SELECT disable_chunk_skipping('\"\"{operation.TableName}\"\"', '{column}');");
+                    statements.Add($"SELECT disable_chunk_skipping({qualifiedTableName}, '{column}');");
                 }
             }
 
-            MigrationBuilderSqlHelper.BuildQueryString(statements, builder);
+            return statements;
         }
     }
 }
+

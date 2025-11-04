@@ -13,21 +13,37 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
             {
                 yield break;
             }
+
             foreach (IEntityType entityType in relationalModel.Model.GetEntityTypes())
             {
                 // Retrieve the annotations set by the convention
                 bool hasReorderPolicy = entityType.FindAnnotation(ReorderPolicyAnnotations.HasReorderPolicy)?.Value as bool? ?? false;
-                string? indexName = entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value as string;
+                if (!hasReorderPolicy)
+                {
+                    continue;
+                }
 
-                if (!hasReorderPolicy || string.IsNullOrWhiteSpace(indexName))
+                // Get convention-aware store identifier for the table
+                StoreObjectIdentifier storeIdentifier = StoreObjectIdentifier.Table(entityType.GetTableName()!, entityType.GetSchema());
+
+                string? indexModelName = entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value as string;
+                if (string.IsNullOrWhiteSpace(indexModelName))
+                {
+                    continue;
+                }
+
+                string? indexName = entityType.FindIndex(indexModelName)?.GetDatabaseName(storeIdentifier);
+                if (string.IsNullOrWhiteSpace(indexName))
                 {
                     continue;
                 }
 
                 DateTime? initialStart = entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart)?.Value as DateTime?;
+
                 yield return new AddReorderPolicyOperation
                 {
                     TableName = entityType.GetTableName()!,
+                    Schema = entityType.GetSchema() ?? DefaultValues.DefaultSchema,
                     IndexName = indexName!,
                     InitialStart = initialStart,
                     ScheduleInterval = entityType.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval)?.Value as string ?? DefaultValues.ReorderPolicyScheduleInterval,
@@ -35,8 +51,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
                     MaxRetries = entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRetries)?.Value as int? ?? DefaultValues.ReorderPolicyMaxRetries,
                     RetryPeriod = entityType.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod)?.Value as string ?? DefaultValues.ReorderPolicyRetryPeriod
                 };
-                }
-            
+            }
         }
     }
 }

@@ -12,28 +12,22 @@ using Microsoft.EntityFrameworkCore.Update.Internal;
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
 {
 #pragma warning disable EF1001 // Suppress warning about internal APIs usage, common for providers/extensions
-    public class TimescaleMigrationsModelDiffer : MigrationsModelDiffer
+    public class TimescaleMigrationsModelDiffer(
+        IRelationalTypeMappingSource typeMappingSource,
+        IMigrationsAnnotationProvider migrationsAnnotationProvider,
+        IRelationalAnnotationProvider relationalAnnotationProvider,
+        IRowIdentityMapFactory rowIdentityMapFactory,
+        CommandBatchPreparerDependencies commandBatchPreparerDependencies) : MigrationsModelDiffer(typeMappingSource, migrationsAnnotationProvider, relationalAnnotationProvider, rowIdentityMapFactory, commandBatchPreparerDependencies)
     {
-        private readonly IReadOnlyList<IFeatureDiffer> _featureDiffers;
-
-        public TimescaleMigrationsModelDiffer(
-            IRelationalTypeMappingSource typeMappingSource,
-            IMigrationsAnnotationProvider migrationsAnnotationProvider,
-            IRelationalAnnotationProvider relationalAnnotationProvider,
-            IRowIdentityMapFactory rowIdentityMapFactory,
-            CommandBatchPreparerDependencies commandBatchPreparerDependencies)
-            : base(typeMappingSource, migrationsAnnotationProvider, relationalAnnotationProvider, rowIdentityMapFactory, commandBatchPreparerDependencies)
-        {
-            _featureDiffers = [
+        private readonly IReadOnlyList<IFeatureDiffer> _featureDiffers = [
                 new HypertableDiffer(),
                 new ReorderPolicyDiffer(),
             ];
-        }
 
         public override IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
         {
             // Get all operations
-            List<MigrationOperation> allOperations = new List<MigrationOperation>(base.GetDifferences(source, target));
+            List<MigrationOperation> allOperations = [.. base.GetDifferences(source, target)];
 
             foreach (IFeatureDiffer differ in _featureDiffers)
             {

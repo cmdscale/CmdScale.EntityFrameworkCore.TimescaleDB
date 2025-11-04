@@ -1,0 +1,7 @@
+﻿[*.cs]
+
+# IDE0066: Convert switch statement to expression
+csharp_style_prefer_switch_expression = false
+
+# IDE0079: Remove unnecessary suppression
+dotnet_diagnostic.IDE0079.severity = none

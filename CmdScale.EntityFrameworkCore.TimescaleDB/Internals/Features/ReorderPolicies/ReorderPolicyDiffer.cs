@@ -1,7 +1,6 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using System.Collections.Generic;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPolicies
 {
@@ -17,15 +16,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
             List<AddReorderPolicyOperation> targetPolicies = [.. ReorderPolicyModelExtractor.GetReorderPolicies(target)];
 
             // Identiy new reorder policies
-            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName));
+            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName && s.Schema == t.Schema));
             operations.AddRange(newReorderPolicies);
 
             // Identify updated reorder policies
             var updatedReorderPolicies = targetPolicies
                 .Join(
                     sourcePolicies,
-                    targetPolicy => targetPolicy.TableName,
-                    sourcePolicy => sourcePolicy.TableName,
+                    targetPolicy => (targetPolicy.Schema, targetPolicy.TableName),
+                    sourcePolicy => (sourcePolicy.Schema, sourcePolicy.TableName),
                     (targetPolicy, sourcePolicy) => new { Target = targetPolicy, Source = sourcePolicy }
                 )
                 .Where(x =>
@@ -42,6 +41,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
                 operations.Add(new AlterReorderPolicyOperation
                 {
                     TableName = policy.Target.TableName,
+                    Schema = policy.Target.Schema,
                     IndexName = policy.Target.IndexName,
                     InitialStart = policy.Target.InitialStart,
                     ScheduleInterval = policy.Target.ScheduleInterval,
@@ -59,8 +59,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
             }
 
             IEnumerable<DropReorderPolicyOperation> removedReorderPolicies = sourcePolicies
-                .Where(s => !targetPolicies.Any(t => t.TableName == s.TableName))
-                .Select(p => new DropReorderPolicyOperation { TableName = p.TableName });
+                .Where(s => !targetPolicies.Any(t => t.TableName == s.TableName && t.Schema == s.Schema))
+                .Select(p => new DropReorderPolicyOperation { TableName = p.TableName, Schema = p.Schema });
             operations.AddRange(removedReorderPolicies);
 
             return operations;

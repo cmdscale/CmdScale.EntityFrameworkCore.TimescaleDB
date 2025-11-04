@@ -19,31 +19,70 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
 
             foreach (IEntityType entityType in relationalModel.Model.GetEntityTypes())
             {
+                // Retrieve the annotations set by the convention
                 bool isHypertable = entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value as bool? ?? false;
-                string? timeColumnName = entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value as string;
-
-                if (!isHypertable || string.IsNullOrWhiteSpace(timeColumnName))
+                if (!isHypertable)
                 {
                     continue;
                 }
 
-                string chunkTimeInterval = entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value as string ?? DefaultValues.ChunkTimeInterval;
-                string? chunkSkipColumnsString = entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns)?.Value as string;
-                List<string>? chunkSkipColumns = chunkSkipColumnsString?.Split(',', StringSplitOptions.TrimEntries).ToList();
-                bool enableCompression = entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value as bool? ?? false;
+                // Get convention-aware store identifier for the table
+                StoreObjectIdentifier storeIdentifier = StoreObjectIdentifier.Table(entityType.GetTableName()!, entityType.GetSchema());
 
-                IAnnotation? additionalDimensionsAnnotations = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions);
+                string? timeColumnModelName = entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value as string;
+                if (string.IsNullOrWhiteSpace(timeColumnModelName))
+                {
+                    continue;
+                }
+
+                string? timeColumnName = entityType.FindProperty(timeColumnModelName)?.GetColumnName(storeIdentifier);
+                if (string.IsNullOrWhiteSpace(timeColumnName))
+                {
+                    continue;
+                }
+
+
+                string? chunkSkipColumnsString = entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns)?.Value as string;
+                List<string>? chunkSkipColumns = null;
+                if (!string.IsNullOrWhiteSpace(chunkSkipColumnsString))
+                {
+                    chunkSkipColumns = chunkSkipColumnsString.Split(',', StringSplitOptions.TrimEntries)
+                        .Select(modelPropName => entityType.FindProperty(modelPropName)?.GetColumnName(storeIdentifier))
+                        .Where(name => name != null)
+                        .ToList()!;
+                }
+
+
                 List<Dimension>? additionalDimensions = null;
+                IAnnotation? additionalDimensionsAnnotations = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions);
                 if (additionalDimensionsAnnotations?.Value is string json && !string.IsNullOrWhiteSpace(json))
                 {
-                    additionalDimensions = JsonSerializer.Deserialize<List<Dimension>>(json);
+                    List<Dimension>? modelDimensions = JsonSerializer.Deserialize<List<Dimension>>(json);
+                    if (modelDimensions != null)
+                    {
+                        additionalDimensions = [];
+                        foreach (Dimension dim in modelDimensions)
+                        {
+                            string? conventionalColumnName = entityType.FindProperty(dim.ColumnName)?.GetColumnName(storeIdentifier);
+                            if (conventionalColumnName != null)
+                            {
+                                Dimension newDimension = JsonSerializer.Deserialize<Dimension>(JsonSerializer.Serialize(dim))!;
+                                newDimension.ColumnName = conventionalColumnName;
+                                additionalDimensions.Add(newDimension);
+                            }
+                        }
+                    }
                 }
+
+                string chunkTimeInterval = entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value as string ?? DefaultValues.ChunkTimeInterval;
+                bool enableCompression = entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value as bool? ?? false;
 
                 yield return new CreateHypertableOperation
                 {
                     TableName = entityType.GetTableName()!,
+                    Schema = entityType.GetSchema() ?? DefaultValues.DefaultSchema,
                     TimeColumnName = timeColumnName,
-                    ChunkTimeInterval = chunkTimeInterval,
+                    ChunkTimeInterval = chunkTimeInterval ?? DefaultValues.ChunkTimeInterval,
                     EnableCompression = enableCompression,
                     ChunkSkipColumns = chunkSkipColumns,
                     AdditionalDimensions = additionalDimensions

@@ -14,15 +14,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
             List<CreateHypertableOperation> targetHypertables = [.. HypertableModelExtractor.GetHypertables(target)];
 
             // Find new hypertables
-            IEnumerable<CreateHypertableOperation> newHypertables = targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName));
+            IEnumerable<CreateHypertableOperation> newHypertables = targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName && s.Schema == t.Schema));
             operations.AddRange(newHypertables);
 
             // Find updated hypertables
             var updatedHypertables = targetHypertables
                 .Join(
                     sourceHypertables,
-                    t => t.TableName,
-                    s => s.TableName,
+                    target => (target.Schema, target.TableName),
+                    source => (source.Schema, source.TableName),
                     (target, source) => new { Target = target, Source = source }
                 )
                 .Where(x =>
@@ -36,6 +36,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                 operations.Add(new AlterHypertableOperation
                 {
                     TableName = hypertable.Target.TableName,
+                    Schema = hypertable.Target.Schema,
                     ChunkTimeInterval = hypertable.Target.ChunkTimeInterval,
                     EnableCompression = hypertable.Target.EnableCompression,
                     ChunkSkipColumns = hypertable.Target.ChunkSkipColumns,

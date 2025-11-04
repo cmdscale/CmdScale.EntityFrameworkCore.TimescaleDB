@@ -16,6 +16,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(TimescaleContext).Assembly);
+            modelBuilder.HasDefaultSchema("custom_schema");
         }
     }
 }
