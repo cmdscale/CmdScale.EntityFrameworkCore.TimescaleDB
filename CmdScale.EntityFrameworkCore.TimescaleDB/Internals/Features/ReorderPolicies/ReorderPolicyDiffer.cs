@@ -16,7 +16,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
             List<AddReorderPolicyOperation> targetPolicies = [.. ReorderPolicyModelExtractor.GetReorderPolicies(target)];
 
             // Identiy new reorder policies
-            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName && s.Schema == t.Schema));
+            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName));
             operations.AddRange(newReorderPolicies);
 
             // Identify updated reorder policies

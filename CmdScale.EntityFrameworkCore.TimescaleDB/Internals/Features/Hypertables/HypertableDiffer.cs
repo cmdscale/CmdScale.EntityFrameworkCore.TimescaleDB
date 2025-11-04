@@ -14,7 +14,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
             List<CreateHypertableOperation> targetHypertables = [.. HypertableModelExtractor.GetHypertables(target)];
 
             // Find new hypertables
-            IEnumerable<CreateHypertableOperation> newHypertables = targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName && s.Schema == t.Schema));
+            IEnumerable<CreateHypertableOperation> newHypertables = targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName));
             operations.AddRange(newHypertables);
 
             // Find updated hypertables
