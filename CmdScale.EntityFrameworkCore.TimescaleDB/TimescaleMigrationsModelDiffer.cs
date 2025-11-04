@@ -37,14 +37,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             List<CreateHypertableOperation> sourceHypertables = [.. GetHypertables(source)];
 
             // Identify new hypertables
-            List<CreateHypertableOperation> newHypertables = [.. targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName && s.Schema == t.Schema))];
+            List<CreateHypertableOperation> newHypertables = [.. targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName))];
 
             foreach (CreateHypertableOperation? hypertable in newHypertables)
             {
                 int createTableOpIndex = operations.FindIndex(op =>
                     op is CreateTableOperation createTable &&
-                    createTable.Name == hypertable.TableName &&
-                    createTable.Schema == hypertable.Schema);
+                    createTable.Name == hypertable.TableName);
 
                 if (createTableOpIndex != -1)
                 {
@@ -90,7 +89,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             List<AddReorderPolicyOperation> targetPolicies = [.. GetReorderPolicies(target)];
 
             // Identiy new reorder policies
-            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName && s.Schema == t.Schema));
+            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName));
             operations.AddRange(newReorderPolicies);
 
             // Identify updated reorder policies
@@ -133,8 +132,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             }
 
             IEnumerable<DropReorderPolicyOperation> removedReorderPolicies = sourcePolicies
-                .Where(s => !targetPolicies.Any(t => t.TableName == s.TableName && t.Schema == s.Schema))
-                .Select(p => new DropReorderPolicyOperation { TableName = p.TableName, Schema = p.Schema });
+                .Where(s => !targetPolicies.Any(t => t.TableName == s.TableName))
+                .Select(p => new DropReorderPolicyOperation { TableName = p.TableName });
             operations.AddRange(removedReorderPolicies);
 
             return operations;
@@ -172,7 +171,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     continue;
                 }
 
-               
+
                 string? chunkSkipColumnsString = entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns)?.Value as string;
                 List<string>? chunkSkipColumns = null;
                 if (!string.IsNullOrWhiteSpace(chunkSkipColumnsString))
@@ -217,7 +216,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     EnableCompression = enableCompression,
                     ChunkSkipColumns = chunkSkipColumns,
                     AdditionalDimensions = additionalDimensions
-                };      
+                };
             }
         }
 
@@ -253,7 +252,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 }
 
                 DateTime? initialStart = entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart)?.Value as DateTime?;
- 
+
                 yield return new AddReorderPolicyOperation
                 {
                     TableName = entityType.GetTableName()!,
