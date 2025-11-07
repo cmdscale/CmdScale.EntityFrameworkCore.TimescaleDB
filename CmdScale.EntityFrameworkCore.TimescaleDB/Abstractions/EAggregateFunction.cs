@@ -6,7 +6,7 @@
         Sum,
         Min,
         Max,
-        Cout,
+        Count,
         First,
         Last
     }

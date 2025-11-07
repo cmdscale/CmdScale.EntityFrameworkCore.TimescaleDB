@@ -37,7 +37,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
         public double TotalTemperature { get; set; }
 
         // Count aggregate function (using "*" for count all records)
-        [Aggregate(EAggregateFunction.Cout, "*")]
+        [Aggregate(EAggregateFunction.Count, "*")]
         public int RecordCount { get; set; }
 
         // First aggregate function (gets first temperature value in time bucket)
