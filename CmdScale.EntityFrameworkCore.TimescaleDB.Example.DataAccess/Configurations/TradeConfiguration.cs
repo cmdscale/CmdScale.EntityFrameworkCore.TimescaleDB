@@ -14,6 +14,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Configurat
             builder.HasNoKey()
                    .IsHypertable(x => x.Timestamp)
                    .WithChunkTimeInterval("1 day");
+            builder.HasIndex(x => x.Timestamp).HasDatabaseName("Trades_Timestamp_idx");
             builder.WithReorderPolicy("Trades_Timestamp_idx", DateTime.Parse("2025-09-23T09:15:19.3905112Z"), "2 days", "10 minutes", -1, "1 minute");
         }
     }

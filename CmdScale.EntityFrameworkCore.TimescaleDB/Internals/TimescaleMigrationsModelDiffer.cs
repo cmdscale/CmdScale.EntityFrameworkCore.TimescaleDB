@@ -1,4 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertables;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPolicies;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
@@ -22,6 +23,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
         private readonly IReadOnlyList<IFeatureDiffer> _featureDiffers = [
                 new HypertableDiffer(),
                 new ReorderPolicyDiffer(),
+                new ContinuousAggregateDiffer(),
             ];
 
         public override IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
@@ -48,11 +50,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
         {
             switch (operation)
             {
-                // Create the hypertable after the base table
                 case CreateHypertableOperation:
                     return 10;
 
-                // Add policies after the hypertable exists
                 case AddReorderPolicyOperation:
                 case AlterReorderPolicyOperation:
                 case DropReorderPolicyOperation:
@@ -60,7 +60,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
 
                 case CreateContinuousAggregateOperation:
                     return 30;
-
                 case AlterContinuousAggregateOperation:
                 case DropContinuousAggregateOperation:
                     return 40;

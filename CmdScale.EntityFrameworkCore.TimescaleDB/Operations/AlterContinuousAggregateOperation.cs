@@ -4,6 +4,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
 {
     public class AlterContinuousAggregateOperation : MigrationOperation
     {
+        public string Schema { get; set; } = string.Empty;
         public string MaterializedViewName { get; set; } = string.Empty;
 
         public string? ChunkInterval { get; set; }

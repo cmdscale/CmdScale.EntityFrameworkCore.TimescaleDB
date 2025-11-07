@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using System.Reflection;
@@ -18,6 +19,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
 
             if (continuousAggregateAttribute == null) return;
 
+            // Configure the entity to map to a view instead of a table
+            // This prevents EF Core from trying to create a table for the continuous aggregate
+            entityTypeBuilder.ToView(continuousAggregateAttribute.MaterializedViewName);
+
             // Apply class-level configurations from [ContinuousAggregateAttribute]
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, continuousAggregateAttribute.MaterializedViewName);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.ParentName, continuousAggregateAttribute.ParentName);
@@ -25,6 +30,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WithNoData, continuousAggregateAttribute.WithNoData);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.CreateGroupIndexes, continuousAggregateAttribute.CreateGroupIndexes);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.MaterializedOnly, continuousAggregateAttribute.MaterializedOnly);
+            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WhereClause, continuousAggregateAttribute.Where);
+
+            // Discover class-level TimeBucket configuration from [TimeBucketAttribute]
+            TimeBucketAttribute? timeBucketAttr = entityType.ClrType?.GetCustomAttribute<TimeBucketAttribute>();
+            if (timeBucketAttr != null)
+            {
+                entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, timeBucketAttr.BucketWidth);
+                entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, timeBucketAttr.SourceColumn);
+                entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketGroupBy, timeBucketAttr.GroupBy);
+            }
 
             // Discover property-level configurations
             List<string> aggregateFunctions = [];
@@ -33,15 +48,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             {
                 PropertyInfo? propertyInfo = property.PropertyInfo;
                 if (propertyInfo == null) continue;
-
-                // Discover the time bucket column from [TimeBucketAttribute]
-                TimeBucketAttribute? timeBucketAttr = propertyInfo.GetCustomAttribute<TimeBucketAttribute>();
-                if (timeBucketAttr != null)
-                {
-                    entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, timeBucketAttr.BucketWidth);
-                    entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, timeBucketAttr.SourceColumn);
-                    entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketGroupBy, timeBucketAttr.GroupBy);
-                }
 
                 // Discover aggregate columns from [AggregateAttribute]
                 AggregateAttribute? aggregateAttr = propertyInfo.GetCustomAttribute<AggregateAttribute>();

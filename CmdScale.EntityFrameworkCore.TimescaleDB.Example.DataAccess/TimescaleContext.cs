@@ -11,6 +11,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
         public DbSet<OrderStatusEvent> OrderStatusEvents { get; set; }
         public DbSet<Trade> Trades { get; set; }
         public DbSet<TradeWithId> TradesWithId { get; set; }
+        public DbSet<TradeAggregate> TradeAggregates { get; set; }
+        public DbSet<WeatherAggregate> WeatherAggregates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

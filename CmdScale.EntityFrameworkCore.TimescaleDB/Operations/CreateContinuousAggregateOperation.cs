@@ -1,10 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using System.Linq.Expressions;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
 {
     public class CreateContinuousAggregateOperation : MigrationOperation
     {
+        public string Schema { get; set; } = string.Empty;
         public string MaterializedViewName { get; set; } = string.Empty;
         public string ParentName { get; set; } = string.Empty;
         public string? ChunkInterval { get; set; }
@@ -19,6 +19,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
 
         public List<string> AggregateFunctions { get; set; } = [];
         public List<string> GroupByColumns { get; set; } = [];
-        public LambdaExpression? WhereClaus { get; set; }
+        public string? WhereClaus { get; set; }
     }
 }

@@ -23,16 +23,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
                     continue;
                 }
 
-                // Get convention-aware store identifier for the table
-                StoreObjectIdentifier storeIdentifier = StoreObjectIdentifier.Table(entityType.GetTableName()!, entityType.GetSchema());
-
-                string? indexModelName = entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value as string;
-                if (string.IsNullOrWhiteSpace(indexModelName))
-                {
-                    continue;
-                }
-
-                string? indexName = entityType.FindIndex(indexModelName)?.GetDatabaseName(storeIdentifier);
+                string? indexName = entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value as string;
                 if (string.IsNullOrWhiteSpace(indexName))
                 {
                     continue;

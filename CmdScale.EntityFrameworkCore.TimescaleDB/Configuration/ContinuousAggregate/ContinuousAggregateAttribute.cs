@@ -1,7 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
-using System.Linq.Expressions;
-
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate
+﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate
 {
     /// <summary>
     /// Defines a TimescaleDB continuous aggregate on an EF Core entity.
@@ -62,11 +59,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         public string TimeBucketSourceColumn { get; set; } = string.Empty;
 
 
-        // TOOD: This will only be available for the FluentAPI because attributes do not support complex types like expressions.
         /// <summary>
         /// Gets or sets an optional SQL WHERE clause to filter rows from the source hypertable before aggregation.
         /// The clause should be a valid SQL string without the "WHERE" keyword itself (e.g., "device_id = 'sensor-1'").
         /// </summary>
-        //public Expression<Func<TSourceEntity, bool>> WhereClause { get; set; } = string.Empty;
+        public string? Where { get; set; }
     }
 }

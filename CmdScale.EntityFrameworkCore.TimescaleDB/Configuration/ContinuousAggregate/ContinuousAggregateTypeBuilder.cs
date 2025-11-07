@@ -1,4 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.Linq.Expressions;
@@ -17,6 +18,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             where TEntity : class
             where TSourceEntity : class
         {
+            // Configure the entity to map to a view instead of a table
+            // This prevents EF Core from trying to create a table for the continuous aggregate
+            entityTypeBuilder.ToView(materualizedViewName);
 
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, materualizedViewName);
 
@@ -133,13 +137,24 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             return builder;
         }
 
-        public static ContinuousAggregateBuilder<TEntity, TSourceEntity> SetWhereClause<TEntity, TSourceEntity>(
+        // TODO: Remove or implement expression parsing
+        //public static ContinuousAggregateBuilder<TEntity, TSourceEntity> Where<TEntity, TSourceEntity>(
+        //    this ContinuousAggregateBuilder<TEntity, TSourceEntity> builder,
+        //     Expression<Func<TSourceEntity, bool>> predicate)
+        //     where TEntity : class
+        //     where TSourceEntity : class
+        //{
+        //    builder.EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WhereClause, predicate);
+        //    return builder;
+        //}
+
+        public static ContinuousAggregateBuilder<TEntity, TSourceEntity> Where<TEntity, TSourceEntity>(
             this ContinuousAggregateBuilder<TEntity, TSourceEntity> builder,
-             Expression<Func<TSourceEntity, bool>> predicate)
+             string whereClause)
              where TEntity : class
              where TSourceEntity : class
         {
-            builder.EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WhereClause, predicate);
+            builder.EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WhereClause, whereClause);
             return builder;
         }
 
