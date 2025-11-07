@@ -19,6 +19,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             List<string> statements;
             HypertableOperationGenerator? hypertableOperationGenerator = null;
             ReorderPolicyOperationGenerator? reorderPolicyOperationGenerator = null;
+            ContinuousAggregateOperationGenerator? continuousAggregateOperationGenerator = null;
+            bool suppressTransaction = false;
 
             switch (operation)
             {
@@ -47,12 +49,28 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     statements = reorderPolicyOperationGenerator.Generate(dropReorderPolicyOperation);
                     break;
 
+                case CreateContinuousAggregateOperation createContinuousAggregateOperation:
+                    continuousAggregateOperationGenerator ??= new(isDesignTime: false);
+                    statements = continuousAggregateOperationGenerator.Generate(createContinuousAggregateOperation);
+                    suppressTransaction = true;
+                    break;
+
+                case AlterContinuousAggregateOperation alterContinuousAggregateOperation:
+                    continuousAggregateOperationGenerator ??= new(isDesignTime: false);
+                    statements = continuousAggregateOperationGenerator.Generate(alterContinuousAggregateOperation);
+                    break;
+
+                case DropContinuousAggregateOperation dropContinuousAggregateOperation:
+                    continuousAggregateOperationGenerator ??= new(isDesignTime: false);
+                    statements = continuousAggregateOperationGenerator.Generate(dropContinuousAggregateOperation);
+                    break;
+
                 default:
                     base.Generate(operation, model, builder);
                     return;
             }
 
-            SqlBuilderHelper.BuildQueryString(statements, builder);
+            SqlBuilderHelper.BuildQueryString(statements, builder, suppressTransaction);
 
         }
     }

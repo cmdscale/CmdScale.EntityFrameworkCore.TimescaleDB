@@ -432,3 +432,7 @@ CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess/Migrations/
 
 # Ignore all scaffolded models and the DbContext from the DbFirst project
 CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.DbFirst/
+
+# AI
+CLAUDE.md
+.claude

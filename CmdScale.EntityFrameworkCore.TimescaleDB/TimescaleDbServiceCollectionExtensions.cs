@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Infrastructure;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +15,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
         {
             new EntityFrameworkRelationalServicesBuilder(services)
                 .TryAdd<IMigrationsModelDiffer, TimescaleMigrationsModelDiffer>()
-                .TryAdd<IConventionSetPlugin, TimescaleDbContextOptionsBuilderExtensions.HypertableConventionSetPlugin>();
+                .TryAdd<IConventionSetPlugin, TimescaleDbContextOptionsBuilderExtensions.TimescaleDbConventionSetPlugin>();
 
             return services;
         }
