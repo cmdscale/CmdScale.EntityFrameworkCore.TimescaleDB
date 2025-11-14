@@ -25,15 +25,15 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.8" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\assets\cmd-nuget-logo.jpg">
+    <None Include="..\..\assets\cmd-nuget-logo.jpg">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
-    <None Include="..\LICENSE">
+    <None Include="..\..\LICENSE">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
-    <None Include="..\README.md">
+    <None Include="..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
@@ -41,6 +41,6 @@
 	<Content Include="build\**\*" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\CmdScale.EntityFrameworkCore.TimescaleDB\CmdScale.EntityFrameworkCore.TimescaleDB.csproj" />
+    <ProjectReference Include="..\TimescaleDB\TimescaleDB.csproj" />
   </ItemGroup>
 </Project>

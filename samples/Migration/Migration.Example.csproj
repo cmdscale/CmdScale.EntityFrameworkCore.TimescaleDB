@@ -13,8 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess\CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.csproj" />
-    <ProjectReference Include="..\CmdScale.EntityFrameworkCore.TimescaleDB.Design\CmdScale.EntityFrameworkCore.TimescaleDB.Design.csproj" />
+    <ProjectReference Include="..\Context\Context.Example.csproj" />
+    <ProjectReference Include="..\..\src\TimescaleDB.Design\TimescaleDB.Design.csproj" />
   </ItemGroup>
 
 	<ItemGroup>

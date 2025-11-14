@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\CmdScale.EntityFrameworkCore.TimescaleDB.Design\CmdScale.EntityFrameworkCore.TimescaleDB.Design.csproj" />
+    <ProjectReference Include="..\..\src\TimescaleDB.Design\TimescaleDB.Design.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
