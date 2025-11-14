@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess\CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.csproj" />
+    <ProjectReference Include="..\..\samples\Eftdb.Samples.DataAccess\Eftdb.Samples.DataAccess.csproj" />
   </ItemGroup>
 
 </Project>
