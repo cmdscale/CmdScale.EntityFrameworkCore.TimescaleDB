@@ -139,6 +139,47 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
+            // Handle AdditionalDimensions - only add new dimensions
+            // NOTE: TimescaleDB does NOT support removing dimensions from hypertables.
+            // Once a dimension is added, it cannot be removed. Therefore, we only generate
+            // SQL for adding new dimensions and ignore dimension removals.
+            IReadOnlyList<Dimension> newDimensions = operation.AdditionalDimensions ?? [];
+            IReadOnlyList<Dimension> oldDimensions = operation.OldAdditionalDimensions ?? [];
+
+            // Find dimensions that are in new but not in old (added dimensions)
+            foreach (Dimension newDim in newDimensions)
+            {
+                bool exists = oldDimensions.Any(oldDim =>
+                    oldDim.ColumnName == newDim.ColumnName &&
+                    oldDim.Type == newDim.Type &&
+                    oldDim.Interval == newDim.Interval &&
+                    oldDim.NumberOfPartitions == newDim.NumberOfPartitions);
+
+                if (!exists)
+                {
+                    if (newDim.Type == EDimensionType.Range)
+                    {
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{newDim.ColumnName}', INTERVAL '{newDim.Interval}'));");
+                    }
+                    else if (newDim.Type == EDimensionType.Hash)
+                    {
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{newDim.ColumnName}', {newDim.NumberOfPartitions}));");
+                    }
+                }
+            }
+
+            // Warn if dimensions were removed (which cannot be reversed in TimescaleDB)
+            List<Dimension> removedDimensions = [.. oldDimensions
+                .Where(oldDim => !newDimensions.Any(newDim =>
+                    oldDim.ColumnName == newDim.ColumnName &&
+                    oldDim.Type == newDim.Type))];
+
+            if (removedDimensions.Count > 0)
+            {
+                string dimensionList = string.Join(", ", removedDimensions.Select(d => $"'{d.ColumnName}'"));
+                statements.Add($"-- WARNING: TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: {dimensionList}");
+            }
+
             return statements;
         }
     }

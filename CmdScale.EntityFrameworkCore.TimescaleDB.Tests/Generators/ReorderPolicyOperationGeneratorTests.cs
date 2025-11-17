@@ -53,9 +53,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 IndexName = "IX_TestTable_Time",
                 InitialStart = testDate,
                 ScheduleInterval = "2 days",
-                MaxRuntime = "1 hour",    
-                MaxRetries = 5,             
-                RetryPeriod = "10 minutes"  
+                MaxRuntime = "1 hour",
+                MaxRetries = 5,
+                RetryPeriod = "10 minutes"
             };
 
             string expected = @".Sql(@""
@@ -78,10 +78,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         public void Generate_Drop_creates_correct_remove_policy_sql()
         {
             // Arrange
-            DropReorderPolicyOperation operation = new() 
-            { 
+            DropReorderPolicyOperation operation = new()
+            {
                 Schema = "public",
-                TableName = "TestTable" 
+                TableName = "TestTable"
             };
 
             string expected = @".Sql(@""
