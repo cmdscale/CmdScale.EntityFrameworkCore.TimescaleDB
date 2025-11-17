@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations.Operations;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
 {
@@ -13,9 +14,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
         // Only timestamp-like and Integer-like columns are supported for chunk skipping
         // Cannot be reverted once enabled
         public IReadOnlyList<string>? ChunkSkipColumns { get; set; }
+        public IReadOnlyList<Dimension>? AdditionalDimensions { get; set; }
 
         public string OldChunkTimeInterval { get; set; } = string.Empty;
         public bool OldEnableCompression { get; set; }
         public IReadOnlyList<string>? OldChunkSkipColumns { get; set; }
+        public IReadOnlyList<Dimension>? OldAdditionalDimensions { get; set; }
     }
 }

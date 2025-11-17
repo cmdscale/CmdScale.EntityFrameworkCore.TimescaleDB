@@ -14,7 +14,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         private static string GetGeneratedCode(dynamic operation)
         {
             IndentedStringBuilder builder = new();
-            
+
             HypertableOperationGenerator generator = new(true);
             List<string> statements = generator.Generate(operation);
             SqlBuilderHelper.BuildQueryString(statements, builder);

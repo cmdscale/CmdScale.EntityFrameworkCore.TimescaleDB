@@ -98,8 +98,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
 
         public static ContinuousAggregateBuilder<TEntity, TSourceEntity> AddGroupByColumn<TEntity, TSourceEntity, TProperty>(
             this ContinuousAggregateBuilder<TEntity, TSourceEntity> builder,
-            Expression<Func<TSourceEntity, TProperty>> propertyExpression) 
-            where TEntity : class 
+            Expression<Func<TSourceEntity, TProperty>> propertyExpression)
+            where TEntity : class
             where TSourceEntity : class
         {
             string propertyName = GetPropertyName(propertyExpression);
