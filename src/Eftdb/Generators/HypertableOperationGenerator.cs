@@ -1,5 +1,6 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
+using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
@@ -16,7 +17,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             }
 
             sqlHelper = new SqlBuilderHelper(quoteString);
-
         }
 
         public List<string> Generate(CreateHypertableOperation operation)
@@ -24,48 +24,51 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             string qualifiedTableName = sqlHelper.Regclass(operation.TableName, operation.Schema);
             string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
 
-            string migrateDataParam = operation.MigrateData ? ", migrate_data => true" : "";
+            List<string> statements = [];
+            List<string> communityStatements = [];
 
-            List<string> statements =
-            [
-                $"SELECT create_hypertable({qualifiedTableName}, '{operation.TimeColumnName}'{migrateDataParam});"
-            ];
+            // Build create_hypertable with chunk_time_interval if provided
+            var createHypertableCall = new StringBuilder();
+            createHypertableCall.Append($"SELECT create_hypertable({qualifiedTableName}, '{operation.TimeColumnName}'");
+            createHypertableCall.Append(operation.MigrateData ? ", migrate_data => true" : "");
 
-            // ChunkTimeInterval
             if (!string.IsNullOrEmpty(operation.ChunkTimeInterval))
             {
                 // Check if the interval is a plain number (e.g., for microseconds).
                 if (long.TryParse(operation.ChunkTimeInterval, out _))
                 {
                     // If it's a number, don't wrap it in quotes.
-                    statements.Add($"SELECT set_chunk_time_interval({qualifiedTableName}, {operation.ChunkTimeInterval}::bigint);");
+                    createHypertableCall.Append($", chunk_time_interval => {operation.ChunkTimeInterval}::bigint");
                 }
                 else
                 {
                     // If it's a string like '7 days', wrap it in quotes.
-                    statements.Add($"SELECT set_chunk_time_interval({qualifiedTableName}, INTERVAL '{operation.ChunkTimeInterval}');");
+                    createHypertableCall.Append($", chunk_time_interval => INTERVAL '{operation.ChunkTimeInterval}'");
                 }
             }
 
-            // EnableCompression
+            createHypertableCall.Append(");");
+            statements.Add(createHypertableCall.ToString());
+
+            // EnableCompression (Community Edition only)
             if (operation.EnableCompression || operation.ChunkSkipColumns?.Count > 0)
             {
                 bool enableCompression = operation.EnableCompression || operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0;
-                statements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {enableCompression.ToString().ToLower()});");
+                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {enableCompression.ToString().ToLower()});");
             }
 
-            // ChunkSkipColumns
+            // ChunkSkipColumns (Community Edition only)
             if (operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0)
             {
-                statements.Add("SET timescaledb.enable_chunk_skipping = 'ON';");
+                communityStatements.Add("SET timescaledb.enable_chunk_skipping = 'ON';");
 
                 foreach (string column in operation.ChunkSkipColumns)
                 {
-                    statements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{column}');");
+                    communityStatements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{column}');");
                 }
             }
 
-            // AdditionalDimensions
+            // AdditionalDimensions (Available in both editions)
             if (operation.AdditionalDimensions != null && operation.AdditionalDimensions.Count > 0)
             {
                 foreach (Dimension dimension in operation.AdditionalDimensions)
@@ -87,6 +90,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
+            // Add wrapped community statements if any exist
+            if (communityStatements.Count > 0)
+            {
+                statements.Add(WrapCommunityFeatures(communityStatements));
+            }
             return statements;
         }
 
@@ -96,45 +104,52 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
 
             List<string> statements = [];
+            List<string> communityStatements = [];
 
-            // Check for ChunkTimeInterval change
+            // Check for ChunkTimeInterval change (Available in both editions)
             if (operation.ChunkTimeInterval != operation.OldChunkTimeInterval)
             {
+                var setChunkTimeInterval = new StringBuilder();
+                setChunkTimeInterval.Append($"SELECT set_chunk_time_interval({qualifiedTableName}, ");
+
                 // Check if the interval is a plain number (e.g., for microseconds).
                 if (long.TryParse(operation.ChunkTimeInterval, out _))
                 {
                     // If it's a number, don't wrap it in quotes.
-                    statements.Add($"SELECT set_chunk_time_interval({qualifiedTableName}, {operation.ChunkTimeInterval}::bigint);");
+                    setChunkTimeInterval.Append($"{operation.ChunkTimeInterval}::bigint");
                 }
                 else
                 {
                     // If it's a string like '7 days', wrap it in quotes.
-                    statements.Add($"SELECT set_chunk_time_interval({qualifiedTableName}, INTERVAL '{operation.ChunkTimeInterval}');");
+                    setChunkTimeInterval.Append($"INTERVAL '{operation.ChunkTimeInterval}'");
                 }
+
+                setChunkTimeInterval.Append(");");
+                statements.Add(setChunkTimeInterval.ToString());
             }
 
-            // Check for EnableCompression change
+            // Check for EnableCompression change (Community Edition only)
             bool newCompressionState = operation.EnableCompression || operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Any();
             bool oldCompressionState = operation.OldEnableCompression || operation.OldChunkSkipColumns != null && operation.OldChunkSkipColumns.Any();
 
             if (newCompressionState != oldCompressionState)
             {
                 string compressionValue = newCompressionState.ToString().ToLower();
-                statements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {compressionValue});");
+                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {compressionValue});");
             }
 
-            // Handle ChunkSkipColumns
+            // Handle ChunkSkipColumns (Community Edition only)
             IReadOnlyList<string> newColumns = operation.ChunkSkipColumns ?? [];
             IReadOnlyList<string> oldColumns = operation.OldChunkSkipColumns ?? [];
             List<string> addedColumns = [.. newColumns.Except(oldColumns)];
 
             if (addedColumns.Count != 0)
             {
-                statements.Add("SET timescaledb.enable_chunk_skipping = 'ON';");
+                communityStatements.Add("SET timescaledb.enable_chunk_skipping = 'ON';");
 
                 foreach (string column in addedColumns)
                 {
-                    statements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{column}');");
+                    communityStatements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{column}');");
                 }
             }
 
@@ -143,7 +158,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             {
                 foreach (string column in removedColumns)
                 {
-                    statements.Add($"SELECT disable_chunk_skipping({qualifiedTableName}, '{column}');");
+                    communityStatements.Add($"SELECT disable_chunk_skipping({qualifiedTableName}, '{column}');");
                 }
             }
 
@@ -194,8 +209,40 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 statements.Add($"-- WARNING: TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: {dimensionList}");
             }
 
+
+            // Add wrapped community statements if any exist
+            if (communityStatements.Count > 0)
+            {
+                statements.Add(WrapCommunityFeatures(communityStatements));
+            }
             return statements;
+        }
+
+        /// <summary>
+        /// Wraps multiple SQL statements in a single license check block to ensure they only run on Community Edition
+        /// </summary>
+        private string WrapCommunityFeatures(List<string> sqlStatements)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("DO $$");
+            sb.AppendLine("DECLARE");
+            sb.AppendLine("    license TEXT;");
+            sb.AppendLine("BEGIN");
+            sb.AppendLine("    license := current_setting('timescaledb.license', true);");
+            sb.AppendLine("    ");
+            sb.AppendLine("    IF license IS NULL OR license != 'apache' THEN");
+
+            foreach (string sql in sqlStatements)
+            {
+                sb.AppendLine($"        {sql}");
+            }
+
+            sb.AppendLine("    ELSE");
+            sb.AppendLine("        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';");
+            sb.AppendLine("    END IF;");
+            sb.AppendLine("END $$;");
+
+            return sb.ToString();
         }
     }
 }
-
