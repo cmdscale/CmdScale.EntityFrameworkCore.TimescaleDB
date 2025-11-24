@@ -1,0 +1,14 @@
+{
+  // Formatting
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[csharp]": {
+    "editor.defaultFormatter": "ms-dotnettools.csharp"
+  },
+
+  // Other
+  "dotnet.codeLens.enableReferencesCodeLens": false,
+  "dotnet.defaultSolution": "CmdScale.EntityFrameworkCore.TimescaleDB.sln",
+  "cSpell.diagnosticLevel": "Hint",
+  "cSpell.words": ["appsettings", "Eftdb", "Hypertable"]
+}
