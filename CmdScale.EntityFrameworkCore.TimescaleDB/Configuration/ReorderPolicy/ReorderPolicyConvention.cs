@@ -31,7 +31,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy
                 {
                     if (DateTime.TryParse(attribute.InitialStart, out DateTime parsedDateTimeOffset))
                     {
-                        entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.ScheduleInterval, parsedDateTimeOffset);
+                        entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.InitialStart, parsedDateTimeOffset);
                     }
                     else
                     {

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates
 {
-    internal class ContinuousAggregateModelExtractor
+    public class ContinuousAggregateModelExtractor
     {
         public static IEnumerable<CreateContinuousAggregateOperation> GetContinuousAggregates(IRelationalModel? relationalModel)
         {
@@ -61,6 +61,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 // Get convention-aware store identifier for the parent table
                 StoreObjectIdentifier parentStoreIdentifier = StoreObjectIdentifier.Table(parentTableName, parentEntityType.GetSchema());
 
+                string? viewName = entityType.GetViewName() ?? materializedViewName;
+                StoreObjectIdentifier aggregateStoreIdentifier = StoreObjectIdentifier.View(viewName, entityType.GetSchema());
+
                 // Resolve time bucket source column to database column name
                 string? timeBucketSourceColumn = parentEntityType.FindProperty(timeBucketSourceColumnModelName)?.GetColumnName(parentStoreIdentifier);
                 if (string.IsNullOrWhiteSpace(timeBucketSourceColumn))
@@ -102,8 +105,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                             continue;
                         }
 
-                        // Alias stays as-is since it's the target column name in the aggregate view
-                        aggregateFunctions.Add($"{aliasModelName}:{functionEnumString}:{sourceColumnDbName}");
+                        // Resolve alias column name from aggregate entity to respect naming conventions
+                        string? aliasDbName = entityType.FindProperty(aliasModelName)?.GetColumnName(aggregateStoreIdentifier);
+                        if (string.IsNullOrWhiteSpace(aliasDbName))
+                        {
+                            // Fallback to model name if property not found in aggregate entity
+                            aliasDbName = aliasModelName;
+                        }
+
+                        aggregateFunctions.Add($"{aliasDbName}:{functionEnumString}:{sourceColumnDbName}");
                     }
                 }
 
@@ -148,7 +158,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     TimeBucketGroupBy = timeBucketGroupBy,
                     AggregateFunctions = aggregateFunctions,
                     GroupByColumns = groupByColumns,
-                    WhereClaus = whereClause
+                    WhereClause = whereClause
                 };
             }
         }

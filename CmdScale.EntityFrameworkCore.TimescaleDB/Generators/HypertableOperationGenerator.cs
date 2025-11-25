@@ -70,7 +70,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 {
                     if (dimension.Type == EDimensionType.Range)
                     {
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{dimension.ColumnName}', INTERVAL '{dimension.Interval}'));");
+                        // Detect if interval is numeric (integer range) or time-based (timestamp range)
+                        bool isIntegerRange = long.TryParse(dimension.Interval, out _);
+                        string intervalExpression = isIntegerRange
+                            ? dimension.Interval!
+                            : $"INTERVAL '{dimension.Interval}'";
+
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{dimension.ColumnName}', {intervalExpression}));");
                     }
                     else if (dimension.Type == EDimensionType.Hash)
                     {
@@ -159,7 +165,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 {
                     if (newDim.Type == EDimensionType.Range)
                     {
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{newDim.ColumnName}', INTERVAL '{newDim.Interval}'));");
+                        // Detect if interval is numeric (integer range) or time-based (timestamp range)
+                        bool isIntegerRange = long.TryParse(newDim.Interval, out _);
+                        string intervalExpression = isIntegerRange
+                            ? newDim.Interval!
+                            : $"INTERVAL '{newDim.Interval}'";
+
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{newDim.ColumnName}', {intervalExpression}));");
                     }
                     else if (newDim.Type == EDimensionType.Hash)
                     {

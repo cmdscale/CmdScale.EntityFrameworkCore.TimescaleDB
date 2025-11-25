@@ -1,0 +1,66 @@
+{
+  "stryker-config": {
+    "project-info": {
+      "name": "CmdScale.EntityFrameworkCore.TimescaleDB",
+      "module": "CmdScale.EntityFrameworkCore.TimescaleDB.Tests",
+      "version": "0.3.0"
+    },
+    "solution": "../CmdScale.EntityFrameworkCore.TimescaleDB.sln",
+    "project": "CmdScale.EntityFrameworkCore.TimescaleDB.csproj",
+    "test-projects": [
+      "CmdScale.EntityFrameworkCore.TimescaleDB.Tests.csproj"
+    ],
+    "target-framework": "net8.0",
+    "concurrency": 8,
+    "mutation-level": "Standard",
+    "language-version": "latest",
+    "additional-timeout": 10000,
+    "mutate": [
+      "**/*.cs",
+      "!**/*.Designer.cs",
+      "!**/obj/**/*.cs",
+      "!**/bin/**/*.cs",
+      "!**/Migrations/**/*.cs",
+      "!**/Properties/**/*.cs"
+    ],
+    "coverage-analysis": "perTest",
+    "disable-bail": false,
+    "disable-mix-mutants": false,
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 50
+    },
+    "verbosity": "info",
+    "reporters": [
+      "html",
+      "progress",
+      "cleartext"
+    ],
+    "report-file-name": "mutation-report",
+    "since": {
+      "enabled": true,
+      "ignore-changes-in": [
+        "**/Example/**",
+        "**/Benchmarks/**",
+        "**/FunctionalTests/**"
+      ],
+      "target": "main"
+    },
+    "baseline": {
+      "enabled": false,
+      "provider": "disk",
+      "fallback-version": "main"
+    },
+    "ignore-mutations": [
+      "string"
+    ],
+    "ignore-methods": [
+      "*ToString",
+      "*GetHashCode",
+      "*Equals"
+    ],
+    "test-case-filter": "Category!=Integration",
+    "break-on-initial-test-failure": true
+  }
+}

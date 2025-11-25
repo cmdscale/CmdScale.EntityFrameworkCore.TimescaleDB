@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates
 {
-    internal class ContinuousAggregateDiffer : IFeatureDiffer
+    public class ContinuousAggregateDiffer : IFeatureDiffer
     {
         public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
         {
@@ -65,7 +65,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     x.Target.WithNoData != x.Source.WithNoData ||
                     !AreAggregateFunctionsEqual(x.Target.AggregateFunctions, x.Source.AggregateFunctions) ||
                     !AreGroupByColumnsEqual(x.Target.GroupByColumns, x.Source.GroupByColumns) ||
-                    x.Target.WhereClaus != x.Source.WhereClaus
+                    x.Target.WhereClause != x.Source.WhereClause
                 );
 
             foreach (var aggregate in structurallyChangedAggregates)

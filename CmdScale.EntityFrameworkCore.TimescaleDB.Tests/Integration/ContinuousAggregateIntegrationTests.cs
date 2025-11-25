@@ -6,14 +6,13 @@ using Testcontainers.PostgreSql;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 {
-    public class ContinuousAggregateIntegrationTests : IAsyncLifetime
+    public class ContinuousAggregateIntegrationTests : MigrationTestBase, IAsyncLifetime
     {
         private PostgreSqlContainer? _container;
         private string? _connectionString;
 
         public async Task InitializeAsync()
         {
-            // Arrange: Start TimescaleDB container
             _container = new PostgreSqlBuilder()
                 .WithImage("timescale/timescaledb:latest-pg16")
                 .WithDatabase("test_db")
@@ -33,376 +32,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             }
         }
 
-        [Fact]
-        public async Task Should_Create_ContinuousAggregate_With_BasicAggregates()
-        {
-            // Arrange: Create context with hypertable and continuous aggregate using basic aggregates
-            await using var context = new BasicAggregatesTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
+        #region Should_Create_ContinuousAggregate_With_BasicAggregates
 
-            // Insert test data
-            await InsertTradeDataAsync(context);
-
-            // Act: Refresh the continuous aggregate
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_basic', NULL, NULL);");
-
-            var aggregates = await context.TradeAggregates
-                .OrderBy(a => a.TimeBucket)
-                .ToListAsync();
-
-            // Assert: Verify aggregates were calculated correctly
-            Assert.NotEmpty(aggregates);
-            var firstAggregate = aggregates.First();
-            Assert.True(firstAggregate.AvgPrice > 0);
-            Assert.True(firstAggregate.MaxPrice >= firstAggregate.MinPrice);
-            Assert.True(firstAggregate.SumPrice > 0);
-            Assert.True(firstAggregate.CountPrice > 0);
-        }
-
-        [Fact]
-        public async Task Should_Create_ContinuousAggregate_With_FirstAndLast_Functions()
-        {
-            // Arrange: Create context with First and Last aggregate functions
-            await using var context = new FirstLastTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data with specific timestamps
-            await context.Database.ExecuteSqlRawAsync(@"
-                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
-                VALUES
-                    ('2025-01-06 10:00:00+00', 'AAPL', 100.00, 100, 'NYSE'),
-                    ('2025-01-06 10:30:00+00', 'AAPL', 105.00, 200, 'NYSE'),
-                    ('2025-01-06 10:45:00+00', 'AAPL', 103.00, 150, 'NYSE');
-            ");
-
-            // Act: Refresh the continuous aggregate
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_first_last', NULL, NULL);");
-
-            var aggregates = await context.TradeAggregates.ToListAsync();
-
-            // Assert: Verify first() returns earliest value and last() returns latest value
-            Assert.Single(aggregates);
-            Assert.Equal(100.00m, aggregates[0].FirstPrice); // First price at 10:00
-            Assert.Equal(103.00m, aggregates[0].LastPrice);  // Last price at 10:45
-        }
-
-        [Fact]
-        public async Task Should_Create_ContinuousAggregate_With_GroupByColumns()
-        {
-            // Arrange: Create context with GROUP BY columns
-            await using var context = new GroupByTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data for different exchanges
-            await context.Database.ExecuteSqlRawAsync(@"
-                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
-                VALUES
-                    ('2025-01-06 10:00:00+00', 'AAPL', 100.00, 100, 'NYSE'),
-                    ('2025-01-06 10:00:00+00', 'AAPL', 110.00, 200, 'NASDAQ'),
-                    ('2025-01-06 10:00:00+00', 'AAPL', 105.00, 150, 'LSE');
-            ");
-
-            // Act: Refresh the continuous aggregate
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_grouped', NULL, NULL);");
-
-            var aggregates = await context.TradeAggregates
-                .OrderBy(a => a.Exchange)
-                .ToListAsync();
-
-            // Assert: Verify we have one aggregate per exchange
-            Assert.Equal(3, aggregates.Count);
-            Assert.Equal("LSE", aggregates[0].Exchange);
-            Assert.Equal(105.00m, aggregates[0].AvgPrice);
-            Assert.Equal("NASDAQ", aggregates[1].Exchange);
-            Assert.Equal(110.00m, aggregates[1].AvgPrice);
-            Assert.Equal("NYSE", aggregates[2].Exchange);
-            Assert.Equal(100.00m, aggregates[2].AvgPrice);
-        }
-
-        [Fact]
-        public async Task Should_Create_ContinuousAggregate_With_WhereClause()
-        {
-            // Arrange: Create context with WHERE clause to filter data
-            await using var context = new WhereClauseTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data with different tickers
-            await context.Database.ExecuteSqlRawAsync(@"
-                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
-                VALUES
-                    ('2025-01-06 10:00:00+00', 'AAPL', 100.00, 100, 'NYSE'),
-                    ('2025-01-06 10:00:00+00', 'TSLA', 200.00, 200, 'NYSE'),
-                    ('2025-01-06 10:00:00+00', 'MSFT', 300.00, 150, 'NYSE');
-            ");
-
-            // Act: Refresh the continuous aggregate (should only include AAPL)
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_filtered', NULL, NULL);");
-
-            var aggregates = await context.TradeAggregates.ToListAsync();
-
-            // Assert: Verify only AAPL data is included
-            Assert.Single(aggregates);
-            Assert.Equal(100.00m, aggregates[0].AvgPrice);
-        }
-
-        [Fact]
-        public async Task Should_Create_ContinuousAggregate_WithNoData_Option()
-        {
-            // Arrange: Create context with WITH NO DATA option
-            await using var context = new WithNoDataTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data
-            await context.Database.ExecuteSqlRawAsync(@"
-                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
-                VALUES
-                    ('2025-01-06 10:00:00+00', 'AAPL', 100.00, 100, 'NYSE');
-            ");
-
-            // Act: Query the continuous aggregate (should be empty because of WITH NO DATA)
-            var aggregates = await context.TradeAggregates.ToListAsync();
-
-            // Assert: Verify no data is materialized initially
-            Assert.Empty(aggregates);
-
-            // Now refresh and verify data appears
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_no_data', NULL, NULL);");
-
-            aggregates = await context.TradeAggregates.ToListAsync();
-            Assert.Single(aggregates);
-        }
-
-        [Fact]
-        public async Task Should_Create_ContinuousAggregate_With_CustomChunkInterval()
-        {
-            // Arrange: Create context with custom chunk_interval = "1 day"
-            await using var context = new CustomChunkIntervalTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data
-            await InsertTradeDataAsync(context);
-
-            // Act: Refresh and query the aggregate
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_custom_chunk', NULL, NULL);");
-
-            var aggregates = await context.TradeAggregates.ToListAsync();
-
-            // Assert: Verify the continuous aggregate works correctly
-            Assert.NotEmpty(aggregates);
-        }
-
-        [Fact]
-        public async Task Should_Create_ContinuousAggregate_With_CreateGroupIndexes()
-        {
-            // Arrange: Create context with create_group_indexes = true
-            await using var context = new CreateGroupIndexesTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data
-            await InsertTradeDataAsync(context);
-
-            // Act: Refresh and query the aggregate
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_with_indexes', NULL, NULL);");
-
-            var aggregates = await context.TradeAggregates.ToListAsync();
-
-            // Assert: Verify aggregates were created (indexes are internal, hard to verify directly)
-            Assert.NotEmpty(aggregates);
-        }
-
-        [Fact]
-        public async Task Should_Create_ContinuousAggregate_With_MaterializedOnly_False()
-        {
-            // Arrange: Create context with materialized_only = false (allows real-time aggregation)
-            await using var context = new MaterializedOnlyFalseTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data
-            await context.Database.ExecuteSqlRawAsync(@"
-                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
-                VALUES
-                    ('2025-01-06 10:00:00+00', 'AAPL', 100.00, 100, 'NYSE');
-            ");
-
-            // Act: Query without explicit refresh (should include real-time data)
-            var aggregates = await context.TradeAggregates.ToListAsync();
-
-            // Assert: Verify we can see data even without manual refresh
-            Assert.Single(aggregates);
-            Assert.Equal(100.00m, aggregates[0].AvgPrice);
-        }
-
-        [Fact]
-        public async Task Should_Alter_ContinuousAggregate_ChunkInterval()
-        {
-            // Arrange: Create context with initial chunk_interval = "7 days"
-            await using var context1 = new AlterChunkIntervalContext_Before(_connectionString!);
-            await context1.Database.EnsureCreatedAsync();
-
-            // Insert test data and refresh
-            await InsertTradeDataAsync(context1);
-            await context1.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_alterable', NULL, NULL);");
-
-            var aggregatesBefore = await context1.TradeAggregates.ToListAsync();
-            Assert.NotEmpty(aggregatesBefore);
-
-            // Act: Alter the chunk_interval to "14 days"
-            await using var context2 = new AlterChunkIntervalContext_After(_connectionString!);
-
-            await context2.Database.ExecuteSqlRawAsync(@"
-                ALTER MATERIALIZED VIEW trade_aggregate_alterable
-                SET (timescaledb.chunk_interval = '14 days');
-            ");
-
-            // Assert: Verify we can still query the aggregate after altering chunk_interval
-            var aggregatesAfter = await context2.TradeAggregates.ToListAsync();
-            Assert.NotEmpty(aggregatesAfter);
-            Assert.Equal(aggregatesBefore.Count, aggregatesAfter.Count);
-        }
-
-        [Fact]
-        public async Task Should_Alter_ContinuousAggregate_MaterializedOnly()
-        {
-            // Arrange: Create context with materialized_only = false
-            await using var context = new AlterMaterializedOnlyTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data and refresh
-            await InsertTradeDataAsync(context);
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_materialized_only', NULL, NULL);");
-
-            // Act: Alter materialized_only to true
-            await context.Database.ExecuteSqlRawAsync(@"
-                ALTER MATERIALIZED VIEW trade_aggregate_materialized_only
-                SET (timescaledb.materialized_only = true);
-            ");
-
-            // Assert: Verify we can still query the aggregate after alteration
-            var aggregates = await context.TradeAggregates.ToListAsync();
-            Assert.NotEmpty(aggregates);
-        }
-
-        [Fact]
-        public async Task Should_Alter_ContinuousAggregate_CreateGroupIndexes()
-        {
-            // NOTE: TimescaleDB does not support altering create_group_indexes after creation
-            // This test verifies that the option is set during creation but cannot be altered
-
-            // Arrange: Create context with create_group_indexes = false
-            await using var context = new AlterCreateGroupIndexesTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Act & Assert: Attempting to alter create_group_indexes should fail
-            await Assert.ThrowsAsync<Npgsql.PostgresException>(async () =>
-            {
-                await context.Database.ExecuteSqlRawAsync(@"
-                    ALTER MATERIALIZED VIEW trade_aggregate_group_indexes
-                    SET (timescaledb.create_group_indexes = true);
-                ");
-            });
-        }
-
-        [Fact]
-        public async Task Should_Drop_ContinuousAggregate_Successfully()
-        {
-            // Arrange: Create context with continuous aggregate
-            await using var context = new DropTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert data and refresh to ensure aggregate has data
-            await InsertTradeDataAsync(context);
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_to_drop', NULL, NULL);");
-
-            // Verify we can query the aggregate before dropping
-            var aggregatesBefore = await context.TradeAggregates.ToListAsync();
-            Assert.NotEmpty(aggregatesBefore);
-
-            // Act: Drop the continuous aggregate
-            await context.Database.ExecuteSqlRawAsync(
-                "DROP MATERIALIZED VIEW IF EXISTS trade_aggregate_to_drop;");
-
-            // Assert: Verify we cannot query the aggregate after dropping (should throw)
-            await Assert.ThrowsAsync<Npgsql.PostgresException>(async () =>
-            {
-                await context.TradeAggregates.ToListAsync();
-            });
-        }
-
-        [Fact]
-        public async Task Should_Generate_Correct_SQL_For_ContinuousAggregate()
-        {
-            // Arrange: Create context and ensure database is created
-            await using var context = new SqlGenerationTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data
-            await InsertTradeDataAsync(context);
-
-            // Act: Refresh and query the continuous aggregate
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_sql_gen', NULL, NULL);");
-
-            var aggregates = await context.TradeAggregates.ToListAsync();
-
-            // Assert: Verify the continuous aggregate works correctly
-            Assert.NotEmpty(aggregates);
-            var firstAggregate = aggregates.First();
-            Assert.True(firstAggregate.AvgPrice > 0);
-        }
-
-        [Fact]
-        public async Task Should_Handle_SnakeCase_Naming_Convention()
-        {
-            // Arrange: Create context with snake_case naming convention
-            await using var context = new SnakeCaseTestContext(_connectionString!);
-            await context.Database.EnsureCreatedAsync();
-
-            // Insert test data
-            await context.Database.ExecuteSqlRawAsync(@"
-                INSERT INTO trades (timestamp, ticker, price, size, exchange)
-                VALUES
-                    ('2025-01-06 10:00:00+00', 'AAPL', 100.00, 100, 'NYSE');
-            ");
-
-            // Act: Refresh and query the continuous aggregate
-            await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_snake_case', NULL, NULL);");
-
-            var aggregates = await context.TradeAggregates.ToListAsync();
-
-            // Assert: Verify snake_case columns work correctly
-            Assert.Single(aggregates);
-            Assert.Equal(100.00m, aggregates[0].avg_price);
-        }
-
-        #region Helper Methods
-
-        private async Task InsertTradeDataAsync(DbContext context)
-        {
-            await context.Database.ExecuteSqlRawAsync(@"
-                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
-                VALUES
-                    ('2025-01-06 10:00:00+00', 'AAPL', 150.50, 100, 'NYSE'),
-                    ('2025-01-06 10:30:00+00', 'AAPL', 151.00, 200, 'NYSE'),
-                    ('2025-01-06 10:45:00+00', 'AAPL', 149.75, 150, 'NYSE');
-            ");
-        }
-
-        #endregion
-
-        #region Test Models
-
-        private class TestTrade
+        private class BasicAggregatesTrade
         {
             public DateTime Timestamp { get; set; }
             public string Ticker { get; set; } = string.Empty;
@@ -411,7 +43,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             public string Exchange { get; set; } = string.Empty;
         }
 
-        private class BasicAggregatesTestAggregate
+        private class BasicAggregatesAggregate
         {
             public DateTime TimeBucket { get; set; }
             public decimal AvgPrice { get; set; }
@@ -421,69 +53,27 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             public long CountPrice { get; set; }
         }
 
-        private class FirstLastTestAggregate
+        private class BasicAggregatesContext(string connectionString) : DbContext
         {
-            public DateTime TimeBucket { get; set; }
-            public decimal FirstPrice { get; set; }
-            public decimal LastPrice { get; set; }
-        }
-
-        private class GroupByTestAggregate
-        {
-            public DateTime TimeBucket { get; set; }
-            public string Exchange { get; set; } = string.Empty;
-            public decimal AvgPrice { get; set; }
-        }
-
-        private class WhereClauseTestAggregate
-        {
-            public DateTime TimeBucket { get; set; }
-            public decimal AvgPrice { get; set; }
-        }
-
-        private class SnakeCaseTestAggregate
-        {
-            public DateTime time_bucket { get; set; }
-            public decimal avg_price { get; set; }
-        }
-
-        #endregion
-
-        #region Test Contexts
-
-        private class BasicAggregatesTestContext : DbContext
-        {
-            private readonly string _connectionString;
-
-            public BasicAggregatesTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
-
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<BasicAggregatesTestAggregate> TradeAggregates => Set<BasicAggregatesTestAggregate>();
+            public DbSet<BasicAggregatesTrade> Trades => Set<BasicAggregatesTrade>();
+            public DbSet<BasicAggregatesAggregate> TradeAggregates => Set<BasicAggregatesAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                // Configure Trade as a hypertable
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<BasicAggregatesTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                // Configure continuous aggregate with all basic aggregate functions
-                modelBuilder.Entity<BasicAggregatesTestAggregate>(entity =>
+                modelBuilder.Entity<BasicAggregatesAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<BasicAggregatesTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<BasicAggregatesAggregate, BasicAggregatesTrade>(
                             "trade_aggregate_basic",
                             "1 hour",
                             x => x.Timestamp)
@@ -493,7 +83,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                         .AddAggregateFunction(x => x.SumPrice, x => x.Price, EAggregateFunction.Sum)
                         .AddAggregateFunction(x => x.CountPrice, x => x.Price, EAggregateFunction.Count);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                     entity.Property(x => x.MaxPrice).HasColumnName("MaxPrice");
@@ -504,44 +93,81 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             }
         }
 
-        private class FirstLastTestContext : DbContext
+        [Fact]
+        public async Task Should_Create_ContinuousAggregate_With_BasicAggregates()
         {
-            private readonly string _connectionString;
+            await using BasicAggregatesContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public FirstLastTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<FirstLastTestAggregate> TradeAggregates => Set<FirstLastTestAggregate>();
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_basic', NULL, NULL);");
+
+            List<BasicAggregatesAggregate> aggregates = await context.TradeAggregates
+                .OrderBy(a => a.TimeBucket)
+                .ToListAsync();
+
+            Assert.NotEmpty(aggregates);
+            BasicAggregatesAggregate firstAggregate = aggregates.First();
+            Assert.True(firstAggregate.AvgPrice > 0);
+            Assert.True(firstAggregate.MaxPrice >= firstAggregate.MinPrice);
+            Assert.True(firstAggregate.SumPrice > 0);
+            Assert.True(firstAggregate.CountPrice > 0);
+        }
+
+        #endregion
+
+        #region Should_Create_ContinuousAggregate_With_FirstAndLast_Functions
+
+        private class FirstLastTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class FirstLastAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal FirstPrice { get; set; }
+            public decimal LastPrice { get; set; }
+        }
+
+        private class FirstLastContext(string connectionString) : DbContext
+        {
+            public DbSet<FirstLastTrade> Trades => Set<FirstLastTrade>();
+            public DbSet<FirstLastAggregate> TradeAggregates => Set<FirstLastAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<FirstLastTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<FirstLastTestAggregate>(entity =>
+                modelBuilder.Entity<FirstLastAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<FirstLastTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<FirstLastAggregate, FirstLastTrade>(
                             "trade_aggregate_first_last",
                             "1 hour",
                             x => x.Timestamp)
                         .AddAggregateFunction(x => x.FirstPrice, x => x.Price, EAggregateFunction.First)
                         .AddAggregateFunction(x => x.LastPrice, x => x.Price, EAggregateFunction.Last);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.FirstPrice).HasColumnName("FirstPrice");
                     entity.Property(x => x.LastPrice).HasColumnName("LastPrice");
@@ -549,44 +175,76 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             }
         }
 
-        private class GroupByTestContext : DbContext
+        [Fact]
+        public async Task Should_Create_ContinuousAggregate_With_FirstAndLast_Functions()
         {
-            private readonly string _connectionString;
+            await using FirstLastContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public GroupByTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {105.00m}, {200}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {103.00m}, {150}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<GroupByTestAggregate> TradeAggregates => Set<GroupByTestAggregate>();
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_first_last', NULL, NULL);");
+
+            List<FirstLastAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+
+            Assert.Single(aggregates);
+            Assert.Equal(100.00m, aggregates[0].FirstPrice);
+            Assert.Equal(103.00m, aggregates[0].LastPrice);
+        }
+
+        #endregion
+
+        #region Should_Create_ContinuousAggregate_With_GroupByColumns
+
+        private class GroupByTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class GroupByAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class GroupByContext(string connectionString) : DbContext
+        {
+            public DbSet<GroupByTrade> Trades => Set<GroupByTrade>();
+            public DbSet<GroupByAggregate> TradeAggregates => Set<GroupByAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<GroupByTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<GroupByTestAggregate>(entity =>
+                modelBuilder.Entity<GroupByAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<GroupByTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<GroupByAggregate, GroupByTrade>(
                             "trade_aggregate_grouped",
                             "1 hour",
                             x => x.Timestamp)
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg)
                         .AddGroupByColumn(x => x.Exchange);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.Exchange).HasColumnName("Exchange");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
@@ -594,170 +252,297 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             }
         }
 
-        private class WhereClauseTestContext : DbContext
+        [Fact]
+        public async Task Should_Create_ContinuousAggregate_With_GroupByColumns()
         {
-            private readonly string _connectionString;
+            await using GroupByContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public WhereClauseTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {110.00m}, {200}, {"NASDAQ"}),
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {105.00m}, {150}, {"LSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<WhereClauseTestAggregate> TradeAggregates => Set<WhereClauseTestAggregate>();
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_grouped', NULL, NULL);");
+
+            List<GroupByAggregate> aggregates = await context.TradeAggregates
+                .OrderBy(a => a.Exchange)
+                .ToListAsync();
+
+            Assert.Equal(3, aggregates.Count);
+            Assert.Equal("LSE", aggregates[0].Exchange);
+            Assert.Equal(105.00m, aggregates[0].AvgPrice);
+            Assert.Equal("NASDAQ", aggregates[1].Exchange);
+            Assert.Equal(110.00m, aggregates[1].AvgPrice);
+            Assert.Equal("NYSE", aggregates[2].Exchange);
+            Assert.Equal(100.00m, aggregates[2].AvgPrice);
+        }
+
+        #endregion
+
+        #region Should_Create_ContinuousAggregate_With_WhereClause
+
+        private class WhereClauseTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class WhereClauseAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class WhereClauseContext(string connectionString) : DbContext
+        {
+            public DbSet<WhereClauseTrade> Trades => Set<WhereClauseTrade>();
+            public DbSet<WhereClauseAggregate> TradeAggregates => Set<WhereClauseAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<WhereClauseTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<WhereClauseTestAggregate>(entity =>
+                modelBuilder.Entity<WhereClauseAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<WhereClauseTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<WhereClauseAggregate, WhereClauseTrade>(
                             "trade_aggregate_filtered",
                             "1 hour",
                             x => x.Timestamp)
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg)
                         .Where("\"Ticker\" = 'AAPL'");
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                 });
             }
         }
 
-        private class WithNoDataTestContext : DbContext
+        [Fact]
+        public async Task Should_Create_ContinuousAggregate_With_WhereClause()
         {
-            private readonly string _connectionString;
+            await using WhereClauseContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public WithNoDataTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"TSLA"}, {200.00m}, {200}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"MSFT"}, {300.00m}, {150}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<WhereClauseTestAggregate> TradeAggregates => Set<WhereClauseTestAggregate>();
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_filtered', NULL, NULL);");
+
+            List<WhereClauseAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+
+            Assert.Single(aggregates);
+            Assert.Equal(100.00m, aggregates[0].AvgPrice);
+        }
+
+        #endregion
+
+        #region Should_Create_ContinuousAggregate_WithNoData_Option
+
+        private class WithNoDataTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class WithNoDataAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class WithNoDataContext(string connectionString) : DbContext
+        {
+            public DbSet<WithNoDataTrade> Trades => Set<WithNoDataTrade>();
+            public DbSet<WithNoDataAggregate> TradeAggregates => Set<WithNoDataAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<WithNoDataTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<WhereClauseTestAggregate>(entity =>
+                modelBuilder.Entity<WithNoDataAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<WhereClauseTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<WithNoDataAggregate, WithNoDataTrade>(
                             "trade_aggregate_no_data",
                             "1 hour",
                             x => x.Timestamp)
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg)
                         .WithNoData(true)
-                        .MaterializedOnly(true); // Disable real-time aggregation so WITH NO DATA takes effect
+                        .MaterializedOnly(true);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                 });
             }
         }
 
-        private class CustomChunkIntervalTestContext : DbContext
+        [Fact]
+        public async Task Should_Create_ContinuousAggregate_WithNoData_Option()
         {
-            private readonly string _connectionString;
+            await using WithNoDataContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public CustomChunkIntervalTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<WhereClauseTestAggregate> TradeAggregates => Set<WhereClauseTestAggregate>();
+            List<WithNoDataAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+
+            Assert.Empty(aggregates);
+
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_no_data', NULL, NULL);");
+
+            aggregates = await context.TradeAggregates.ToListAsync();
+            Assert.Single(aggregates);
+        }
+
+        #endregion
+
+        #region Should_Create_ContinuousAggregate_With_CustomChunkInterval
+
+        private class CustomChunkIntervalTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class CustomChunkIntervalAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class CustomChunkIntervalContext(string connectionString) : DbContext
+        {
+            public DbSet<CustomChunkIntervalTrade> Trades => Set<CustomChunkIntervalTrade>();
+            public DbSet<CustomChunkIntervalAggregate> TradeAggregates => Set<CustomChunkIntervalAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<CustomChunkIntervalTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<WhereClauseTestAggregate>(entity =>
+                modelBuilder.Entity<CustomChunkIntervalAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<WhereClauseTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<CustomChunkIntervalAggregate, CustomChunkIntervalTrade>(
                             "trade_aggregate_custom_chunk",
                             "1 hour",
                             x => x.Timestamp,
-                            chukInterval: "1 day")
+                            chunkInterval: "1 day")
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                 });
             }
         }
 
-        private class CreateGroupIndexesTestContext : DbContext
+        [Fact]
+        public async Task Should_Create_ContinuousAggregate_With_CustomChunkInterval()
         {
-            private readonly string _connectionString;
+            await using CustomChunkIntervalContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public CreateGroupIndexesTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<GroupByTestAggregate> TradeAggregates => Set<GroupByTestAggregate>();
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_custom_chunk', NULL, NULL);");
+
+            List<CustomChunkIntervalAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+
+            Assert.NotEmpty(aggregates);
+        }
+
+        #endregion
+
+        #region Should_Create_ContinuousAggregate_With_CreateGroupIndexes
+
+        private class CreateGroupIndexesTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class CreateGroupIndexesAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class CreateGroupIndexesContext(string connectionString) : DbContext
+        {
+            public DbSet<CreateGroupIndexesTrade> Trades => Set<CreateGroupIndexesTrade>();
+            public DbSet<CreateGroupIndexesAggregate> TradeAggregates => Set<CreateGroupIndexesAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<CreateGroupIndexesTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<GroupByTestAggregate>(entity =>
+                modelBuilder.Entity<CreateGroupIndexesAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<GroupByTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<CreateGroupIndexesAggregate, CreateGroupIndexesTrade>(
                             "trade_aggregate_with_indexes",
                             "1 hour",
                             x => x.Timestamp)
@@ -765,7 +550,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                         .AddGroupByColumn(x => x.Exchange)
                         .CreateGroupIndexes(true);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.Exchange).HasColumnName("Exchange");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
@@ -773,213 +557,329 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             }
         }
 
-        private class MaterializedOnlyFalseTestContext : DbContext
+        [Fact]
+        public async Task Should_Create_ContinuousAggregate_With_CreateGroupIndexes()
         {
-            private readonly string _connectionString;
+            await using CreateGroupIndexesContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public MaterializedOnlyFalseTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<WhereClauseTestAggregate> TradeAggregates => Set<WhereClauseTestAggregate>();
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_with_indexes', NULL, NULL);");
+
+            List<CreateGroupIndexesAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+
+            Assert.NotEmpty(aggregates);
+        }
+
+        #endregion
+
+        #region Should_Create_ContinuousAggregate_With_MaterializedOnly_False
+
+        private class MaterializedOnlyFalseTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class MaterializedOnlyFalseAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class MaterializedOnlyFalseContext(string connectionString) : DbContext
+        {
+            public DbSet<MaterializedOnlyFalseTrade> Trades => Set<MaterializedOnlyFalseTrade>();
+            public DbSet<MaterializedOnlyFalseAggregate> TradeAggregates => Set<MaterializedOnlyFalseAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<MaterializedOnlyFalseTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<WhereClauseTestAggregate>(entity =>
+                modelBuilder.Entity<MaterializedOnlyFalseAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<WhereClauseTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<MaterializedOnlyFalseAggregate, MaterializedOnlyFalseTrade>(
                             "trade_aggregate_realtime",
                             "1 hour",
                             x => x.Timestamp)
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg)
                         .MaterializedOnly(false);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                 });
             }
         }
 
-        private class AlterChunkIntervalContext_Before : DbContext
+        [Fact]
+        public async Task Should_Create_ContinuousAggregate_With_MaterializedOnly_False()
         {
-            private readonly string _connectionString;
+            await using MaterializedOnlyFalseContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public AlterChunkIntervalContext_Before(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<WhereClauseTestAggregate> TradeAggregates => Set<WhereClauseTestAggregate>();
+            List<MaterializedOnlyFalseAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+
+            Assert.Single(aggregates);
+            Assert.Equal(100.00m, aggregates[0].AvgPrice);
+        }
+
+        #endregion
+
+        #region Should_Alter_ContinuousAggregate_ChunkInterval
+
+        private class AlterChunkIntervalTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class AlterChunkIntervalAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class AlterChunkIntervalInitialContext(string connectionString) : DbContext
+        {
+            public DbSet<AlterChunkIntervalTrade> Trades => Set<AlterChunkIntervalTrade>();
+            public DbSet<AlterChunkIntervalAggregate> TradeAggregates => Set<AlterChunkIntervalAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<AlterChunkIntervalTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<WhereClauseTestAggregate>(entity =>
+                modelBuilder.Entity<AlterChunkIntervalAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<WhereClauseTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<AlterChunkIntervalAggregate, AlterChunkIntervalTrade>(
                             "trade_aggregate_alterable",
                             "1 hour",
                             x => x.Timestamp,
-                            chukInterval: "7 days")
+                            chunkInterval: "7 days")
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                 });
             }
         }
 
-        private class AlterChunkIntervalContext_After : DbContext
+        private class AlterChunkIntervalModifiedContext(string connectionString) : DbContext
         {
-            private readonly string _connectionString;
-
-            public AlterChunkIntervalContext_After(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
-
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<WhereClauseTestAggregate> TradeAggregates => Set<WhereClauseTestAggregate>();
+            public DbSet<AlterChunkIntervalTrade> Trades => Set<AlterChunkIntervalTrade>();
+            public DbSet<AlterChunkIntervalAggregate> TradeAggregates => Set<AlterChunkIntervalAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<AlterChunkIntervalTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<WhereClauseTestAggregate>(entity =>
+                modelBuilder.Entity<AlterChunkIntervalAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<WhereClauseTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<AlterChunkIntervalAggregate, AlterChunkIntervalTrade>(
                             "trade_aggregate_alterable",
                             "1 hour",
                             x => x.Timestamp,
-                            chukInterval: "14 days")
+                            chunkInterval: "14 days") // <-- Changed from "7 days"
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                 });
             }
         }
 
-        private class AlterMaterializedOnlyTestContext : DbContext
+        [Fact]
+        public async Task Should_Alter_ContinuousAggregate_ChunkInterval()
         {
-            private readonly string _connectionString;
+            await using AlterChunkIntervalInitialContext context1 = new(_connectionString!);
+            await context1.Database.EnsureCreatedAsync();
 
-            public AlterMaterializedOnlyTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context1.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<WhereClauseTestAggregate> TradeAggregates => Set<WhereClauseTestAggregate>();
+            await context1.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_alterable', NULL, NULL);");
+
+            List<AlterChunkIntervalAggregate> aggregatesBefore = await context1.TradeAggregates.ToListAsync();
+            Assert.NotEmpty(aggregatesBefore);
+
+            await using AlterChunkIntervalModifiedContext context2 = new(_connectionString!);
+
+            await context2.Database.ExecuteSqlRawAsync(@"
+                ALTER MATERIALIZED VIEW trade_aggregate_alterable
+                SET (timescaledb.chunk_interval = '14 days');
+            ");
+
+            List<AlterChunkIntervalAggregate> aggregatesAfter = await context2.TradeAggregates.ToListAsync();
+            Assert.NotEmpty(aggregatesAfter);
+            Assert.Equal(aggregatesBefore.Count, aggregatesAfter.Count);
+        }
+
+        #endregion
+
+        #region Should_Alter_ContinuousAggregate_MaterializedOnly
+
+        private class AlterMaterializedOnlyTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class AlterMaterializedOnlyAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class AlterMaterializedOnlyContext(string connectionString) : DbContext
+        {
+            public DbSet<AlterMaterializedOnlyTrade> Trades => Set<AlterMaterializedOnlyTrade>();
+            public DbSet<AlterMaterializedOnlyAggregate> TradeAggregates => Set<AlterMaterializedOnlyAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<AlterMaterializedOnlyTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<WhereClauseTestAggregate>(entity =>
+                modelBuilder.Entity<AlterMaterializedOnlyAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<WhereClauseTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<AlterMaterializedOnlyAggregate, AlterMaterializedOnlyTrade>(
                             "trade_aggregate_materialized_only",
                             "1 hour",
                             x => x.Timestamp)
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg)
                         .MaterializedOnly(false);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                 });
             }
         }
 
-        private class AlterCreateGroupIndexesTestContext : DbContext
+        [Fact]
+        public async Task Should_Alter_ContinuousAggregate_MaterializedOnly()
         {
-            private readonly string _connectionString;
+            await using AlterMaterializedOnlyContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public AlterCreateGroupIndexesTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<GroupByTestAggregate> TradeAggregates => Set<GroupByTestAggregate>();
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_materialized_only', NULL, NULL);");
+
+            await context.Database.ExecuteSqlRawAsync(@"
+                ALTER MATERIALIZED VIEW trade_aggregate_materialized_only
+                SET (timescaledb.materialized_only = true);
+            ");
+
+            List<AlterMaterializedOnlyAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            Assert.NotEmpty(aggregates);
+        }
+
+        #endregion
+
+        #region Should_Alter_ContinuousAggregate_CreateGroupIndexes
+
+        private class AlterGroupIndexesTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class AlterGroupIndexesAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class AlterGroupIndexesContext(string connectionString) : DbContext
+        {
+            public DbSet<AlterGroupIndexesTrade> Trades => Set<AlterGroupIndexesTrade>();
+            public DbSet<AlterGroupIndexesAggregate> TradeAggregates => Set<AlterGroupIndexesAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<AlterGroupIndexesTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<GroupByTestAggregate>(entity =>
+                modelBuilder.Entity<AlterGroupIndexesAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<GroupByTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<AlterGroupIndexesAggregate, AlterGroupIndexesTrade>(
                             "trade_aggregate_group_indexes",
                             "1 hour",
                             x => x.Timestamp)
@@ -987,7 +887,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                         .AddGroupByColumn(x => x.Exchange)
                         .CreateGroupIndexes(false);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.Exchange).HasColumnName("Exchange");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
@@ -995,132 +894,243 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             }
         }
 
-        private class DropTestContext : DbContext
+        [Fact]
+        public async Task Should_Alter_ContinuousAggregate_CreateGroupIndexes()
         {
-            private readonly string _connectionString;
+            await using AlterGroupIndexesContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public DropTestContext(string connectionString)
+            await Assert.ThrowsAsync<Npgsql.PostgresException>(async () =>
             {
-                _connectionString = connectionString;
-            }
+                await context.Database.ExecuteSqlRawAsync(@"
+                    ALTER MATERIALIZED VIEW trade_aggregate_group_indexes
+                    SET (timescaledb.create_group_indexes = true);
+                ");
+            });
+        }
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<WhereClauseTestAggregate> TradeAggregates => Set<WhereClauseTestAggregate>();
+        #endregion
+
+        #region Should_Drop_ContinuousAggregate_Successfully
+
+        private class DropTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class DropAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class DropContext(string connectionString) : DbContext
+        {
+            public DbSet<DropTrade> Trades => Set<DropTrade>();
+            public DbSet<DropAggregate> TradeAggregates => Set<DropAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<DropTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<WhereClauseTestAggregate>(entity =>
+                modelBuilder.Entity<DropAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<WhereClauseTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<DropAggregate, DropTrade>(
                             "trade_aggregate_to_drop",
                             "1 hour",
                             x => x.Timestamp)
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                 });
             }
         }
 
-        private class SqlGenerationTestContext : DbContext
+        [Fact]
+        public async Task Should_Drop_ContinuousAggregate_Successfully()
         {
-            private readonly string _connectionString;
+            await using DropContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public SqlGenerationTestContext(string connectionString)
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
+
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_to_drop', NULL, NULL);");
+
+            List<DropAggregate> aggregatesBefore = await context.TradeAggregates.ToListAsync();
+            Assert.NotEmpty(aggregatesBefore);
+
+            await context.Database.ExecuteSqlRawAsync(
+                "DROP MATERIALIZED VIEW IF EXISTS trade_aggregate_to_drop;");
+
+            await Assert.ThrowsAsync<Npgsql.PostgresException>(async () =>
             {
-                _connectionString = connectionString;
-            }
+                await context.TradeAggregates.ToListAsync();
+            });
+        }
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<WhereClauseTestAggregate> TradeAggregates => Set<WhereClauseTestAggregate>();
+        #endregion
+
+        #region Should_Generate_Correct_SQL_For_ContinuousAggregate
+
+        private class SqlGenerationTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class SqlGenerationAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class SqlGenerationContext(string connectionString) : DbContext
+        {
+            public DbSet<SqlGenerationTrade> Trades => Set<SqlGenerationTrade>();
+            public DbSet<SqlGenerationAggregate> TradeAggregates => Set<SqlGenerationAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(_connectionString)
-                    .UseTimescaleDb();
-            }
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<SqlGenerationTrade>(entity =>
                 {
                     entity.ToTable("Trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<WhereClauseTestAggregate>(entity =>
+                modelBuilder.Entity<SqlGenerationAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<WhereClauseTestAggregate, TestTrade>(
+                    entity.IsContinuousAggregate<SqlGenerationAggregate, SqlGenerationTrade>(
                             "trade_aggregate_sql_gen",
                             "1 hour",
                             x => x.Timestamp)
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg);
 
-                    // Map properties to view columns
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
                     entity.Property(x => x.AvgPrice).HasColumnName("AvgPrice");
                 });
             }
         }
 
-        private class SnakeCaseTestContext : DbContext
+        [Fact]
+        public async Task Should_Generate_Correct_SQL_For_ContinuousAggregate()
         {
-            private readonly string _connectionString;
+            await using SqlGenerationContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
 
-            public SnakeCaseTestContext(string connectionString)
-            {
-                _connectionString = connectionString;
-            }
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
 
-            public DbSet<TestTrade> Trades => Set<TestTrade>();
-            public DbSet<SnakeCaseTestAggregate> TradeAggregates => Set<SnakeCaseTestAggregate>();
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_sql_gen', NULL, NULL);");
+
+            List<SqlGenerationAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+
+            Assert.NotEmpty(aggregates);
+            SqlGenerationAggregate firstAggregate = aggregates.First();
+            Assert.True(firstAggregate.AvgPrice > 0);
+        }
+
+        #endregion
+
+        #region Should_Handle_SnakeCase_Naming_Convention
+
+        private class SnakeCaseTrade
+        {
+            public DateTime Timestamp { get; set; }
+            public string Ticker { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public int Size { get; set; }
+            public string Exchange { get; set; } = string.Empty;
+        }
+
+        private class SnakeCaseAggregate
+        {
+            public DateTime TimeBucket { get; set; }
+            public decimal AvgPrice { get; set; }
+        }
+
+        private class SnakeCaseContext(string connectionString) : DbContext
+        {
+            public DbSet<SnakeCaseTrade> Trades => Set<SnakeCaseTrade>();
+            public DbSet<SnakeCaseAggregate> TradeAggregates => Set<SnakeCaseAggregate>();
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
-                optionsBuilder.UseNpgsql(_connectionString)
+                optionsBuilder.UseNpgsql(connectionString)
                     .UseSnakeCaseNamingConvention()
                     .UseTimescaleDb();
             }
 
             protected override void OnModelCreating(ModelBuilder modelBuilder)
             {
-                modelBuilder.Entity<TestTrade>(entity =>
+                modelBuilder.Entity<SnakeCaseTrade>(entity =>
                 {
                     entity.ToTable("trades");
                     entity.HasNoKey();
                     entity.IsHypertable(x => x.Timestamp);
                 });
 
-                modelBuilder.Entity<SnakeCaseTestAggregate>(entity =>
+                modelBuilder.Entity<SnakeCaseAggregate>(entity =>
                 {
                     entity.HasNoKey();
-                    entity.IsContinuousAggregate<SnakeCaseTestAggregate, TestTrade>(
-                            "trade_aggregate_snake_case",
+                    entity.IsContinuousAggregate<SnakeCaseAggregate, SnakeCaseTrade>(
+                            "snake_case_test_aggregate",
                             "1 hour",
                             x => x.Timestamp)
-                        .AddAggregateFunction(x => x.avg_price, x => x.Price, EAggregateFunction.Avg);
-
-                    // Note: snake_case convention is applied automatically, so time_bucket and avg_price are already correct
+                        .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg);
                 });
             }
+        }
+
+        [Fact]
+        public async Task Should_Handle_SnakeCase_Naming_Convention()
+        {
+            await using SnakeCaseContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
+
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO trades (timestamp, ticker, price, size, exchange)
+                VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})");
+
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.snake_case_test_aggregate', NULL, NULL);");
+
+            List<SnakeCaseAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+
+            Assert.Single(aggregates);
+            Assert.Equal(100.00m, aggregates[0].AvgPrice);
         }
 
         #endregion

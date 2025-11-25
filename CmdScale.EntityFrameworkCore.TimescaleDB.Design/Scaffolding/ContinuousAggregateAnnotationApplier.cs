@@ -8,7 +8,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
     /// Applies continuous aggregate annotations to scaffolded database views.
     /// Note: Continuous aggregates in TimescaleDB are materialized views, so they appear as tables/views in scaffolding.
     /// </summary>
-    internal sealed class ContinuousAggregateAnnotationApplier : IAnnotationApplier
+    public sealed class ContinuousAggregateAnnotationApplier : IAnnotationApplier
     {
         public void ApplyAnnotations(DatabaseTable table, object featureInfo)
         {

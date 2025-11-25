@@ -15,10 +15,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
 
         public string TimeBucketWidth { get; set; } = string.Empty;
         public string TimeBucketSourceColumn { get; set; } = string.Empty;
-        public bool TimeBucketGroupBy { get; set; } = true;
+        public bool TimeBucketGroupBy { get; set; }
 
         public List<string> AggregateFunctions { get; set; } = [];
         public List<string> GroupByColumns { get; set; } = [];
-        public string? WhereClaus { get; set; }
+        public string? WhereClause { get; set; }
     }
 }

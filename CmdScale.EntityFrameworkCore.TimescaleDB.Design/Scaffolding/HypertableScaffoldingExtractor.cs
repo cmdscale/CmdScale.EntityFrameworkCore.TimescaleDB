@@ -7,9 +7,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
     /// <summary>
     /// Extracts hypertable metadata from a TimescaleDB database for scaffolding.
     /// </summary>
-    internal sealed class HypertableScaffoldingExtractor : ITimescaleFeatureExtractor
+    public sealed class HypertableScaffoldingExtractor : ITimescaleFeatureExtractor
     {
-        internal sealed record HypertableInfo(
+        public sealed record HypertableInfo(
             string TimeColumnName,
             string ChunkTimeInterval,
             bool CompressionEnabled,
@@ -74,7 +74,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     column_name,
                     dimension_number,
                     num_partitions,
-                    EXTRACT(EPOCH FROM time_interval) * 1000 AS time_interval_microseconds
+                    EXTRACT(EPOCH FROM time_interval) * 1000 AS time_interval_microseconds,
+                    integer_interval
                 FROM timescaledb_information.dimensions
                 ORDER BY hypertable_schema, hypertable_name, dimension_number;";
 
@@ -111,14 +112,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
                         if (!reader.IsDBNull(4) && reader.GetInt32(4) > 0)
                         {
-                            // Space dimension
+                            // Hash dimension (space partitioning)
                             dimension = Dimension.CreateHash(columnName, reader.GetInt32(4));
                         }
                         else if (!reader.IsDBNull(5))
                         {
-                            // Time dimension
+                            // Time-based range dimension
                             long interval = (long)reader.GetDouble(5);
                             dimension = Dimension.CreateRange(columnName, interval.ToString());
+                        }
+                        else if (!reader.IsDBNull(6))
+                        {
+                            // Integer-based range dimension
+                            long integerInterval = reader.GetInt64(6);
+                            dimension = Dimension.CreateRange(columnName, integerInterval.ToString());
                         }
                         else continue;
 

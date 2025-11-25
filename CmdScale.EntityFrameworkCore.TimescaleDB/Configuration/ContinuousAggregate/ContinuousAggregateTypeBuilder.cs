@@ -14,7 +14,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             string timeBucketWidth,
             Expression<Func<TSourceEntity, DateTime>> propertyExpression,
             bool timeBucketGroupBy = true,
-            string? chukInterval = null)
+            string? chunkInterval = null)
             where TEntity : class
             where TSourceEntity : class
         {
@@ -32,9 +32,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, timeBucketWidth);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketGroupBy, timeBucketGroupBy);
 
-            if (!string.IsNullOrEmpty(chukInterval))
+            if (!string.IsNullOrEmpty(chunkInterval))
             {
-                entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.ChunkInterval, chukInterval);
+                entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.ChunkInterval, chunkInterval);
             }
 
             return new ContinuousAggregateBuilder<TEntity, TSourceEntity>(entityTypeBuilder);
