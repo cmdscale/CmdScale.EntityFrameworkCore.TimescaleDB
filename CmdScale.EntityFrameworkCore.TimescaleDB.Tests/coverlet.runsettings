@@ -6,8 +6,7 @@
         <Configuration>
           <Format>cobertura,lcov</Format>
           <Exclude>
-			  [CmdScale.EntityFrameworkCore.TimescaleDB]CmdScale.EntityFrameworkCore.TimescaleDB.Internals.WhereClauseExpressionVisitor,
-			  [CmdScale.EntityFrameworkCore.TimescaleDB.Design]*
+			  [CmdScale.EntityFrameworkCore.TimescaleDB]CmdScale.EntityFrameworkCore.TimescaleDB.Internals.WhereClauseExpressionVisitor
 		  </Exclude>
           <ExcludeByAttribute>
             Obsolete,
