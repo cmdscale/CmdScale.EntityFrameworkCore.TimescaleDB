@@ -436,3 +436,11 @@ CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.DbFirst/
 # AI
 CLAUDE.md
 .claude
+
+# Code coverage report
+coverage
+nul
+
+# Stryker.NET mutation testing output
+**/StrykerOutput/
+stryker-config.json.user

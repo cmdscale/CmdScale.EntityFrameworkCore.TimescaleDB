@@ -6,9 +6,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
     /// <summary>
     /// Extracts continuous aggregate metadata from a TimescaleDB database for scaffolding.
     /// </summary>
-    internal sealed class ContinuousAggregateScaffoldingExtractor : ITimescaleFeatureExtractor
+    public sealed class ContinuousAggregateScaffoldingExtractor : ITimescaleFeatureExtractor
     {
-        internal sealed record ContinuousAggregateInfo(
+        public sealed record ContinuousAggregateInfo(
             string MaterializedViewName,
             string Schema,
             string ViewDefinition,

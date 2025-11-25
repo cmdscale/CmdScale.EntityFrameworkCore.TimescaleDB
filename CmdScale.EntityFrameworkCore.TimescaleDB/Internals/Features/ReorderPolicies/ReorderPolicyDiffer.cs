@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPolicies
 {
-    internal class ReorderPolicyDiffer : IFeatureDiffer
+    public class ReorderPolicyDiffer : IFeatureDiffer
     {
         public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
         {

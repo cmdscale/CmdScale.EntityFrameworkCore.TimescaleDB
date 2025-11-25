@@ -30,6 +30,15 @@ Seamlessly define and manage **TimescaleDB hypertables** using standard EF Core 
 
 Take full control over how your hypertable data is organized on disk with **TimescaleDB's** reorder policies. By defining a reorder policy, you can automatically re-sort chunks of data by a specified index, significantly improving the performance of queries that scan large time ranges or specific index values.
 
+### Continuous Aggregates
+
+Create and manage **TimescaleDB continuous aggregates** — automatically refreshed materialized views that pre-compute aggregate data for faster queries. Define time-bucketed aggregations using a type-safe Fluent API or Data Annotations.
+
+- **Time Bucketing**: Automatically group data into time intervals (e.g., `1 hour`, `1 day`).
+- **Aggregate Functions**: Support for `Avg`, `Sum`, `Min`, `Max`, `Count`, `First`, and `Last`.
+- **Group By Columns**: Add additional grouping dimensions beyond time.
+- **Filtering**: Apply WHERE clauses to filter source data.
+
 ---
 
 ## 📦 NuGet Packages
@@ -130,11 +139,65 @@ If you need to start with a completely fresh, empty database, you can stop the r
 docker-compose down -v
 ```
 
+---
 
+## 🧪 Testing
+
+This project uses a two-tier testing strategy to ensure code quality and correctness.
+
+### Test Projects
+
+| Project | Purpose |
+|---------|---------|
+| `CmdScale.EntityFrameworkCore.TimescaleDB.Tests` | Unit tests using xUnit and Moq. Fast, isolated tests for differs, extractors, generators, and conventions. Also includes integration tests using Testcontainers. |
+| `CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests` | EF Core specification tests validating end-to-end behavior against a real TimescaleDB instance. |
+
+### Running Tests
+
+```bash
+# Run all tests
+dotnet test
+
+# Run a specific test by name
+dotnet test --filter "FullyQualifiedName~HypertableDifferTests"
+```
+
+### Test Coverage
+
+Generate an HTML coverage report using [ReportGenerator](https://github.com/danielpalme/ReportGenerator):
+
+```bash
+# Install ReportGenerator (once)
+dotnet tool install -g dotnet-reportgenerator-globaltool
+
+# Run tests with coverage collection
+dotnet test --collect:"XPlat Code Coverage"
+
+# Generate HTML report
+reportgenerator -reports:"**/coverage.cobertura.xml" -targetdir:"coverage/report" -reporttypes:Html
+```
+
+### Mutation Testing
+
+Use [Stryker.NET](https://stryker-mutator.io/docs/stryker-net/introduction) to validate test effectiveness by introducing mutations and checking if tests catch them:
+
+```bash
+# Install Stryker (once)
+dotnet tool install -g dotnet-stryker
+
+# Run from the test directory
+cd CmdScale.EntityFrameworkCore.TimescaleDB.Tests
+dotnet stryker
+
+# Quick run (test only changed files)
+dotnet stryker --since
+```
+
+Results are generated in `StrykerOutput/reports/mutation-report.html`. See `STRYKER_README.md` in the `CmdScale.EntityFrameworkCore.TimescaleDB.Tests` project for detailed configuration.
 
 ---
 
-## 🧪 Scripts
+## 🛠️ Scripts
 This repository includes PowerShell scripts to streamline the development workflow, particularly for switching between local project development and package-based testing.
 
 ### Allow PowerShell Scripts to Run

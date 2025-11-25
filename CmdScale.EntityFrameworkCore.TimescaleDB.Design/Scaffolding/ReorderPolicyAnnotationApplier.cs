@@ -7,7 +7,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
     /// <summary>
     /// Applies reorder policy annotations to scaffolded database tables.
     /// </summary>
-    internal sealed class ReorderPolicyAnnotationApplier : IAnnotationApplier
+    public sealed class ReorderPolicyAnnotationApplier : IAnnotationApplier
     {
         public void ApplyAnnotations(DatabaseTable table, object featureInfo)
         {

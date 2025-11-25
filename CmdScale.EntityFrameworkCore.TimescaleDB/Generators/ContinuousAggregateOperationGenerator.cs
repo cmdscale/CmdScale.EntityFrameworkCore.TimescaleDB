@@ -124,9 +124,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             sqlBuilder.Append($"FROM {parentQualifiedIdentifier}");
 
             // Add WHERE clause if specified
-            if (!string.IsNullOrWhiteSpace(operation.WhereClaus))
+            if (!string.IsNullOrWhiteSpace(operation.WhereClause))
             {
-                string whereClause = operation.WhereClaus.Replace("\"", quoteString);
+                string whereClause = operation.WhereClause.Replace("\"", quoteString);
                 sqlBuilder.AppendLine();
                 sqlBuilder.Append($"WHERE {whereClause}");
             }

@@ -8,7 +8,7 @@ using System.Text.Json;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertables
 {
-    internal static class HypertableModelExtractor
+    public static class HypertableModelExtractor
     {
         public static IEnumerable<CreateHypertableOperation> GetHypertables(IRelationalModel? relationalModel)
         {

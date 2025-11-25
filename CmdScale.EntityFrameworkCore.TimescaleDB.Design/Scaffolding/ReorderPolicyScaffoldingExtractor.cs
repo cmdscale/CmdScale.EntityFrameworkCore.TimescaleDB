@@ -6,9 +6,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
     /// <summary>
     /// Extracts reorder policy metadata from a TimescaleDB database for scaffolding.
     /// </summary>
-    internal sealed class ReorderPolicyScaffoldingExtractor : ITimescaleFeatureExtractor
+    public sealed class ReorderPolicyScaffoldingExtractor : ITimescaleFeatureExtractor
     {
-        internal sealed record ReorderPolicyInfo(
+        public sealed record ReorderPolicyInfo(
             string IndexName,
             DateTime? InitialStart,
             string? ScheduleInterval,

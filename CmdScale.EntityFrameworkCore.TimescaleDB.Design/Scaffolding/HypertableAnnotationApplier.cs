@@ -8,7 +8,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
     /// <summary>
     /// Applies hypertable annotations to scaffolded database tables.
     /// </summary>
-    internal sealed class HypertableAnnotationApplier : IAnnotationApplier
+    public sealed class HypertableAnnotationApplier : IAnnotationApplier
     {
         public void ApplyAnnotations(DatabaseTable table, object featureInfo)
         {
