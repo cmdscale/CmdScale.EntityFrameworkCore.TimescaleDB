@@ -576,6 +576,570 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region Edge Cases and Error Handling Tests
+
+        [Fact]
+        public void Create_With_Malformed_AggregateFunction_SkipsInvalidFunction()
+        {
+            // Arrange - Aggregate function with wrong number of parts (only 2 instead of 3)
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "bad_agg",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                // Malformed: missing source column (only 2 parts)
+                AggregateFunctions = ["alias_only:Avg", "valid_agg:Sum:value"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Should skip malformed and only include valid
+            Assert.Contains("SUM(\"value\") AS \"valid_agg\"", result);
+            // Malformed function should be skipped
+            Assert.DoesNotContain("alias_only", result);
+        }
+
+        [Fact]
+        public void Create_With_ExtraColon_In_AggregateFunction_SkipsFunction()
+        {
+            // Arrange - Too many parts (4 instead of 3)
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "malformed_view",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                // Too many colons - will be skipped
+                AggregateFunctions = ["alias:Avg:value:extra", "valid:Sum:amount"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Malformed should be skipped
+            Assert.DoesNotContain("extra", result);
+            Assert.DoesNotContain("alias", result);
+            // Valid one should be present
+            Assert.Contains("SUM(\"amount\") AS \"valid\"", result);
+        }
+
+        [Fact]
+        public void Create_With_SinglePartAggregateFunction_SkipsFunction()
+        {
+            // Arrange - Only 1 part (just alias, no function or column)
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "single_part",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["just_alias", "valid:Count:id"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.DoesNotContain("just_alias", result);
+            Assert.Contains("COUNT(\"id\") AS \"valid\"", result);
+        }
+
+        [Fact]
+        public void Create_WithoutTimeBucketInGroupBy_GeneratesCorrectSQL()
+        {
+            // Arrange - TimeBucketGroupBy = false
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "no_time_bucket_gb",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = false,
+                AggregateFunctions = ["total:Sum:amount"],
+                GroupByColumns = ["region"],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            // time_bucket should still be in SELECT
+            Assert.Contains("time_bucket('1 hour', \"time\") AS time_bucket", result);
+            // GROUP BY should only have region, not time_bucket
+            Assert.Contains("GROUP BY \"region\"", result);
+            Assert.DoesNotContain("GROUP BY time_bucket", result);
+        }
+
+        [Fact]
+        public void Create_WithRawSQLGroupByExpression_IncludesAsIs()
+        {
+            // Arrange - GROUP BY with raw SQL expression (contains parentheses)
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "raw_sql_groupby",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["avg_val:Avg:value"],
+                GroupByColumns = ["EXTRACT(HOUR FROM time)", "region"],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Raw SQL should be included as-is, quoted column should be quoted
+            Assert.Contains("EXTRACT(HOUR FROM time)", result);
+            Assert.Contains("\"region\"", result);
+        }
+
+        [Fact]
+        public void Create_WithRawSQLGroupByExpression_ContainingComma_IncludesAsIs()
+        {
+            // Arrange - GROUP BY with raw SQL expression containing comma
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "comma_sql",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["avg_val:Avg:value"],
+                GroupByColumns = ["COALESCE(region, 'unknown')"],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Raw SQL should be included as-is
+            Assert.Contains("COALESCE(region, 'unknown')", result);
+        }
+
+        [Fact]
+        public void Create_WithEmptyGroupByColumns_OnlyIncludesTimeBucket()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "empty_groupby",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["total:Count:id"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("GROUP BY time_bucket", result);
+            // Ensure there's no trailing comma after time_bucket
+            Assert.DoesNotContain("GROUP BY time_bucket,", result);
+        }
+
+        [Fact]
+        public void Create_WithNullWhereClause_OmitsWhereClause()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "no_where",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["cnt:Count:id"],
+                GroupByColumns = [],
+                WhereClause = null,
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.DoesNotContain("WHERE", result);
+        }
+
+        [Fact]
+        public void Create_WithWhitespaceOnlyWhereClause_OmitsWhereClause()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "whitespace_where",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["cnt:Count:id"],
+                GroupByColumns = [],
+                WhereClause = "   ",
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.DoesNotContain("WHERE", result);
+        }
+
+        [Fact]
+        public void Create_WithEmptyWhereClause_OmitsWhereClause()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "empty_where",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["cnt:Count:id"],
+                GroupByColumns = [],
+                WhereClause = "",
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.DoesNotContain("WHERE", result);
+        }
+
+        [Fact]
+        public void Create_WithUnsupportedAggregateFunction_ThrowsNotSupportedException()
+        {
+            // Arrange - Using an unsupported aggregate function name
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "unsupported",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["result:Percentile95:value"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
+
+            // Act & Assert
+            NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+                generator.Generate(operation));
+            Assert.Contains("Percentile95", ex.Message);
+            Assert.Contains("not supported", ex.Message);
+        }
+
+        [Fact]
+        public void Create_WithInvalidAggregateEnum_ThrowsNotSupportedException()
+        {
+            // Arrange - Using an unrecognized aggregate function name
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "bad_func",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["result:InvalidFunction:column"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
+
+            // Act & Assert
+            NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
+                generator.Generate(operation));
+            Assert.Contains("InvalidFunction", ex.Message);
+        }
+
+        [Fact]
+        public void Create_WithAllAggregateFunctionsMalformed_GeneratesViewWithNoAggregates()
+        {
+            // Arrange - All aggregate functions are malformed
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "all_malformed",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["bad1", "bad2:only_two"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Should still generate the view structure, just without aggregate columns
+            Assert.Contains("CREATE MATERIALIZED VIEW", result);
+            Assert.Contains("time_bucket", result);
+            Assert.DoesNotContain("bad1", result);
+            Assert.DoesNotContain("bad2", result);
+        }
+
+        #endregion
+
+        #region Alter Operation Edge Cases
+
+        [Fact]
+        public void Alter_With_NullChunkInterval_And_OldChunkIntervalExists_RestoresOldValue()
+        {
+            // Arrange - ChunkInterval set to null but OldChunkInterval exists
+            AlterContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "restore_chunk",
+                Schema = "public",
+                ChunkInterval = null,
+                OldChunkInterval = "7 days"
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Should restore old value
+            Assert.Contains("SET (timescaledb.chunk_interval = '7 days')", result);
+        }
+
+        [Fact]
+        public void Alter_With_EmptyChunkInterval_And_EmptyOldChunkInterval_GeneratesNothing()
+        {
+            // Arrange - Both intervals are empty
+            AlterContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "empty_intervals",
+                Schema = "public",
+                ChunkInterval = "",
+                OldChunkInterval = ""
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Should generate nothing for chunk interval
+            Assert.DoesNotContain("chunk_interval", result);
+        }
+
+        [Fact]
+        public void Alter_With_NullChunkInterval_And_NullOldChunkInterval_GeneratesNothing()
+        {
+            // Arrange - Both intervals are null
+            AlterContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "null_intervals",
+                Schema = "public",
+                ChunkInterval = null,
+                OldChunkInterval = null
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Should generate nothing for chunk interval
+            Assert.DoesNotContain("chunk_interval", result);
+        }
+
+        [Fact]
+        public void Alter_OnlyCreateGroupIndexesChanged_GeneratesSingleStatement()
+        {
+            // Arrange
+            AlterContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "indexes_only",
+                Schema = "public",
+                CreateGroupIndexes = true,
+                OldCreateGroupIndexes = false,
+                MaterializedOnly = true,
+                OldMaterializedOnly = true
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("create_group_indexes = true", result);
+            Assert.DoesNotContain("materialized_only", result);
+            Assert.DoesNotContain("chunk_interval", result);
+        }
+
+        [Fact]
+        public void Alter_OnlyMaterializedOnlyChanged_GeneratesSingleStatement()
+        {
+            // Arrange
+            AlterContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "mat_only",
+                Schema = "public",
+                CreateGroupIndexes = false,
+                OldCreateGroupIndexes = false,
+                MaterializedOnly = true,
+                OldMaterializedOnly = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("materialized_only = true", result);
+            Assert.DoesNotContain("create_group_indexes", result);
+            Assert.DoesNotContain("chunk_interval", result);
+        }
+
+        #endregion
+
+        #region Design-Time vs Runtime Quote Handling
+
+        [Fact]
+        public void DesignTime_UsesDoubleQuotesForEscaping()
+        {
+            // Arrange
+            ContinuousAggregateOperationGenerator generator = new(isDesignTime: true);
+
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "test_view",
+                Schema = "public",
+                ParentName = "test_table",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["cnt:Count:id"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            List<string> statements = generator.Generate(operation);
+            string result = string.Join("\n", statements);
+
+            // Assert - Design-time should use double quotes for escaping
+            Assert.Contains("\"\"public\"\"", result);
+            Assert.Contains("\"\"test_view\"\"", result);
+        }
+
+        [Fact]
+        public void Runtime_UsesSingleQuotesForEscaping()
+        {
+            // Arrange
+            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
+
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "test_view",
+                Schema = "public",
+                ParentName = "test_table",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["cnt:Count:id"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            List<string> statements = generator.Generate(operation);
+            string result = string.Join("\n", statements);
+
+            // Assert - Runtime should use single quotes (standard SQL quoting)
+            Assert.Contains("\"public\"", result);
+            Assert.Contains("\"test_view\"", result);
+            // Should not have escaped quotes
+            Assert.DoesNotContain("\"\"public\"\"", result);
+        }
+
+        [Fact]
+        public void DesignTime_WhereClause_ConvertsSingleToDoubleQuotes()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "quote_test",
+                Schema = "public",
+                ParentName = "data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["avg:Avg:value"],
+                GroupByColumns = [],
+                WhereClause = "\"status\" = 'active'",
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert - Design time should double the quotes in WHERE clause
+            Assert.Contains("\"\"status\"\" = 'active'", result);
+        }
+
+        #endregion
+
         #region TimescaleDB Constraint Validation Tests
 
         [Fact]

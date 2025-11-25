@@ -335,6 +335,283 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
 
     #endregion
 
+    #region Should_Extract_With_Already_Open_Connection
+
+    private class AlreadyOpenMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AlreadyOpenConnectionContext(string connectionString) : DbContext
+    {
+        public DbSet<AlreadyOpenMetric> Metrics => Set<AlreadyOpenMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<AlreadyOpenMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_With_Already_Open_Connection_DoesNotClose()
+    {
+        await using AlreadyOpenConnectionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        connection.Open(); // Explicitly open before extraction
+
+        // Act
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        Assert.Equal(System.Data.ConnectionState.Open, connection.State); // Connection should still be open
+        Assert.Single(result);
+    }
+
+    #endregion
+
+    #region Should_Extract_With_Closed_Connection_OpensAndCloses
+
+    private class ClosedConnectionMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ClosedConnectionContext(string connectionString) : DbContext
+    {
+        public DbSet<ClosedConnectionMetric> Metrics => Set<ClosedConnectionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ClosedConnectionMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_With_Closed_Connection_OpensAndCloses()
+    {
+        await using ClosedConnectionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        // Act - Pass closed connection
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert - Connection should be closed after extraction
+        Assert.Equal(System.Data.ConnectionState.Closed, connection.State);
+        Assert.Single(result);
+    }
+
+    #endregion
+
+    #region Should_Extract_Hypertable_Without_Compression_Explicitly
+
+    private class NoCompressionMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NoCompressionContext(string connectionString) : DbContext
+    {
+        public DbSet<NoCompressionMetric> Metrics => Set<NoCompressionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoCompressionMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                // No compression enabled
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_Hypertable_Without_Compression_Explicitly()
+    {
+        await using NoCompressionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        Assert.Single(result);
+        HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+        Assert.False(info.CompressionEnabled);
+        Assert.Empty(info.ChunkSkipColumns);
+    }
+
+    #endregion
+
+    #region Should_Handle_Hypertable_With_Empty_ChunkSkipColumns
+
+    private class EmptyChunkSkipMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class EmptyChunkSkipContext(string connectionString) : DbContext
+    {
+        public DbSet<EmptyChunkSkipMetric> Metrics => Set<EmptyChunkSkipMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EmptyChunkSkipMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .EnableCompression(); // Compression enabled but no chunk skip columns
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Handle_Hypertable_With_Empty_ChunkSkipColumns()
+    {
+        await using EmptyChunkSkipContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        Assert.Single(result);
+        HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+        Assert.True(info.CompressionEnabled);
+        Assert.Empty(info.ChunkSkipColumns); // No chunk skip columns configured
+    }
+
+    #endregion
+
+    #region Should_Extract_Custom_ChunkTimeInterval
+
+    private class CustomChunkIntervalMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CustomChunkIntervalContext(string connectionString) : DbContext
+    {
+        public DbSet<CustomChunkIntervalMetric> Metrics => Set<CustomChunkIntervalMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CustomChunkIntervalMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithChunkTimeInterval("86400000"); // 1 day in milliseconds
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_Custom_ChunkTimeInterval()
+    {
+        await using CustomChunkIntervalContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        Assert.Single(result);
+        HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+        Assert.NotNull(info.ChunkTimeInterval);
+        // Verify that a custom chunk interval is extracted (the exact value depends on database interpretation)
+        // Input was 86400000 (ms), extractor does EPOCH*1000 conversion
+        Assert.False(string.IsNullOrEmpty(info.ChunkTimeInterval));
+    }
+
+    #endregion
+
+    #region Should_Extract_Range_Dimension_With_Integer_Interval
+
+    private class IntegerRangeDimensionMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int SequenceId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IntegerRangeDimensionContext(string connectionString) : DbContext
+    {
+        public DbSet<IntegerRangeDimensionMetric> Metrics => Set<IntegerRangeDimensionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IntegerRangeDimensionMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasDimension(Dimension.CreateRange("SequenceId", "10000"));
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_Range_Dimension_With_Integer_Interval()
+    {
+        await using IntegerRangeDimensionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        Assert.Single(result);
+        HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+
+        Dimension dimension = Assert.Single(info.AdditionalDimensions);
+        Assert.Equal("SequenceId", dimension.ColumnName);
+        Assert.Equal(EDimensionType.Range, dimension.Type);
+        Assert.Equal("10000", dimension.Interval);
+    }
+
+    #endregion
+
     #region Should_Extract_Multiple_Hypertables
 
     private class MultipleHypertablesMetric

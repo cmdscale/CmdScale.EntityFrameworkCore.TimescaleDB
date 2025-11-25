@@ -170,12 +170,14 @@ Generate an HTML coverage report using [ReportGenerator](https://github.com/dani
 # Install ReportGenerator (once)
 dotnet tool install -g dotnet-reportgenerator-globaltool
 
-# Run tests with coverage collection
-dotnet test --collect:"XPlat Code Coverage"
+# Run tests with coverage collection (output to ./TestResults)
+dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
-# Generate HTML report
-reportgenerator -reports:"**/coverage.cobertura.xml" -targetdir:"coverage/report" -reporttypes:Html
+# Generate HTML report from coverage files
+reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"TestResults/CoverageReport" -reporttypes:Html
 ```
+
+The HTML report will be generated at `TestResults/CoverageReport/index.html`.
 
 ### Mutation Testing
 

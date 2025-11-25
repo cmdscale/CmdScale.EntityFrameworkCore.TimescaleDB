@@ -301,6 +301,215 @@ public class HypertableConventionTests
 
     #endregion
 
+    #region Should_Not_Apply_ChunkTimeInterval_When_Empty
+
+    [Hypertable("Timestamp", ChunkTimeInterval = "")]
+    private class EmptyChunkIntervalEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class EmptyChunkIntervalContext : DbContext
+    {
+        public DbSet<EmptyChunkIntervalEntity> Entities => Set<EmptyChunkIntervalEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EmptyChunkIntervalEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("EmptyChunkInterval");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Apply_ChunkTimeInterval_When_Empty()
+    {
+        using EmptyChunkIntervalContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(EmptyChunkIntervalEntity))!;
+
+        // ChunkTimeInterval annotation should be null when the attribute property is empty
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval));
+        // But IsHypertable should still be set
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+        Assert.Equal("Timestamp", entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Not_Enable_Compression_For_Empty_ChunkSkipColumns_Array
+
+    [Hypertable("Timestamp", ChunkSkipColumns = new string[0])]
+    private class EmptyChunkSkipColumnsEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class EmptyChunkSkipColumnsContext : DbContext
+    {
+        public DbSet<EmptyChunkSkipColumnsEntity> Entities => Set<EmptyChunkSkipColumnsEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EmptyChunkSkipColumnsEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("EmptyChunkSkipColumns");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Enable_Compression_For_Empty_ChunkSkipColumns_Array()
+    {
+        using EmptyChunkSkipColumnsContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(EmptyChunkSkipColumnsEntity))!;
+
+        // Empty ChunkSkipColumns should NOT enable compression or set ChunkSkipColumns annotation
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.EnableCompression));
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns));
+        // But IsHypertable should still be set
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Verify_EnableCompression_False_Explicitly
+
+    [Hypertable("Timestamp", EnableCompression = false)]
+    private class NoCompressionEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NoCompressionContext : DbContext
+    {
+        public DbSet<NoCompressionEntity> Entities => Set<NoCompressionEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoCompressionEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("NoCompression");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Verify_EnableCompression_False_Explicitly()
+    {
+        using NoCompressionContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(NoCompressionEntity))!;
+
+        // EnableCompression should be null (not set) when false
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.EnableCompression));
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Apply_Default_ChunkTimeInterval_When_Not_Set
+
+    [Hypertable("Timestamp")]
+    private class DefaultChunkIntervalEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class DefaultChunkIntervalContext : DbContext
+    {
+        public DbSet<DefaultChunkIntervalEntity> Entities => Set<DefaultChunkIntervalEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DefaultChunkIntervalEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("DefaultChunkInterval");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Apply_Default_ChunkTimeInterval_When_Not_Set()
+    {
+        using DefaultChunkIntervalContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(DefaultChunkIntervalEntity))!;
+
+        // When ChunkTimeInterval is not explicitly set, it uses the DefaultValues.ChunkTimeInterval
+        // and should still be applied as an annotation
+        Assert.Equal(DefaultValues.ChunkTimeInterval, entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Handle_Single_ChunkSkipColumn
+
+    [Hypertable("Timestamp", ChunkSkipColumns = ["Value"])]
+    private class SingleChunkSkipColumnEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SingleChunkSkipColumnContext : DbContext
+    {
+        public DbSet<SingleChunkSkipColumnEntity> Entities => Set<SingleChunkSkipColumnEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SingleChunkSkipColumnEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("SingleChunkSkipColumn");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Handle_Single_ChunkSkipColumn()
+    {
+        using SingleChunkSkipColumnContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(SingleChunkSkipColumnEntity))!;
+
+        // Single column should be stored without extra commas
+        Assert.Equal("Value", entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
+    }
+
+    #endregion
+
     #region Attribute_Should_Produce_Same_Annotations_As_FluentAPI
 
     [Hypertable("Timestamp", ChunkTimeInterval = "1 hour", EnableCompression = true)]
