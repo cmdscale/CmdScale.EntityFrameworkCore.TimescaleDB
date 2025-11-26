@@ -6,7 +6,7 @@
     <AssemblyName>CmdScale.EntityFrameworkCore.TimescaleDB.Design</AssemblyName>
     <RootNamespace>CmdScale.EntityFrameworkCore.TimescaleDB.Design</RootNamespace>
     <PackageId>CmdScale.EntityFrameworkCore.TimescaleDB.Design</PackageId>
-    <Version>0.3.1</Version>
+    <Version>0.3.2</Version>
     <Authors>CmdScale</Authors>
     <Description>Provides crucial design-time extensions. This package enhances the EF Core CLI tools (dotnet ef) to understand TimescaleDB concepts, enabling correct schema generation for migrations and scaffolding.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
