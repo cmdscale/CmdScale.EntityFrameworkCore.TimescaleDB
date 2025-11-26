@@ -37,9 +37,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
             }
 
             // Sort the entire list based on the priority defined in the helper method
-            allOperations.Sort((op1, op2) => GetOperationPriority(op1).CompareTo(GetOperationPriority(op2)));
-
-            return allOperations;
+            List<MigrationOperation> sortedOperations = [.. allOperations.OrderBy(GetOperationPriority)];
+            return sortedOperations;
         }
 
         /// <summary>
