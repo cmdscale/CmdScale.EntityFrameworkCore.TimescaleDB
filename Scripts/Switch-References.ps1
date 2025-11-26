@@ -26,10 +26,20 @@ param (
 )
 
 # --- Configuration ---
-$CoreLibraryNames = @(
+# Package IDs (used for PackageReference lookups)
+$CorePackageIds = @(
     "CmdScale.EntityFrameworkCore.TimescaleDB",
     "CmdScale.EntityFrameworkCore.TimescaleDB.Design"
 )
+
+# Map PackageId to actual project file base names (without .csproj)
+$PackageToProjectMap = @{
+    "CmdScale.EntityFrameworkCore.TimescaleDB" = "Eftdb"
+    "CmdScale.EntityFrameworkCore.TimescaleDB.Design" = "Eftdb.Design"
+}
+
+# For backwards compatibility
+$CoreLibraryNames = $CorePackageIds
 
 # --- Script Body ---
 try {
@@ -41,17 +51,27 @@ try {
     Write-Host "🔍 Finding all projects..."
     $AllProjects = Get-ChildItem -Path $SolutionRoot -Recurse -Filter "*.csproj"
 
-    # Identify the core libraries
+    # Identify the core libraries by matching project file names to package IDs
     $CoreProjectPaths = @{}
     foreach ($project in $AllProjects) {
-        if ($CoreLibraryNames -contains $project.BaseName) {
-            $CoreProjectPaths[$project.BaseName] = $project.FullName
+        foreach ($packageId in $CorePackageIds) {
+            $expectedBaseName = $PackageToProjectMap[$packageId]
+            if ($project.BaseName -eq $expectedBaseName) {
+                $CoreProjectPaths[$packageId] = $project.FullName
+                break
+            }
         }
     }
-    $CoreProjectPaths.GetEnumerator() | ForEach-Object { Write-Host "  - Found core library: $($_.Key)" }
+    $CoreProjectPaths.GetEnumerator() | ForEach-Object { Write-Host "  - Found core library: $($_.Key) -> $($_.Value)" }
 
-    if ($CoreProjectPaths.Count -ne $CoreLibraryNames.Count) {
-        throw "Could not find all core library projects. Please check the names in the script's configuration section."
+    if ($CoreProjectPaths.Count -ne $CorePackageIds.Count) {
+        throw "Could not find all core library projects. Expected: $($CorePackageIds -join ', '). Found: $($CoreProjectPaths.Keys -join ', ')"
+    }
+
+    # Build reverse map: project base name -> package ID
+    $ProjectToPackageMap = @{}
+    foreach ($entry in $PackageToProjectMap.GetEnumerator()) {
+        $ProjectToPackageMap[$entry.Value] = $entry.Key
     }
 
     # Build hash map
@@ -59,26 +79,28 @@ try {
     $ConsumerProjectMap = @{}
     foreach ($project in $AllProjects) {
         [xml]$csprojContent = Get-Content $project.FullName -ErrorAction Stop
-        
+
         $foundCoreRefs = [System.Collections.Generic.List[object]]::new()
 
         # Find ProjectReferences
         $projectRefNodes = $csprojContent.SelectNodes("//ProjectReference")
         if ($projectRefNodes) {
             foreach ($refNode in $projectRefNodes) {
-                $refName = [System.IO.Path]::GetFileNameWithoutExtension(($refNode.Include).Trim())
-                if ($CoreLibraryNames -contains $refName) {
-                    $foundCoreRefs.Add([PSCustomObject]@{ Name = $refName; Type = "Project" })
+                $refBaseName = [System.IO.Path]::GetFileNameWithoutExtension(($refNode.Include).Trim())
+                # Check if this project file maps to one of our core packages
+                if ($ProjectToPackageMap.ContainsKey($refBaseName)) {
+                    $packageId = $ProjectToPackageMap[$refBaseName]
+                    $foundCoreRefs.Add([PSCustomObject]@{ Name = $packageId; Type = "Project" })
                 }
             }
         }
 
-        # Find PackageReferences
+        # Find PackageReferences (these use package IDs directly)
         $packageRefNodes = $csprojContent.SelectNodes("//PackageReference")
         if ($packageRefNodes) {
             foreach ($refNode in $packageRefNodes) {
                 $refName = ($refNode.Include).Trim()
-                if ($CoreLibraryNames -contains $refName) {
+                if ($CorePackageIds -contains $refName) {
                     $foundCoreRefs.Add([PSCustomObject]@{ Name = $refName; Type = "Package" })
                 }
             }

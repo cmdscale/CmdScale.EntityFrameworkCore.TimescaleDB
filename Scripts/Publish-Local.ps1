@@ -18,13 +18,26 @@ $ErrorActionPreference = 'Stop'
 $LocalNuGetRepo = "C:\_DEV\NuGet Packages"
 $SolutionRoot = (Get-Item $PSScriptRoot).Parent.FullName
 
+# Map PackageId names to actual project paths
+$ProjectPathMap = @{
+    "CmdScale.EntityFrameworkCore.TimescaleDB" = "src\Eftdb"
+    "CmdScale.EntityFrameworkCore.TimescaleDB.Design" = "src\Eftdb.Design"
+}
+
 try {
-    # Find the specified project file
-    $ProjectDirectory = Join-Path $SolutionRoot $ProjectName
-    if (-not (Test-Path $ProjectDirectory)) {
-        throw "Project directory not found at '$ProjectDirectory'."
+    # Resolve the project path from the package name
+    if ($ProjectPathMap.ContainsKey($ProjectName)) {
+        $RelativePath = $ProjectPathMap[$ProjectName]
+    } else {
+        # Fallback: try using the name directly as a path
+        $RelativePath = $ProjectName
     }
-    
+
+    $ProjectDirectory = Join-Path $SolutionRoot $RelativePath
+    if (-not (Test-Path $ProjectDirectory)) {
+        throw "Project directory not found at '$ProjectDirectory'. Valid project names are: $($ProjectPathMap.Keys -join ', ')"
+    }
+
     $ProjectFile = Get-ChildItem -Path $ProjectDirectory -Filter *.csproj | Select-Object -First 1
     if (-not $ProjectFile) {
         throw "No .csproj file found in '$ProjectDirectory'."

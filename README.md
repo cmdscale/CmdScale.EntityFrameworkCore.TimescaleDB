@@ -188,7 +188,7 @@ Use [Stryker.NET](https://stryker-mutator.io/docs/stryker-net/introduction) to v
 dotnet tool install -g dotnet-stryker
 
 # Run from the test directory
-cd CmdScale.EntityFrameworkCore.TimescaleDB.Tests
+cd tests/Eftdb.Tests
 dotnet stryker
 
 # Quick run (test only changed files)
