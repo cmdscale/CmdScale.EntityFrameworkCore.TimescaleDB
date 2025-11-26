@@ -10,6 +10,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
         public string TimeColumnName { get; set; } = string.Empty;
         public string ChunkTimeInterval { get; set; } = string.Empty;
         public bool EnableCompression { get; set; }
+        public bool MigrateData { get; set; } = false;
         public IReadOnlyList<string>? ChunkSkipColumns { get; set; }
         public IReadOnlyList<Dimension>? AdditionalDimensions { get; set; }
     }

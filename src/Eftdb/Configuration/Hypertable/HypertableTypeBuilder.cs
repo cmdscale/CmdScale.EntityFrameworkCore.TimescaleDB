@@ -129,6 +129,25 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         }
 
         /// <summary>
+        /// Specifies whether existing data should be migrated when converting a table to a hypertable.
+        /// </summary>
+        /// <remarks>
+        /// When converting an existing table to a hypertable, this parameter controls whether existing data
+        /// is migrated into chunks. If set to false, only new data will be stored in chunks.
+        /// Defaults to <c>false</c> to match TimescaleDB's default behavior.
+        /// </remarks>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type.</param>
+        /// <param name="migrateData">A boolean indicating whether to migrate existing data. Defaults to <c>true</c>.</param>
+        public static EntityTypeBuilder<TEntity> WithMigrateData<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            bool migrateData = true) where TEntity : class
+        {
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.MigrateData, migrateData);
+            return entityTypeBuilder;
+        }
+
+        /// <summary>
         /// Extracts the property name from a member access lambda expression.
         /// </summary>
         /// <typeparam name="TEntity">The entity type.</typeparam>

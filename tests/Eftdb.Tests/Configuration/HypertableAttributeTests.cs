@@ -169,5 +169,43 @@ public class HypertableAttributeTests
         Assert.Empty(attr.ChunkSkipColumns);
     }
 
+    [Fact]
+    public void MigrateData_DefaultsToFalse()
+    {
+        // Arrange & Act
+        HypertableAttribute attr = new("Timestamp");
+
+        // Assert
+        Assert.False(attr.MigrateData);
+    }
+
+    [Fact]
+    public void MigrateData_CanBeSetToTrue()
+    {
+        // Arrange
+        HypertableAttribute attr = new("Timestamp")
+        {
+            // Act
+            MigrateData = true
+        };
+
+        // Assert
+        Assert.True(attr.MigrateData);
+    }
+
+    [Fact]
+    public void MigrateData_CanBeSetToFalse()
+    {
+        // Arrange
+        HypertableAttribute attr = new("Timestamp")
+        {
+            // Act
+            MigrateData = false
+        };
+
+        // Assert
+        Assert.False(attr.MigrateData);
+    }
+
     #endregion
 }
