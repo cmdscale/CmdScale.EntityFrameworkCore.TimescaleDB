@@ -17,7 +17,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             ReorderPolicyOperationGenerator? reorderPolicyOperationGenerator = null;
             ContinuousAggregateOperationGenerator? continuousAggregateOperationGenerator = null;
 
-            List<string> statements = [];
+            List<string> statements;
             bool suppressTransaction = false;
 
             switch (operation)
@@ -60,7 +60,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
 
                 default:
                     base.Generate(operation, builder);
-                    break;
+                    return;
+            }
+
+            // Guard: if no statements were generated, output a no-op SQL comment to maintain valid C# syntax.
+            if (statements.Count == 0)
+            {
+                builder.Append(".Sql(@\"-- No SQL generated for this operation\")");
+                return;
             }
 
             SqlBuilderHelper.BuildQueryString(statements, builder, suppressTransaction);
