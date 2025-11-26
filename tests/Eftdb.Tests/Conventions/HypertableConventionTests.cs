@@ -595,4 +595,202 @@ public class HypertableConventionTests
     }
 
     #endregion
+
+    #region Should_Process_Hypertable_With_MigrateData_True
+
+    [Hypertable("Timestamp", MigrateData = true)]
+    private class MigrateDataTrueEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataTrueContext : DbContext
+    {
+        public DbSet<MigrateDataTrueEntity> Entities => Set<MigrateDataTrueEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataTrueEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("MigrateDataTrue");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Process_Hypertable_With_MigrateData_True()
+    {
+        using MigrateDataTrueContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(MigrateDataTrueEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.MigrateData)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Not_Apply_MigrateData_When_False
+
+    [Hypertable("Timestamp", MigrateData = false)]
+    private class MigrateDataFalseEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataFalseContext : DbContext
+    {
+        public DbSet<MigrateDataFalseEntity> Entities => Set<MigrateDataFalseEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataFalseEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("MigrateDataFalse");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Apply_MigrateData_When_False()
+    {
+        using MigrateDataFalseContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(MigrateDataFalseEntity))!;
+
+        // MigrateData annotation should be null when the attribute property is false
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.MigrateData));
+        // But IsHypertable should still be set
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Not_Apply_MigrateData_By_Default
+
+    [Hypertable("Timestamp")]
+    private class MigrateDataDefaultEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataDefaultContext : DbContext
+    {
+        public DbSet<MigrateDataDefaultEntity> Entities => Set<MigrateDataDefaultEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataDefaultEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("MigrateDataDefault");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Apply_MigrateData_By_Default()
+    {
+        using MigrateDataDefaultContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(MigrateDataDefaultEntity))!;
+
+        // When MigrateData is not explicitly set in attribute, annotation should be null
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.MigrateData));
+        // But IsHypertable should still be set
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region MigrateData_Attribute_Should_Produce_Same_Annotation_As_FluentAPI
+
+    [Hypertable("Timestamp", MigrateData = true)]
+    private class MigrateDataAttributeEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataFluentEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataAttributeContext : DbContext
+    {
+        public DbSet<MigrateDataAttributeEntity> Entities => Set<MigrateDataAttributeEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataAttributeEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("MigrateDataEquivalence");
+            });
+        }
+    }
+
+    private class MigrateDataFluentContext : DbContext
+    {
+        public DbSet<MigrateDataFluentEntity> Entities => Set<MigrateDataFluentEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataFluentEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("MigrateDataEquivalence");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithMigrateData(true);
+            });
+        }
+    }
+
+    [Fact]
+    public void MigrateData_Attribute_Should_Produce_Same_Annotation_As_FluentAPI()
+    {
+        using MigrateDataAttributeContext attributeContext = new();
+        using MigrateDataFluentContext fluentContext = new();
+
+        IModel attributeModel = GetModel(attributeContext);
+        IModel fluentModel = GetModel(fluentContext);
+
+        IEntityType attributeEntity = attributeModel.FindEntityType(typeof(MigrateDataAttributeEntity))!;
+        IEntityType fluentEntity = fluentModel.FindEntityType(typeof(MigrateDataFluentEntity))!;
+
+        Assert.Equal(
+            attributeEntity.FindAnnotation(HypertableAnnotations.MigrateData)?.Value,
+            fluentEntity.FindAnnotation(HypertableAnnotations.MigrateData)?.Value
+        );
+        Assert.Equal(true, attributeEntity.FindAnnotation(HypertableAnnotations.MigrateData)?.Value);
+    }
+
+    #endregion
 }

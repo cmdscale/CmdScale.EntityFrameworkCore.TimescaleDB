@@ -428,10 +428,10 @@ FodyWeavers.xsd
 *.msp
 
 # Ignore all generated migration files
-CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess/Migrations/
+samples/Eftdb.Samples.Shared/Migrations/
 
 # Ignore all scaffolded models and the DbContext from the DbFirst project
-CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.DbFirst/
+samples/Eftdb.Samples.DatabaseFirst/**/*.cs
 
 # AI
 CLAUDE.md

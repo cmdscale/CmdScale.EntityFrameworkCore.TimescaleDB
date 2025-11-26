@@ -76,6 +76,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
 
                 string chunkTimeInterval = entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value as string ?? DefaultValues.ChunkTimeInterval;
                 bool enableCompression = entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value as bool? ?? false;
+                bool migrateData = entityType.FindAnnotation(HypertableAnnotations.MigrateData)?.Value as bool? ?? false;
 
                 yield return new CreateHypertableOperation
                 {
@@ -84,6 +85,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     TimeColumnName = timeColumnName,
                     ChunkTimeInterval = chunkTimeInterval ?? DefaultValues.ChunkTimeInterval,
                     EnableCompression = enableCompression,
+                    MigrateData = migrateData,
                     ChunkSkipColumns = chunkSkipColumns,
                     AdditionalDimensions = additionalDimensions
                 };

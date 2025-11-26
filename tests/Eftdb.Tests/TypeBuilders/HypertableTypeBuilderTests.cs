@@ -661,4 +661,168 @@ public class HypertableTypeBuilderTests
     }
 
     #endregion
+
+    #region WithMigrateData_Should_Set_MigrateData_Annotation_True_By_Default
+
+    private class MigrateDataDefaultEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataDefaultContext : DbContext
+    {
+        public DbSet<MigrateDataDefaultEntity> Metrics => Set<MigrateDataDefaultEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataDefaultEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithMigrateData();
+            });
+        }
+    }
+
+    [Fact]
+    public void WithMigrateData_Should_Set_MigrateData_Annotation_True_By_Default()
+    {
+        using MigrateDataDefaultContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(MigrateDataDefaultEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.MigrateData)?.Value);
+    }
+
+    #endregion
+
+    #region WithMigrateData_Should_Support_Explicit_True
+
+    private class MigrateDataExplicitTrueEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataExplicitTrueContext : DbContext
+    {
+        public DbSet<MigrateDataExplicitTrueEntity> Metrics => Set<MigrateDataExplicitTrueEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataExplicitTrueEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithMigrateData(true);
+            });
+        }
+    }
+
+    [Fact]
+    public void WithMigrateData_Should_Support_Explicit_True()
+    {
+        using MigrateDataExplicitTrueContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(MigrateDataExplicitTrueEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.MigrateData)?.Value);
+    }
+
+    #endregion
+
+    #region WithMigrateData_Should_Support_Explicit_False
+
+    private class MigrateDataExplicitFalseEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataExplicitFalseContext : DbContext
+    {
+        public DbSet<MigrateDataExplicitFalseEntity> Metrics => Set<MigrateDataExplicitFalseEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataExplicitFalseEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithMigrateData(false);
+            });
+        }
+    }
+
+    [Fact]
+    public void WithMigrateData_Should_Support_Explicit_False()
+    {
+        using MigrateDataExplicitFalseContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(MigrateDataExplicitFalseEntity))!;
+
+        Assert.Equal(false, entityType.FindAnnotation(HypertableAnnotations.MigrateData)?.Value);
+    }
+
+    #endregion
+
+    #region WithMigrateData_Should_Support_Method_Chaining
+
+    private class MigrateDataChainingEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataChainingContext : DbContext
+    {
+        public DbSet<MigrateDataChainingEntity> Metrics => Set<MigrateDataChainingEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataChainingEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithMigrateData()
+                      .WithChunkTimeInterval("1 hour")
+                      .EnableCompression();
+            });
+        }
+    }
+
+    [Fact]
+    public void WithMigrateData_Should_Support_Method_Chaining()
+    {
+        using MigrateDataChainingContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(MigrateDataChainingEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.MigrateData)?.Value);
+        Assert.Equal("1 hour", entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
+    }
+
+    #endregion
 }
