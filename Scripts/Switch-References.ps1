@@ -34,8 +34,8 @@ $CorePackageIds = @(
 
 # Map PackageId to actual project file base names (without .csproj)
 $PackageToProjectMap = @{
-    "CmdScale.EntityFrameworkCore.TimescaleDB" = "TimescaleDB"
-    "CmdScale.EntityFrameworkCore.TimescaleDB.Design" = "TimescaleDB.Design"
+    "CmdScale.EntityFrameworkCore.TimescaleDB" = "Eftdb"
+    "CmdScale.EntityFrameworkCore.TimescaleDB.Design" = "Eftdb.Design"
 }
 
 # For backwards compatibility

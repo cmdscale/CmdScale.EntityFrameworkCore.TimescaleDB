@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\TimescaleDB.Design\TimescaleDB.Design.csproj" />
+    <ProjectReference Include="..\..\src\Eftdb.Design\Eftdb.Design.csproj" />
   </ItemGroup>
 
 </Project>

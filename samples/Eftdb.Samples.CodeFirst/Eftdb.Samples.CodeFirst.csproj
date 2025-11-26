@@ -15,8 +15,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Eftdb.Samples.DataAccess\Eftdb.Samples.DataAccess.csproj" />
-    <ProjectReference Include="..\..\src\TimescaleDB.Design\TimescaleDB.Design.csproj" />
+    <ProjectReference Include="..\Eftdb.Samples.Shared\Eftdb.Samples.Shared.csproj" />
+    <ProjectReference Include="..\..\src\Eftdb.Design\Eftdb.Design.csproj" />
   </ItemGroup>
 
   <ItemGroup>

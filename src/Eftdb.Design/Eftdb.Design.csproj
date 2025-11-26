@@ -43,6 +43,6 @@
 	<Content Include="build\**\*" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\TimescaleDB\TimescaleDB.csproj" />
+    <ProjectReference Include="..\Eftdb\Eftdb.csproj" />
   </ItemGroup>
 </Project>

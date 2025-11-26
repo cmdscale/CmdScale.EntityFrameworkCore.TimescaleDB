@@ -20,8 +20,8 @@ $SolutionRoot = (Get-Item $PSScriptRoot).Parent.FullName
 
 # Map PackageId names to actual project paths
 $ProjectPathMap = @{
-    "CmdScale.EntityFrameworkCore.TimescaleDB" = "src\TimescaleDB"
-    "CmdScale.EntityFrameworkCore.TimescaleDB.Design" = "src\TimescaleDB.Design"
+    "CmdScale.EntityFrameworkCore.TimescaleDB" = "src\Eftdb"
+    "CmdScale.EntityFrameworkCore.TimescaleDB.Design" = "src\Eftdb.Design"
 }
 
 try {

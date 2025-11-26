@@ -16,31 +16,31 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimescaleDB", "src\TimescaleDB\TimescaleDB.csproj", "{ED435223-3B91-48F5-A95D-3A6872C2261A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb", "src\Eftdb\Eftdb.csproj", "{ED435223-3B91-48F5-A95D-3A6872C2261A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimescaleDB.Design", "src\TimescaleDB.Design\TimescaleDB.Design.csproj", "{2867BABC-57FB-4991-976D-A63E4081729F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb.Design", "src\Eftdb.Design\Eftdb.Design.csproj", "{2867BABC-57FB-4991-976D-A63E4081729F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimescaleDB.FunctionalTests", "tests\TimescaleDB.FunctionalTests\TimescaleDB.FunctionalTests.csproj", "{037A11F6-9282-4C35-8C2B-103EAF0CF252}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb.FunctionalTests", "tests\Eftdb.FunctionalTests\Eftdb.FunctionalTests.csproj", "{037A11F6-9282-4C35-8C2B-103EAF0CF252}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimescaleDB.Tests", "tests\TimescaleDB.Tests\TimescaleDB.Tests.csproj", "{F9F2A125-6E92-43D2-A758-2FE42204C5F3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb.Tests", "tests\Eftdb.Tests\Eftdb.Tests.csproj", "{F9F2A125-6E92-43D2-A758-2FE42204C5F3}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "benchmarks", "benchmarks", "{66320409-64EC-F7C5-3DEF-65E7510DAAD1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimescaleDB.Benchmarks", "benchmarks\TimescaleDB.Benchmarks\TimescaleDB.Benchmarks.csproj", "{628990C5-E3EA-43E9-83FB-823D75F56B97}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb.Benchmarks", "benchmarks\Eftdb.Benchmarks\Eftdb.Benchmarks.csproj", "{628990C5-E3EA-43E9-83FB-823D75F56B97}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5D20AA90-6969-D8BD-9DCD-8634F4692FDA}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DataAccess", "DataAccess", "{F9A9B01F-A937-93A0-BB0A-BFAACAD99065}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Eftdb.Samples.Shared", "Eftdb.Samples.Shared", "{F9A9B01F-A937-93A0-BB0A-BFAACAD99065}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb.Samples.DataAccess", "samples\Eftdb.Samples.DataAccess\Eftdb.Samples.DataAccess.csproj", "{1BF9E30E-D1D6-469D-8A44-539A0C21C39C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb.Samples.Shared", "samples\Eftdb.Samples.Shared\Eftdb.Samples.Shared.csproj", "{1BF9E30E-D1D6-469D-8A44-539A0C21C39C}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CodeFirst", "CodeFirst", "{EA8E3935-33B2-4D96-A294-5488AE39A401}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Eftdb.Samples.CodeFirst", "Eftdb.Samples.CodeFirst", "{EA8E3935-33B2-4D96-A294-5488AE39A401}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb.Samples.CodeFirst", "samples\Eftdb.Samples.CodeFirst\Eftdb.Samples.CodeFirst.csproj", "{0AE92D9A-B5B8-44CC-AD65-F4256CCAB15A}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DatabaseFirst", "DatabaseFirst", "{90DFE874-FC84-218F-EDC2-090609ACD664}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Eftdb.Samples.DatabaseFirst", "Eftdb.Samples.DatabaseFirst", "{90DFE874-FC84-218F-EDC2-090609ACD664}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb.Samples.DatabaseFirst", "samples\Eftdb.Samples.DatabaseFirst\Eftdb.Samples.DatabaseFirst.csproj", "{2FBA55BC-14C9-4137-B7D9-65920624C4FD}"
 EndProject

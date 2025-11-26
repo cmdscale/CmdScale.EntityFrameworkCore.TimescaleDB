@@ -5,6 +5,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>CmdScale.EntityFrameworkCore.TimescaleDB.Benchmarks</AssemblyName>
+    <RootNamespace>CmdScale.EntityFrameworkCore.TimescaleDB.Benchmarks</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\samples\Eftdb.Samples.DataAccess\Eftdb.Samples.DataAccess.csproj" />
+    <ProjectReference Include="..\..\samples\Eftdb.Samples.Shared\Eftdb.Samples.Shared.csproj" />
   </ItemGroup>
 
 </Project>

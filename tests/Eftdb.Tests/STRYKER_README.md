@@ -16,7 +16,7 @@ dotnet tool install -g dotnet-stryker
 
 ### 2. Run Mutation Testing
 
-From the `CmdScale.EntityFrameworkCore.TimescaleDB.Tests` directory:
+From the `tests/Eftdb.Tests` directory:
 
 ```bash
 # Full mutation run (can take 30-60 minutes)
