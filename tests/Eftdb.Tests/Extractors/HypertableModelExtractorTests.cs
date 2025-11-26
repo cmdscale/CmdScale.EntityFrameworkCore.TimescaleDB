@@ -770,4 +770,170 @@ public class HypertableModelExtractorTests
     }
 
     #endregion
+
+    #region Should_Extract_MigrateData_False_By_Default
+
+    private class DefaultMigrateDataMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class DefaultMigrateDataContext : DbContext
+    {
+        public DbSet<DefaultMigrateDataMetric> Metrics => Set<DefaultMigrateDataMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DefaultMigrateDataMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_MigrateData_False_By_Default()
+    {
+        using DefaultMigrateDataContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.False(operations[0].MigrateData);
+    }
+
+    #endregion
+
+    #region Should_Extract_MigrateData_True
+
+    private class MigrateDataTrueMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataTrueContext : DbContext
+    {
+        public DbSet<MigrateDataTrueMetric> Metrics => Set<MigrateDataTrueMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataTrueMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithMigrateData(true);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_MigrateData_True()
+    {
+        using MigrateDataTrueContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.True(operations[0].MigrateData);
+    }
+
+    #endregion
+
+    #region Should_Extract_MigrateData_False_When_Explicitly_Set
+
+    private class MigrateDataFalseMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataFalseContext : DbContext
+    {
+        public DbSet<MigrateDataFalseMetric> Metrics => Set<MigrateDataFalseMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataFalseMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithMigrateData(false);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_MigrateData_False_When_Explicitly_Set()
+    {
+        using MigrateDataFalseContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.False(operations[0].MigrateData);
+    }
+
+    #endregion
+
+    #region Should_Extract_MigrateData_From_Attribute
+
+    [Hypertable("Timestamp", MigrateData = true)]
+    private class MigrateDataAttributeMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MigrateDataAttributeContext : DbContext
+    {
+        public DbSet<MigrateDataAttributeMetric> Metrics => Set<MigrateDataAttributeMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MigrateDataAttributeMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_MigrateData_From_Attribute()
+    {
+        using MigrateDataAttributeContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.True(operations[0].MigrateData);
+    }
+
+    #endregion
 }

@@ -10,9 +10,14 @@
         public string TimeColumnName { get; } = string.Empty;
 
         /// <summary>
-        /// 
+        /// Specifies whether compression is enabled on the hypertable.
         /// </summary>
         public bool EnableCompression { get; set; } = false;
+
+        /// <summary>
+        /// Specifies whether existing data should be migrated when converting a table to a hypertable.
+        /// </summary>
+        public bool MigrateData { get; set; } = false;
 
         /// <summary>
         /// Defines the duration of time covered by each chunk in a hypertable.

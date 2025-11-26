@@ -203,5 +203,112 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
         }
+
+        // --- Tests for MigrateData Parameter ---
+
+        [Fact]
+        public void Generate_Create_When_MigrateData_Is_False_Does_Not_Include_Migrate_Data_Parameter()
+        {
+            // Arrange
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "Metrics",
+                Schema = "public",
+                TimeColumnName = "Timestamp",
+                MigrateData = false
+            };
+
+            string expected = @".Sql(@""
+                SELECT create_hypertable('public.""""Metrics""""', 'Timestamp');
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void Generate_Create_When_MigrateData_Is_True_Includes_Migrate_Data_Parameter()
+        {
+            // Arrange
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "Metrics",
+                Schema = "public",
+                TimeColumnName = "Timestamp",
+                MigrateData = true
+            };
+
+            string expected = @".Sql(@""
+                SELECT create_hypertable('public.""""Metrics""""', 'Timestamp', migrate_data => true);
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void Generate_Create_When_MigrateData_True_With_All_Options_Generates_Comprehensive_Sql()
+        {
+            // Arrange
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "CompleteTable",
+                Schema = "custom_schema",
+                TimeColumnName = "EventTime",
+                MigrateData = true,
+                ChunkTimeInterval = "1 day",
+                EnableCompression = true,
+                ChunkSkipColumns = ["DeviceId"],
+                AdditionalDimensions =
+                [
+                    Dimension.CreateHash("LocationId", 4)
+                ]
+            };
+
+            string expected = @".Sql(@""
+                SELECT create_hypertable('custom_schema.""""CompleteTable""""', 'EventTime', migrate_data => true);
+                SELECT set_chunk_time_interval('custom_schema.""""CompleteTable""""', INTERVAL '1 day');
+                ALTER TABLE """"custom_schema"""".""""CompleteTable"""" SET (timescaledb.compress = true);
+                SET timescaledb.enable_chunk_skipping = 'ON';
+                SELECT enable_chunk_skipping('custom_schema.""""CompleteTable""""', 'DeviceId');
+                SELECT add_dimension('custom_schema.""""CompleteTable""""', by_hash('LocationId', 4));
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void Generate_Create_Default_MigrateData_Does_Not_Include_Parameter()
+        {
+            // Arrange - CreateHypertableOperation with default MigrateData (false)
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "DefaultTable",
+                Schema = "public",
+                TimeColumnName = "Timestamp"
+                // MigrateData not explicitly set, defaults to false
+            };
+
+            string expected = @".Sql(@""
+                SELECT create_hypertable('public.""""DefaultTable""""', 'Timestamp');
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+            Assert.DoesNotContain("migrate_data", result);
+        }
     }
 }

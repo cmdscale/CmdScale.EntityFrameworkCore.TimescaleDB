@@ -24,6 +24,7 @@ Seamlessly define and manage **TimescaleDB hypertables** using standard EF Core 
 - **Time Partitioning**: Easily specify the primary time column and set the `chunk_time_interval`.
 - **Space Partitioning**: Add additional dimensions for hash or range partitioning to further optimize queries.
 - **Chunk Time Interval**: Configure chunk intervals to balance performance and storage efficiency.
+- **Data Migration**: Control whether existing data should be migrated when converting a regular table to a hypertable using `migrate_data`.
 - **Compression & Chunk Skipping**: Enable TimescaleDB's native compression and configure chunk skipping to improve query performance.
 
 ### Reorder Policies
@@ -97,7 +98,9 @@ public class WeatherDataConfiguration : IEntityTypeConfiguration<WeatherData>
                // Optional: Enable chunk skipping for faster queries on this column.
                .WithChunkSkipping(x => x.Time)
                // Optional: Set the chunk interval. Can be a string ("7 days") or long (microseconds).
-               .WithChunkTimeInterval("86400000");
+               .WithChunkTimeInterval("86400000")
+               // Optional: Migrate existing data when converting to hypertable (defaults to false).
+               .WithMigrateData(true);
     }
 }
 ```
@@ -108,7 +111,10 @@ public class WeatherDataConfiguration : IEntityTypeConfiguration<WeatherData>
 For simpler configurations, you can use the [Hypertable] attribute directly on your model class.
 
 ```csharp
-[Hypertable(nameof(Time), ChunkSkipColumns = new[] { "Time" }, ChunkTimeInterval = "86400000")]
+[Hypertable(nameof(Time),
+    ChunkSkipColumns = new[] { "Time" },
+    ChunkTimeInterval = "86400000",
+    MigrateData = true)]
 [PrimaryKey(nameof(Id), nameof(Time))]
 public class DeviceReading
 {

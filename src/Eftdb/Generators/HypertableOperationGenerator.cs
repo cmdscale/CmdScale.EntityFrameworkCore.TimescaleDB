@@ -24,9 +24,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             string qualifiedTableName = sqlHelper.Regclass(operation.TableName, operation.Schema);
             string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
 
+            string migrateDataParam = operation.MigrateData ? ", migrate_data => true" : "";
+
             List<string> statements =
             [
-                $"SELECT create_hypertable({qualifiedTableName}, '{operation.TimeColumnName}');"
+                $"SELECT create_hypertable({qualifiedTableName}, '{operation.TimeColumnName}'{migrateDataParam});"
             ];
 
             // ChunkTimeInterval

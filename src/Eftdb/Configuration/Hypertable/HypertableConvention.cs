@@ -37,6 +37,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
                 }
 
+                if (attribute.MigrateData == true)
+                {
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.MigrateData, true);
+                }
+
                 if (attribute.ChunkSkipColumns != null && attribute.ChunkSkipColumns.Length > 0)
                 {
                     /// Chunk skipping requires compression to be enabled
