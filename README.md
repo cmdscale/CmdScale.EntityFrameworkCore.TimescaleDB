@@ -152,6 +152,8 @@ docker-compose down -v
 
 This project uses a two-tier testing strategy to ensure code quality and correctness.
 
+> Checkout the test coverage on [Codecov](https://app.codecov.io/gh/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)
+
 ### Test Projects
 
 | Project | Purpose |
