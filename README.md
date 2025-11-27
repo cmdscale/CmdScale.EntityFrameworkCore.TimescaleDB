@@ -236,16 +236,10 @@ To build and publish the core libraries to a local NuGet feed for testing, use t
 
 ```powershell
 # Publish the design-time package
-.\Scripts\Publish-Local.ps1 -ProjectName "CmdScale.EntityFrameworkCore.TimescaleDB.Design"
+.\Scripts\Publish-Local.ps1 -ProjectName "Eftdb.Design"
 
 # Publish the runtime package
-.\Scripts\Publish-Local.ps1 -ProjectName "CmdScale.EntityFrameworkCore.TimescaleDB"
-```
-
-By default, this script outputs the `.nupkg` files to:
-
-```
-C:\_Dev\NuGet-Packages
+.\Scripts\Publish-Local.ps1 -ProjectName "Eftdb"
 ```
 
 > To change this path, edit the `$LocalNuGetRepo` variable inside the `Publish-Local.ps1` script.

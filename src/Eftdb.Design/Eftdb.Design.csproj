@@ -40,7 +40,7 @@
       <PackagePath>\</PackagePath>
     </None>
 	<Content Include="build\**\*" Pack="true" PackagePath="build\" />
-	<Content Include="build\**\*" Pack="true" PackagePath="buildTransitive\" />
+	<Content Include="buildTransitive\**\*" Pack="true" PackagePath="buildTransitive\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Eftdb\Eftdb.csproj" />

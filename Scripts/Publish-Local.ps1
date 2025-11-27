@@ -8,7 +8,7 @@
 #>
 [CmdletBinding()]
 param (
-    [Parameter(Mandatory = $true, HelpMessage = "The name of the project to publish (e.g., 'CmdScale.EntityFrameworkCore.TimescaleDB').")]
+    [Parameter(Mandatory = $true, HelpMessage = "The name of the project to publish (e.g., 'Eftdb').")]
     [string]$ProjectName
 )
 
@@ -20,8 +20,8 @@ $SolutionRoot = (Get-Item $PSScriptRoot).Parent.FullName
 
 # Map PackageId names to actual project paths
 $ProjectPathMap = @{
-    "CmdScale.EntityFrameworkCore.TimescaleDB" = "src\Eftdb"
-    "CmdScale.EntityFrameworkCore.TimescaleDB.Design" = "src\Eftdb.Design"
+    "Eftdb" = "src\Eftdb"
+    "Eftdb.Design" = "src\Eftdb.Design"
 }
 
 try {

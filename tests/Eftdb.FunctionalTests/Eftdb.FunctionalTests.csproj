@@ -31,12 +31,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Eftdb.Design\Eftdb.Design.csproj" />
-    <ProjectReference Include="..\..\src\Eftdb\Eftdb.csproj" />
+    <Using Include="Xunit" />
   </ItemGroup>
 
   <ItemGroup>
-    <Using Include="Xunit" />
+    <ProjectReference Include="..\..\src\Eftdb\Eftdb.csproj" />
+    <ProjectReference Include="..\..\src\Eftdb.Design\Eftdb.Design.csproj" />
   </ItemGroup>
 
 </Project>

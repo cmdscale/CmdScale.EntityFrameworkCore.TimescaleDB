@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Eftdb\Eftdb.csproj" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -7,9 +11,5 @@
     <AssemblyName>CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared</AssemblyName>
     <RootNamespace>CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared</RootNamespace>
   </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Eftdb\Eftdb.csproj" />
-  </ItemGroup>
 
 </Project>

@@ -142,13 +142,14 @@ try {
             }
 
             # Publish the core libraries locally using the new central script
-            foreach ($projectName in $CoreProjectPaths.Keys) {
-                Write-Host "--- Publishing '$projectName' ---"
+            foreach ($packageId in $CoreProjectPaths.Keys) {
+                $projectName = $PackageToProjectMap[$packageId]
+                Write-Host "--- Publishing '$projectName' (Package: $packageId) ---"
                 # Execute the central script, passing the project name as a parameter
                 $newVersion = (& $publishScript -ProjectName $projectName | Out-String).Trim()
             
                 if (-not $newVersion) { throw "Publish script for '$projectName' did not output a version." }
-                $PublishedVersions[$projectName] = $newVersion
+                $PublishedVersions[$packageId] = $newVersion
                 Write-Host "--- Published '$projectName' version '$newVersion' ---" -ForegroundColor Green
             }
 
