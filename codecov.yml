@@ -19,3 +19,7 @@ ignore:
   - "tests/**/*"
   - "benchmarks/**/*"
   - "**/*.Designer.cs"
+  - "**/Migrations/**"
+  - "**/WhereClauseEpressionVisitor.cs"
+  - "**/TimescaleDBDesignTimeServices.cs"
+  - "**/TimescaleDbServiceCollectionExtensions.cs"
