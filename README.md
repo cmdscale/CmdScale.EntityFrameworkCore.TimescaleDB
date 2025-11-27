@@ -256,7 +256,7 @@ To use the locally published NuGet packages in other projects, you need to tell 
 Add the local folder as a NuGet source using the .NET CLI:
 
 ```bash
-dotnet nuget add source "C:\_Dev\NuGet-Packages" --name LocalCmdScale
+dotnet nuget add source "path\NuGet-Packages" --name LocalCmdScale
 ```
 
 Or, configure it in Visual Studio:
