@@ -6,7 +6,7 @@
     <AssemblyName>CmdScale.EntityFrameworkCore.TimescaleDB</AssemblyName>
     <RootNamespace>CmdScale.EntityFrameworkCore.TimescaleDB</RootNamespace>
     <PackageId>CmdScale.EntityFrameworkCore.TimescaleDB</PackageId>
-    <Version>0.3.2</Version>
+    <Version>0.3.3</Version>
     <Authors>CmdScale</Authors>
     <Description>The core runtime library. You include this in your project to enable TimescaleDB-specific features when configuring your DbContext.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
