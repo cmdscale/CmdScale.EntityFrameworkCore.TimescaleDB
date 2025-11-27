@@ -28,7 +28,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             List<string> communityStatements = [];
 
             // Build create_hypertable with chunk_time_interval if provided
-            var createHypertableCall = new StringBuilder();
+            StringBuilder createHypertableCall = new();
             createHypertableCall.Append($"SELECT create_hypertable({qualifiedTableName}, '{operation.TimeColumnName}'");
             createHypertableCall.Append(operation.MigrateData ? ", migrate_data => true" : "");
 
@@ -109,7 +109,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             // Check for ChunkTimeInterval change (Available in both editions)
             if (operation.ChunkTimeInterval != operation.OldChunkTimeInterval)
             {
-                var setChunkTimeInterval = new StringBuilder();
+                StringBuilder setChunkTimeInterval = new();
                 setChunkTimeInterval.Append($"SELECT set_chunk_time_interval({qualifiedTableName}, ");
 
                 // Check if the interval is a plain number (e.g., for microseconds).
@@ -209,7 +209,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 statements.Add($"-- WARNING: TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: {dimensionList}");
             }
 
-
             // Add wrapped community statements if any exist
             if (communityStatements.Count > 0)
             {
@@ -219,11 +218,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         }
 
         /// <summary>
-        /// Wraps multiple SQL statements in a single license check block to ensure they only run on Community Edition
+        /// Wraps multiple SQL statements in a single license check block to ensure they only run on Community Edition.
         /// </summary>
-        private string WrapCommunityFeatures(List<string> sqlStatements)
+        private static string WrapCommunityFeatures(List<string> sqlStatements)
         {
-            var sb = new StringBuilder();
+            StringBuilder sb = new();
             sb.AppendLine("DO $$");
             sb.AppendLine("DECLARE");
             sb.AppendLine("    license TEXT;");
@@ -234,11 +233,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             foreach (string sql in sqlStatements)
             {
-                sb.AppendLine($"        {sql}");
+                // Remove trailing semicolon and escape single quotes for EXECUTE
+                string cleanSql = sql.TrimEnd(';').Replace("'", "''");
+                sb.AppendLine($"        EXECUTE '{cleanSql}';");
             }
 
             sb.AppendLine("    ELSE");
-            sb.AppendLine("        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';");
+            sb.AppendLine("        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';");
             sb.AppendLine("    END IF;");
             sb.AppendLine("END $$;");
 

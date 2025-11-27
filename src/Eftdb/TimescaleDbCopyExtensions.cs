@@ -55,7 +55,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                             await writer.StartRowAsync();
 
                             // Write each configured column in the specified order
-                            foreach (var (Getter, DbType) in config.ColumnMappings.Values)
+                            foreach ((Func<T, object?>? Getter, NpgsqlTypes.NpgsqlDbType DbType) in config.ColumnMappings.Values)
                             {
                                 object? value = Getter(item);
                                 await writer.WriteAsync(value, DbType);

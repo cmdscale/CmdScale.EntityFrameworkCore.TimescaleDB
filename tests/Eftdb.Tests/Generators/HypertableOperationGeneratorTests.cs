@@ -71,13 +71,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license TEXT;
                 BEGIN
                     license := current_setting('timescaledb.license', true);
-                    
+
                     IF license IS NULL OR license != 'apache' THEN
-                        ALTER TABLE """"custom_schema"""".""""FullTable"""" SET (timescaledb.compress = true);
-                        SET timescaledb.enable_chunk_skipping = 'ON';
-                        SELECT enable_chunk_skipping('custom_schema.""""FullTable""""', 'DeviceId');
+                        EXECUTE 'ALTER TABLE """"custom_schema"""".""""FullTable"""" SET (timescaledb.compress = true)';
+                        EXECUTE 'SET timescaledb.enable_chunk_skipping = ''ON''';
+                        EXECUTE 'SELECT enable_chunk_skipping(''custom_schema.""""FullTable""""'', ''DeviceId'')';
                     ELSE
-                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
                 END $$;
             "")";
@@ -109,13 +109,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license TEXT;
                 BEGIN
                     license := current_setting('timescaledb.license', true);
-                    
+
                     IF license IS NULL OR license != 'apache' THEN
-                        ALTER TABLE """"custom_schema"""".""""Metrics"""" SET (timescaledb.compress = true);
-                        SET timescaledb.enable_chunk_skipping = 'ON';
-                        SELECT enable_chunk_skipping('custom_schema.""""Metrics""""', 'device_id');
+                        EXECUTE 'ALTER TABLE """"custom_schema"""".""""Metrics"""" SET (timescaledb.compress = true)';
+                        EXECUTE 'SET timescaledb.enable_chunk_skipping = ''ON''';
+                        EXECUTE 'SELECT enable_chunk_skipping(''custom_schema.""""Metrics""""'', ''device_id'')';
                     ELSE
-                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
                 END $$;
             "")";
@@ -147,11 +147,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license TEXT;
                 BEGIN
                     license := current_setting('timescaledb.license', true);
-                    
+
                     IF license IS NULL OR license != 'apache' THEN
-                        ALTER TABLE """"public"""".""""SensorData"""" SET (timescaledb.compress = true);
+                        EXECUTE 'ALTER TABLE """"public"""".""""SensorData"""" SET (timescaledb.compress = true)';
                     ELSE
-                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
                 END $$;
             "")";
@@ -181,13 +181,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license TEXT;
                 BEGIN
                     license := current_setting('timescaledb.license', true);
-                    
+
                     IF license IS NULL OR license != 'apache' THEN
-                        SET timescaledb.enable_chunk_skipping = 'ON';
-                        SELECT enable_chunk_skipping('metrics_schema.""""Metrics""""', 'service');
-                        SELECT disable_chunk_skipping('metrics_schema.""""Metrics""""', 'region');
+                        EXECUTE 'SET timescaledb.enable_chunk_skipping = ''ON''';
+                        EXECUTE 'SELECT enable_chunk_skipping(''metrics_schema.""""Metrics""""'', ''service'')';
+                        EXECUTE 'SELECT disable_chunk_skipping(''metrics_schema.""""Metrics""""'', ''region'')';
                     ELSE
-                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
                 END $$;
             "")";
@@ -241,12 +241,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license TEXT;
                 BEGIN
                     license := current_setting('timescaledb.license', true);
-                    
+
                     IF license IS NULL OR license != 'apache' THEN
-                        ALTER TABLE """"public"""".""""Logs"""" SET (timescaledb.compress = false);
-                        SELECT disable_chunk_skipping('public.""""Logs""""', 'trace_id');
+                        EXECUTE 'ALTER TABLE """"public"""".""""Logs"""" SET (timescaledb.compress = false)';
+                        EXECUTE 'SELECT disable_chunk_skipping(''public.""""Logs""""'', ''trace_id'')';
                     ELSE
-                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
                 END $$;
             "")";
@@ -326,12 +326,22 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @".Sql(@""
-                SELECT create_hypertable('custom_schema.""""CompleteTable""""', 'EventTime', migrate_data => true);
-                SELECT set_chunk_time_interval('custom_schema.""""CompleteTable""""', INTERVAL '1 day');
-                ALTER TABLE """"custom_schema"""".""""CompleteTable"""" SET (timescaledb.compress = true);
-                SET timescaledb.enable_chunk_skipping = 'ON';
-                SELECT enable_chunk_skipping('custom_schema.""""CompleteTable""""', 'DeviceId');
+                SELECT create_hypertable('custom_schema.""""CompleteTable""""', 'EventTime', migrate_data => true, chunk_time_interval => INTERVAL '1 day');
                 SELECT add_dimension('custom_schema.""""CompleteTable""""', by_hash('LocationId', 4));
+                DO $$
+                DECLARE
+                    license TEXT;
+                BEGIN
+                    license := current_setting('timescaledb.license', true);
+
+                    IF license IS NULL OR license != 'apache' THEN
+                        EXECUTE 'ALTER TABLE """"custom_schema"""".""""CompleteTable"""" SET (timescaledb.compress = true)';
+                        EXECUTE 'SET timescaledb.enable_chunk_skipping = ''ON''';
+                        EXECUTE 'SELECT enable_chunk_skipping(''custom_schema.""""CompleteTable""""'', ''DeviceId'')';
+                    ELSE
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
+                    END IF;
+                END $$;
             "")";
 
             // Act

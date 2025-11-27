@@ -143,11 +143,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license TEXT;
                 BEGIN
                     license := current_setting('timescaledb.license', true);
-                    
+
                     IF license IS NULL OR license != 'apache' THEN
-                        ALTER TABLE """"public"""".""""compressed_data"""" SET (timescaledb.compress = true);
+                        EXECUTE 'ALTER TABLE """"public"""".""""compressed_data"""" SET (timescaledb.compress = true)';
                     ELSE
-                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
                 END $$;
             "")";
@@ -429,11 +429,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license TEXT;
                 BEGIN
                     license := current_setting('timescaledb.license', true);
-                    
+
                     IF license IS NULL OR license != 'apache' THEN
-                        ALTER TABLE """"public"""".""""decompress"""" SET (timescaledb.compress = false);
+                        EXECUTE 'ALTER TABLE """"public"""".""""decompress"""" SET (timescaledb.compress = false)';
                     ELSE
-                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
                 END $$;
             "")";
@@ -463,13 +463,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license TEXT;
                 BEGIN
                     license := current_setting('timescaledb.license', true);
-                    
+
                     IF license IS NULL OR license != 'apache' THEN
-                        SET timescaledb.enable_chunk_skipping = 'ON';
-                        SELECT enable_chunk_skipping('public.""""add_skip""""', 'col2');
-                        SELECT enable_chunk_skipping('public.""""add_skip""""', 'col3');
+                        EXECUTE 'SET timescaledb.enable_chunk_skipping = ''ON''';
+                        EXECUTE 'SELECT enable_chunk_skipping(''public.""""add_skip""""'', ''col2'')';
+                        EXECUTE 'SELECT enable_chunk_skipping(''public.""""add_skip""""'', ''col3'')';
                     ELSE
-                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
                 END $$;
             "")";
@@ -499,11 +499,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license TEXT;
                 BEGIN
                     license := current_setting('timescaledb.license', true);
-                    
+
                     IF license IS NULL OR license != 'apache' THEN
-                        SELECT disable_chunk_skipping('public.""""remove_skip""""', 'remove_this');
+                        EXECUTE 'SELECT disable_chunk_skipping(''public.""""remove_skip""""'', ''remove_this'')';
                     ELSE
-                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Enterprise Edition';
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
                 END $$;
             "")";
@@ -592,8 +592,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert - Must SET enable_chunk_skipping = 'ON' before enable_chunk_skipping()
-            Assert.Contains("SET timescaledb.enable_chunk_skipping = 'ON'", result);
-            Assert.Contains("enable_chunk_skipping('public.\"skip_test\"', 'new_col')", result);
+            Assert.Contains("SET timescaledb.enable_chunk_skipping = ''ON''", result);
+            Assert.Contains("enable_chunk_skipping(''public.\"skip_test\"'', ''new_col'')", result);
         }
 
         #endregion
