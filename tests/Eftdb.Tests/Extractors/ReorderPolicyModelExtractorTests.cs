@@ -676,4 +676,143 @@ public class ReorderPolicyModelExtractorTests
     }
 
     #endregion
+
+    #region Should_Extract_ReorderPolicy_From_Attribute
+
+    [Hypertable("Timestamp")]
+    [ReorderPolicy("metrics_attr_idx")]
+    private class ReorderPolicyAttributeMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ReorderPolicyAttributeContext : DbContext
+    {
+        public DbSet<ReorderPolicyAttributeMetric> Metrics => Set<ReorderPolicyAttributeMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ReorderPolicyAttributeMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_ReorderPolicy_From_Attribute()
+    {
+        using ReorderPolicyAttributeContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
+
+        Assert.Single(operations);
+        AddReorderPolicyOperation operation = operations[0];
+        Assert.Equal("Metrics", operation.TableName);
+        Assert.Equal("metrics_attr_idx", operation.IndexName);
+    }
+
+    #endregion
+
+    #region Should_Extract_Fully_Configured_ReorderPolicy_From_Attribute
+
+    [Hypertable("Timestamp")]
+    [ReorderPolicy("metrics_full_attr_idx",
+        InitialStart = "2025-06-01T00:00:00Z",
+        ScheduleInterval = "12:00:00",
+        MaxRuntime = "01:30:00",
+        MaxRetries = 5,
+        RetryPeriod = "00:20:00")]
+    private class FullyConfiguredReorderPolicyAttributeMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class FullyConfiguredReorderPolicyAttributeContext : DbContext
+    {
+        public DbSet<FullyConfiguredReorderPolicyAttributeMetric> Metrics => Set<FullyConfiguredReorderPolicyAttributeMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<FullyConfiguredReorderPolicyAttributeMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Fully_Configured_ReorderPolicy_From_Attribute()
+    {
+        using FullyConfiguredReorderPolicyAttributeContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
+
+        Assert.Single(operations);
+        AddReorderPolicyOperation operation = operations[0];
+        Assert.Equal("metrics_full_attr_idx", operation.IndexName);
+        Assert.NotNull(operation.InitialStart);
+        Assert.Equal("12:00:00", operation.ScheduleInterval);
+        Assert.Equal("01:30:00", operation.MaxRuntime);
+        Assert.Equal(5, operation.MaxRetries);
+        Assert.Equal("00:20:00", operation.RetryPeriod);
+    }
+
+    #endregion
+
+    #region Should_Extract_Custom_Schema
+
+    private class CustomSchemaReorderMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CustomSchemaReorderPolicyContext : DbContext
+    {
+        public DbSet<CustomSchemaReorderMetric> Metrics => Set<CustomSchemaReorderMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CustomSchemaReorderMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics", "custom_schema");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithReorderPolicy("metrics_time_idx");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Custom_Schema()
+    {
+        using CustomSchemaReorderPolicyContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Equal("custom_schema", operations[0].Schema);
+    }
+
+    #endregion
 }

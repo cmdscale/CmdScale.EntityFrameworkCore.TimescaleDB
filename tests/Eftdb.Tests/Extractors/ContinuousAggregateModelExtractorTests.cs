@@ -1203,4 +1203,418 @@ public class ContinuousAggregateModelExtractorTests
     }
 
     #endregion
+
+    #region Should_Extract_Sum_AggregateFunction
+
+    private class SumAggregateFunctionSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SumAggregateFunctionHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double TotalValue { get; set; }
+    }
+
+    private class SumAggregateFunctionContext : DbContext
+    {
+        public DbSet<SumAggregateFunctionSourceMetric> Metrics => Set<SumAggregateFunctionSourceMetric>();
+        public DbSet<SumAggregateFunctionHourlyMetric> HourlyMetrics => Set<SumAggregateFunctionHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SumAggregateFunctionSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<SumAggregateFunctionHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<SumAggregateFunctionHourlyMetric, SumAggregateFunctionSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(x => x.TotalValue, x => x.Value, EAggregateFunction.Sum);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Sum_AggregateFunction()
+    {
+        using SumAggregateFunctionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Single(operations[0].AggregateFunctions);
+        Assert.Equal("TotalValue:Sum:Value", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Extract_Count_AggregateFunction
+
+    private class CountAggregateFunctionSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CountAggregateFunctionHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public long RecordCount { get; set; }
+    }
+
+    private class CountAggregateFunctionContext : DbContext
+    {
+        public DbSet<CountAggregateFunctionSourceMetric> Metrics => Set<CountAggregateFunctionSourceMetric>();
+        public DbSet<CountAggregateFunctionHourlyMetric> HourlyMetrics => Set<CountAggregateFunctionHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CountAggregateFunctionSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CountAggregateFunctionHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CountAggregateFunctionHourlyMetric, CountAggregateFunctionSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(x => x.RecordCount, x => x.Value, EAggregateFunction.Count);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Count_AggregateFunction()
+    {
+        using CountAggregateFunctionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Single(operations[0].AggregateFunctions);
+        Assert.Equal("RecordCount:Count:Value", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Extract_First_AggregateFunction
+
+    private class FirstAggregateFunctionSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class FirstAggregateFunctionHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double FirstValue { get; set; }
+    }
+
+    private class FirstAggregateFunctionContext : DbContext
+    {
+        public DbSet<FirstAggregateFunctionSourceMetric> Metrics => Set<FirstAggregateFunctionSourceMetric>();
+        public DbSet<FirstAggregateFunctionHourlyMetric> HourlyMetrics => Set<FirstAggregateFunctionHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<FirstAggregateFunctionSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<FirstAggregateFunctionHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<FirstAggregateFunctionHourlyMetric, FirstAggregateFunctionSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(x => x.FirstValue, x => x.Value, EAggregateFunction.First);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_First_AggregateFunction()
+    {
+        using FirstAggregateFunctionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Single(operations[0].AggregateFunctions);
+        Assert.Equal("FirstValue:First:Value", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Extract_Last_AggregateFunction
+
+    private class LastAggregateFunctionSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class LastAggregateFunctionHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double LastValue { get; set; }
+    }
+
+    private class LastAggregateFunctionContext : DbContext
+    {
+        public DbSet<LastAggregateFunctionSourceMetric> Metrics => Set<LastAggregateFunctionSourceMetric>();
+        public DbSet<LastAggregateFunctionHourlyMetric> HourlyMetrics => Set<LastAggregateFunctionHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<LastAggregateFunctionSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<LastAggregateFunctionHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<LastAggregateFunctionHourlyMetric, LastAggregateFunctionSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(x => x.LastValue, x => x.Value, EAggregateFunction.Last);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Last_AggregateFunction()
+    {
+        using LastAggregateFunctionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Single(operations[0].AggregateFunctions);
+        Assert.Equal("LastValue:Last:Value", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Extract_Custom_Schema
+
+    private class CustomSchemaSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CustomSchemaHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class CustomSchemaContext : DbContext
+    {
+        public DbSet<CustomSchemaSourceMetric> Metrics => Set<CustomSchemaSourceMetric>();
+        public DbSet<CustomSchemaHourlyMetric> HourlyMetrics => Set<CustomSchemaHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CustomSchemaSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics", "custom_schema");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CustomSchemaHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CustomSchemaHourlyMetric, CustomSchemaSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                );
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Custom_Schema()
+    {
+        using CustomSchemaContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Equal("custom_schema", operations[0].Schema);
+    }
+
+    #endregion
+
+    #region Should_Extract_GroupByColumn_With_Explicit_Column_Name
+
+    private class ExplicitGroupByColumnSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public string DeviceId { get; set; } = string.Empty;
+        public double Value { get; set; }
+    }
+
+    private class ExplicitGroupByColumnHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public string DeviceId { get; set; } = string.Empty;
+    }
+
+    private class ExplicitGroupByColumnContext : DbContext
+    {
+        public DbSet<ExplicitGroupByColumnSourceMetric> Metrics => Set<ExplicitGroupByColumnSourceMetric>();
+        public DbSet<ExplicitGroupByColumnHourlyMetric> HourlyMetrics => Set<ExplicitGroupByColumnHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ExplicitGroupByColumnSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.Property(x => x.DeviceId).HasColumnName("device_identifier");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ExplicitGroupByColumnHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<ExplicitGroupByColumnHourlyMetric, ExplicitGroupByColumnSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddGroupByColumn(x => x.DeviceId);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_GroupByColumn_With_Explicit_Column_Name()
+    {
+        using ExplicitGroupByColumnContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Single(operations[0].GroupByColumns);
+        Assert.Equal("device_identifier", operations[0].GroupByColumns[0]);
+    }
+
+    #endregion
+
+    #region Should_Extract_AggregateFunction_With_Explicit_Source_Column_Name
+
+    private class ExplicitSourceColumnSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ExplicitSourceColumnHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ExplicitSourceColumnContext : DbContext
+    {
+        public DbSet<ExplicitSourceColumnSourceMetric> Metrics => Set<ExplicitSourceColumnSourceMetric>();
+        public DbSet<ExplicitSourceColumnHourlyMetric> HourlyMetrics => Set<ExplicitSourceColumnHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ExplicitSourceColumnSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.Property(x => x.Value).HasColumnName("sensor_value");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ExplicitSourceColumnHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<ExplicitSourceColumnHourlyMetric, ExplicitSourceColumnSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_AggregateFunction_With_Explicit_Source_Column_Name()
+    {
+        using ExplicitSourceColumnContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Single(operations[0].AggregateFunctions);
+        Assert.Equal("AvgValue:Avg:sensor_value", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
 }

@@ -7,6 +7,7 @@ using System.Text;
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
 {
 
+    // TODO: This is not in use, yet and will need more work to be functional. Therefore, this class will be ignored by code coverage tools. Don't forget to remove the exclusion when you start using it.
     /// <summary>
     /// A simplified visitor to translate a WHERE clause LambdaExpression into a SQL string.
     /// This must be used by your IMigrationsModelDiffer, not the SQL generator.

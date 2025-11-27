@@ -936,4 +936,179 @@ public class HypertableModelExtractorTests
     }
 
     #endregion
+
+    #region Should_Extract_Custom_Schema
+
+    private class CustomSchemaMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CustomSchemaContext : DbContext
+    {
+        public DbSet<CustomSchemaMetric> Metrics => Set<CustomSchemaMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CustomSchemaMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics", "custom_schema");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Custom_Schema()
+    {
+        using CustomSchemaContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Equal("custom_schema", operations[0].Schema);
+    }
+
+    #endregion
+
+    #region Should_Extract_TimeColumn_With_Explicit_Column_Name
+
+    private class ExplicitColumnNameMetric
+    {
+        public DateTime CreatedAt { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ExplicitColumnNameContext : DbContext
+    {
+        public DbSet<ExplicitColumnNameMetric> Metrics => Set<ExplicitColumnNameMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ExplicitColumnNameMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.Property(x => x.CreatedAt).HasColumnName("timestamp_col");
+                entity.IsHypertable(x => x.CreatedAt);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_TimeColumn_With_Explicit_Column_Name()
+    {
+        using ExplicitColumnNameContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Equal("timestamp_col", operations[0].TimeColumnName);
+    }
+
+    #endregion
+
+    #region Should_Extract_ChunkSkipColumn_With_Explicit_Column_Name
+
+    private class ExplicitChunkSkipColumnMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public string DeviceId { get; set; } = string.Empty;
+        public double Value { get; set; }
+    }
+
+    private class ExplicitChunkSkipColumnContext : DbContext
+    {
+        public DbSet<ExplicitChunkSkipColumnMetric> Metrics => Set<ExplicitChunkSkipColumnMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ExplicitChunkSkipColumnMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.Property(x => x.DeviceId).HasColumnName("device_identifier");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithChunkSkipping(x => x.DeviceId);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_ChunkSkipColumn_With_Explicit_Column_Name()
+    {
+        using ExplicitChunkSkipColumnContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.NotNull(operations[0].ChunkSkipColumns);
+        string column = Assert.Single(operations[0].ChunkSkipColumns!);
+        Assert.Equal("device_identifier", column);
+    }
+
+    #endregion
+
+    #region Should_Extract_Dimension_With_Explicit_Column_Name
+
+    private class ExplicitDimensionColumnMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public string DeviceId { get; set; } = string.Empty;
+        public double Value { get; set; }
+    }
+
+    private class ExplicitDimensionColumnContext : DbContext
+    {
+        public DbSet<ExplicitDimensionColumnMetric> Metrics => Set<ExplicitDimensionColumnMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ExplicitDimensionColumnMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.Property(x => x.DeviceId).HasColumnName("device_identifier");
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasDimension(Dimension.CreateHash("DeviceId", 4));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Dimension_With_Explicit_Column_Name()
+    {
+        using ExplicitDimensionColumnContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.NotNull(operations[0].AdditionalDimensions);
+        Dimension dimension = Assert.Single(operations[0].AdditionalDimensions!);
+        Assert.Equal("device_identifier", dimension.ColumnName);
+    }
+
+    #endregion
 }

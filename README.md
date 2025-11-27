@@ -1,5 +1,6 @@
 ﻿![CmdScale Project](https://github.com/cmdscale/.github/raw/main/profile/assets/CmdShield.svg)
 [![Test Workflow](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml/badge.svg)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml)
+[![codecov](https://codecov.io/gh/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/graph/badge.svg?token=YP3YCJLQ41)](https://codecov.io/gh/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/tag/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/tags)
 [![GitHub issues](https://img.shields.io/github/issues/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/issues)
 [![GitHub license](https://img.shields.io/github/license/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/blob/main/LICENSE)
@@ -176,14 +177,14 @@ Generate an HTML coverage report using [ReportGenerator](https://github.com/dani
 # Install ReportGenerator (once)
 dotnet tool install -g dotnet-reportgenerator-globaltool
 
-# Run tests with coverage collection (output to ./TestResults)
-dotnet test --collect:"XPlat Code Coverage" --results-directory ./TestResults
+# Run tests with coverage collection
+dotnet test tests/Eftdb.Tests --settings tests/Eftdb.Tests/coverlet.runsettings --collect:"XPlat Code Coverage"
 
 # Generate HTML report from coverage files
-reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"TestResults/CoverageReport" -reporttypes:Html
+reportgenerator -reports:"tests/Eftdb.Tests/TestResults/**/coverage.cobertura.xml" -targetdir:"tests/Eftdb.Tests/TestResults/CoverageReport" -reporttypes:Html
 ```
 
-The HTML report will be generated at `TestResults/CoverageReport/index.html`.
+The HTML report will be generated at `tests/Eftdb.Tests/TestResults/CoverageReport/index.html`.
 
 ### Mutation Testing
 
