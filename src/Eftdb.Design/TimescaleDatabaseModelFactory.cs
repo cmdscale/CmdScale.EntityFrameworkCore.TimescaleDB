@@ -28,9 +28,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             DatabaseModel databaseModel = base.Create(connection, options);
 
             // Extract all TimescaleDB features from the database
-            var allFeatureData = _features
-                .Select(feature => feature.Extractor.Extract(connection))
-                .ToList();
+            List<Dictionary<(string Schema, string TableName), object>> allFeatureData = [.. _features.Select(feature => feature.Extractor.Extract(connection))];
 
             // Apply annotations to tables/views in the model
             foreach (DatabaseTable table in databaseModel.Tables)
@@ -42,7 +40,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                 // Apply each feature's annotations if the table has that feature
                 for (int i = 0; i < _features.Count; i++)
                 {
-                    var featureData = allFeatureData[i];
+                    Dictionary<(string Schema, string TableName), object> featureData = allFeatureData[i];
                     if (featureData.TryGetValue(tableKey, out object? featureInfo))
                     {
                         _features[i].Applier.ApplyAnnotations(table, featureInfo);

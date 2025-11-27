@@ -58,10 +58,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions
                 if (MapClrTypeToNpgsqlDbType(property.PropertyType, out NpgsqlDbType dbType))
                 {
                     // Auto-discover properties and create compiled getters for them.
-                    var parameter = Expression.Parameter(typeof(T), "x");
-                    var member = Expression.Property(parameter, property);
-                    var conversion = Expression.Convert(member, typeof(object));
-                    var lambda = Expression.Lambda<Func<T, object>>(conversion, parameter);
+                    ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
+                    MemberExpression member = Expression.Property(parameter, property);
+                    UnaryExpression conversion = Expression.Convert(member, typeof(object));
+                    Expression<Func<T, object>> lambda = Expression.Lambda<Func<T, object>>(conversion, parameter);
 
                     ColumnMappings[property.Name] = (lambda.Compile(), dbType);
                 }
@@ -124,7 +124,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions
         private static bool MapClrTypeToNpgsqlDbType(Type clrType, out NpgsqlDbType dbType)
         {
             // Handle nullable value types by getting the underlying type
-            var underlyingType = Nullable.GetUnderlyingType(clrType) ?? clrType;
+            Type underlyingType = Nullable.GetUnderlyingType(clrType) ?? clrType;
 
             // This map contains the default CLR type to NpgsqlDbType mappings
             // based on the Npgsql "Write Mappings" documentation.

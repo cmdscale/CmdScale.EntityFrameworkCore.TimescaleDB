@@ -46,13 +46,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Benchmarks
         public void IterationSetup()
         {
             Trades.Clear();
-            var random = new Random();
+            Random random = new();
             string[] tickers = ["AAPL", "GOOGL", "MSFT", "TSLA", "AMZN"];
-            var baseTimestamp = DateTime.UtcNow.AddMinutes(-30);
+            DateTime baseTimestamp = DateTime.UtcNow.AddMinutes(-30);
 
             for (int i = 0; i < NumberOfRecords; i++)
             {
-                var trade = CreateTradeInstance(i, baseTimestamp, tickers[random.Next(tickers.Length)], random);
+                T trade = CreateTradeInstance(i, baseTimestamp, tickers[random.Next(tickers.Length)], random);
                 Trades.Add(trade);
             }
 

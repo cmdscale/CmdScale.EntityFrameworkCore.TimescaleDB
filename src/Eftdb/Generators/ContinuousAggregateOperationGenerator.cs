@@ -1,4 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
+using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
@@ -114,7 +115,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             }
 
             // Build the complete CREATE MATERIALIZED VIEW statement as a single string
-            var sqlBuilder = new System.Text.StringBuilder();
+            StringBuilder sqlBuilder = new();
             sqlBuilder.Append($"CREATE MATERIALIZED VIEW {qualifiedIdentifier}");
             sqlBuilder.AppendLine();
             sqlBuilder.Append($"WITH ({string.Join(", ", withOptions)}) AS");
