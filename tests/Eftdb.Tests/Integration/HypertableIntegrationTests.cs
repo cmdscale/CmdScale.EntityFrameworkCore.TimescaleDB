@@ -489,6 +489,96 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
 
     #endregion
 
+    #region Should_Create_Hypertable_With_RangeDimension_IntegerInterval
+
+    private class IntegerRangeDimensionData
+    {
+        public DateTime Timestamp { get; set; }
+        public int SequenceNumber { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IntegerRangeDimensionContext(string connectionString) : DbContext
+    {
+        public DbSet<IntegerRangeDimensionData> SequencedData => Set<IntegerRangeDimensionData>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IntegerRangeDimensionData>(entity =>
+            {
+                entity.ToTable("sequenced_data");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                       .HasDimension(Dimension.CreateRange("SequenceNumber", "10000"));
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Create_Hypertable_With_RangeDimension_IntegerInterval()
+    {
+        await using IntegerRangeDimensionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        List<DimensionInfo> dimensions = await GetDimensionsAsync(context, "sequenced_data");
+
+        Assert.Equal(2, dimensions.Count);
+
+        DimensionInfo? rangeDimension = dimensions.FirstOrDefault(d => d.ColumnName == "SequenceNumber");
+        Assert.NotNull(rangeDimension);
+        Assert.Null(rangeDimension.NumberPartitions);
+    }
+
+    #endregion
+
+    #region Should_Create_Hypertable_With_RangeDimension_TimeInterval
+
+    private class TimeRangeDimensionData
+    {
+        public DateTime EventTime { get; set; }
+        public DateTime ProcessingTime { get; set; }
+        public string EventType { get; set; } = string.Empty;
+    }
+
+    private class TimeRangeDimensionContext(string connectionString) : DbContext
+    {
+        public DbSet<TimeRangeDimensionData> DualTimeData => Set<TimeRangeDimensionData>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<TimeRangeDimensionData>(entity =>
+            {
+                entity.ToTable("dual_time_events");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.EventTime)
+                       .HasDimension(Dimension.CreateRange("ProcessingTime", "2 hours"));
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Create_Hypertable_With_RangeDimension_TimeInterval()
+    {
+        await using TimeRangeDimensionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        List<DimensionInfo> dimensions = await GetDimensionsAsync(context, "dual_time_events");
+
+        Assert.Equal(2, dimensions.Count);
+
+        DimensionInfo? rangeDimension = dimensions.FirstOrDefault(d => d.ColumnName == "ProcessingTime");
+        Assert.NotNull(rangeDimension);
+        Assert.Null(rangeDimension.NumberPartitions);
+    }
+
+    #endregion
+
     #region Should_Create_Hypertable_With_MultipleDimensions
 
     private class MultipleDimensionsData

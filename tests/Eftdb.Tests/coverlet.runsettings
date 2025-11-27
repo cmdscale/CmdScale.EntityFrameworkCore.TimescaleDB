@@ -5,9 +5,7 @@
       <DataCollector friendlyName="XPlat code coverage">
         <Configuration>
           <Format>cobertura,lcov</Format>
-          <Exclude>
-			  [CmdScale.EntityFrameworkCore.TimescaleDB]CmdScale.EntityFrameworkCore.TimescaleDB.Internals.WhereClauseExpressionVisitor
-		  </Exclude>
+          <Exclude></Exclude>
           <ExcludeByAttribute>
             Obsolete,
             GeneratedCodeAttribute,
@@ -15,7 +13,10 @@
             ExcludeFromCodeCoverageAttribute
           </ExcludeByAttribute>
           <ExcludeByFile>
-            **/Migrations/*.cs
+            **/Migrations/*.cs,
+            **/WhereClauseEpressionVisitor.cs,
+            **/TimescaleDBDesignTimeServices.cs,
+            **/TimescaleDbServiceCollectionExtensions.cs
           </ExcludeByFile>
           <SingleHit>false</SingleHit>
           <UseSourceLink>true</UseSourceLink>

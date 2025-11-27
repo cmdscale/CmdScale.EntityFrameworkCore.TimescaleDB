@@ -286,6 +286,78 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Contains("add_dimension('public.\"ranged\"', by_range('secondary_time', INTERVAL '30 days'))", result);
         }
 
+        [Fact]
+        public void Runtime_Create_WithRangeDimension_IntegerInterval_GeneratesNumericByRangeSyntax()
+        {
+            // Arrange - Range dimension with integer interval (no INTERVAL keyword)
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "integer_ranged",
+                Schema = "public",
+                TimeColumnName = "time",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateRange("sensor_id", "10000")
+                ]
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Integer intervals should NOT use INTERVAL keyword
+            Assert.Contains("add_dimension('public.\"integer_ranged\"', by_range('sensor_id', 10000))", result);
+            Assert.DoesNotContain("INTERVAL", result);
+        }
+
+        [Fact]
+        public void Runtime_Create_WithRangeDimension_TimeInterval_GeneratesIntervalByRangeSyntax()
+        {
+            // Arrange - Range dimension with time-based interval
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "time_ranged",
+                Schema = "public",
+                TimeColumnName = "event_time",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateRange("processed_time", "1 hour")
+                ]
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Time-based intervals should use INTERVAL keyword
+            Assert.Contains("add_dimension('public.\"time_ranged\"', by_range('processed_time', INTERVAL '1 hour'))", result);
+        }
+
+        [Fact]
+        public void DesignTime_Create_WithRangeDimension_IntegerInterval_GeneratesCorrectCode()
+        {
+            // Arrange - Design-time code for integer range dimension
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "integer_partitions",
+                Schema = "analytics",
+                TimeColumnName = "timestamp",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateRange("partition_key", "5000")
+                ]
+            };
+
+            string expected = @".Sql(@""
+                SELECT create_hypertable('analytics.""""integer_partitions""""', 'timestamp');
+                SELECT add_dimension('analytics.""""integer_partitions""""', by_range('partition_key', 5000));
+            "")";
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
         #endregion
 
         #region AlterHypertableOperation - Design Time Tests
@@ -594,6 +666,77 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert - Must SET enable_chunk_skipping = 'ON' before enable_chunk_skipping()
             Assert.Contains("SET timescaledb.enable_chunk_skipping = ''ON''", result);
             Assert.Contains("enable_chunk_skipping(''public.\"skip_test\"'', ''new_col'')", result);
+        }
+
+        [Fact]
+        public void Runtime_Alter_AddingRangeDimension_WithIntegerInterval_GeneratesCorrectSQL()
+        {
+            // Arrange - Adding range dimension with integer interval
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "events",
+                Schema = "public",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateRange("event_id", "1000")
+                ],
+                OldAdditionalDimensions = []
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Integer range should not use INTERVAL keyword
+            Assert.Contains("add_dimension('public.\"events\"', by_range('event_id', 1000))", result);
+            Assert.DoesNotContain("INTERVAL", result);
+        }
+
+        [Fact]
+        public void Runtime_Alter_AddingRangeDimension_WithTimeInterval_GeneratesCorrectSQL()
+        {
+            // Arrange - Adding range dimension with time-based interval
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "logs",
+                Schema = "public",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateRange("ingestion_time", "2 hours")
+                ],
+                OldAdditionalDimensions = []
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert - Time-based range should use INTERVAL keyword
+            Assert.Contains("add_dimension('public.\"logs\"', by_range('ingestion_time', INTERVAL '2 hours'))", result);
+        }
+
+        [Fact]
+        public void DesignTime_Alter_AddingRangeDimension_WithIntegerInterval_GeneratesCorrectCode()
+        {
+            // Arrange - Design-time code for adding integer range dimension
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "metrics",
+                Schema = "analytics",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateRange("metric_id", "50000")
+                ],
+                OldAdditionalDimensions = []
+            };
+
+            string expected = @".Sql(@""
+                SELECT add_dimension('analytics.""""metrics""""', by_range('metric_id', 50000));
+            "")";
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
         }
 
         #endregion

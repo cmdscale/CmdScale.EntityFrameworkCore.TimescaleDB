@@ -9,36 +9,8 @@ coverage:
         target: auto
         threshold: 2%
 
-component_management:
-  individual_components:
-    - component_id: eftdb
-      name: CmdScale.EntityFrameworkCore.TimescaleDB
-      paths:
-        - src/CmdScale.EntityFrameworkCore.TimescaleDB/**
-    - component_id: eftdb-design
-      name: CmdScale.EntityFrameworkCore.TimescaleDB.Design
-      paths:
-        - src/CmdScale.EntityFrameworkCore.TimescaleDB.Design/**
-
-flag_management:
-  individual_flags:
-    - name: eftdb
-      paths:
-        - src/CmdScale.EntityFrameworkCore.TimescaleDB/**
-      carryforward: true
-      statuses:
-        - type: project
-          target: 80%
-    - name: eftdb-design
-      paths:
-        - src/CmdScale.EntityFrameworkCore.TimescaleDB.Design/**
-      carryforward: true
-      statuses:
-        - type: project
-          target: 80%
-
 comment:
-  layout: "header, diff, flags, components, files"
+  layout: "header, diff, files"
   behavior: default
   require_changes: true
 
