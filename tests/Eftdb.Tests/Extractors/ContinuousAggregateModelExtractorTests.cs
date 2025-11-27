@@ -1617,4 +1617,609 @@ public class ContinuousAggregateModelExtractorTests
     }
 
     #endregion
+
+    #region Should_Skip_When_MaterializedViewName_Is_Missing
+
+    private class MissingViewNameSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class MissingViewNameHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class MissingViewNameContext : DbContext
+    {
+        public DbSet<MissingViewNameSourceMetric> Metrics => Set<MissingViewNameSourceMetric>();
+        public DbSet<MissingViewNameHourlyMetric> HourlyMetrics => Set<MissingViewNameHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MissingViewNameSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MissingViewNameHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                // Manually add incomplete annotations - missing MaterializedViewName
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MissingViewNameSourceMetric));
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, nameof(MissingViewNameSourceMetric.Timestamp));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_When_MaterializedViewName_Is_Missing()
+    {
+        // Arrange
+        using MissingViewNameContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Skip_When_ParentName_Is_Missing
+
+    private class MissingParentNameSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class MissingParentNameHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class MissingParentNameContext : DbContext
+    {
+        public DbSet<MissingParentNameSourceMetric> Metrics => Set<MissingParentNameSourceMetric>();
+        public DbSet<MissingParentNameHourlyMetric> HourlyMetrics => Set<MissingParentNameHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MissingParentNameSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MissingParentNameHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                // Missing ParentName annotation
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, nameof(MissingParentNameSourceMetric.Timestamp));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_When_ParentName_Is_Missing()
+    {
+        // Arrange
+        using MissingParentNameContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Skip_When_ParentEntity_Not_Found
+
+    private class ParentNotFoundSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class ParentNotFoundHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class ParentNotFoundContext : DbContext
+    {
+        public DbSet<ParentNotFoundSourceMetric> Metrics => Set<ParentNotFoundSourceMetric>();
+        public DbSet<ParentNotFoundHourlyMetric> HourlyMetrics => Set<ParentNotFoundHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ParentNotFoundSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ParentNotFoundHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                // Reference non-existent parent entity
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, "NonExistentEntity");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, nameof(ParentNotFoundSourceMetric.Timestamp));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_When_ParentEntity_Not_Found()
+    {
+        // Arrange
+        using ParentNotFoundContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Skip_When_ParentTableName_Is_Null
+
+    private class NoTableNameSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class NoTableNameHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class NoTableNameContext : DbContext
+    {
+        public DbSet<NoTableNameSourceMetric> Metrics => Set<NoTableNameSourceMetric>();
+        public DbSet<NoTableNameHourlyMetric> HourlyMetrics => Set<NoTableNameHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoTableNameSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                // Map to view instead of table - GetTableName() will return null
+                entity.ToView("metrics_view");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<NoTableNameHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<NoTableNameHourlyMetric, NoTableNameSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                );
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_When_ParentTableName_Is_Null()
+    {
+        // Arrange
+        using NoTableNameContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Skip_When_TimeBucketWidth_Is_Missing
+
+    private class MissingTimeBucketWidthSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class MissingTimeBucketWidthHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class MissingTimeBucketWidthContext : DbContext
+    {
+        public DbSet<MissingTimeBucketWidthSourceMetric> Metrics => Set<MissingTimeBucketWidthSourceMetric>();
+        public DbSet<MissingTimeBucketWidthHourlyMetric> HourlyMetrics => Set<MissingTimeBucketWidthHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MissingTimeBucketWidthSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MissingTimeBucketWidthHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                // Missing TimeBucketWidth
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MissingTimeBucketWidthSourceMetric));
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, nameof(MissingTimeBucketWidthSourceMetric.Timestamp));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_When_TimeBucketWidth_Is_Missing()
+    {
+        // Arrange
+        using MissingTimeBucketWidthContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Skip_When_TimeBucketSourceColumn_Annotation_Is_Missing
+
+    private class MissingTimeBucketSourceAnnotationSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class MissingTimeBucketSourceAnnotationHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class MissingTimeBucketSourceAnnotationContext : DbContext
+    {
+        public DbSet<MissingTimeBucketSourceAnnotationSourceMetric> Metrics => Set<MissingTimeBucketSourceAnnotationSourceMetric>();
+        public DbSet<MissingTimeBucketSourceAnnotationHourlyMetric> HourlyMetrics => Set<MissingTimeBucketSourceAnnotationHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MissingTimeBucketSourceAnnotationSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MissingTimeBucketSourceAnnotationHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                // Missing TimeBucketSourceColumn annotation
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MissingTimeBucketSourceAnnotationSourceMetric));
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_When_TimeBucketSourceColumn_Annotation_Is_Missing()
+    {
+        // Arrange
+        using MissingTimeBucketSourceAnnotationContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Skip_When_TimeBucketSourceColumn_Property_Not_Found
+
+    private class MissingTimeBucketPropertySourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class MissingTimeBucketPropertyHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class MissingTimeBucketPropertyContext : DbContext
+    {
+        public DbSet<MissingTimeBucketPropertySourceMetric> Metrics => Set<MissingTimeBucketPropertySourceMetric>();
+        public DbSet<MissingTimeBucketPropertyHourlyMetric> HourlyMetrics => Set<MissingTimeBucketPropertyHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MissingTimeBucketPropertySourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MissingTimeBucketPropertyHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                // Reference non-existent property in parent entity
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MissingTimeBucketPropertySourceMetric));
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, "NonExistentColumn");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_When_TimeBucketSourceColumn_Property_Not_Found()
+    {
+        // Arrange
+        using MissingTimeBucketPropertyContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Skip_Malformed_AggregateFunction_String
+
+    private class MalformedAggregateFunctionSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MalformedAggregateFunctionHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class MalformedAggregateFunctionContext : DbContext
+    {
+        public DbSet<MalformedAggregateFunctionSourceMetric> Metrics => Set<MalformedAggregateFunctionSourceMetric>();
+        public DbSet<MalformedAggregateFunctionHourlyMetric> HourlyMetrics => Set<MalformedAggregateFunctionHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MalformedAggregateFunctionSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MalformedAggregateFunctionHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MalformedAggregateFunctionHourlyMetric, MalformedAggregateFunctionSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                );
+                // Add malformed aggregate function string (missing parts)
+                List<string> malformedList = ["AvgValue:Avg", "GoodValue:Sum:Value"];
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, malformedList);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_Malformed_AggregateFunction_String()
+    {
+        // Arrange
+        using MalformedAggregateFunctionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Single(operations);
+        // Should only include the well-formed function, skipping the malformed one
+        Assert.Single(operations[0].AggregateFunctions);
+        Assert.Equal("GoodValue:Sum:Value", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Skip_AggregateFunction_When_SourceColumn_Not_Found
+
+    private class MissingAggregateFunctionSourceColumnSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MissingAggregateFunctionSourceColumnHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+        public double MinValue { get; set; }
+    }
+
+    private class MissingAggregateFunctionSourceColumnContext : DbContext
+    {
+        public DbSet<MissingAggregateFunctionSourceColumnSourceMetric> Metrics => Set<MissingAggregateFunctionSourceColumnSourceMetric>();
+        public DbSet<MissingAggregateFunctionSourceColumnHourlyMetric> HourlyMetrics => Set<MissingAggregateFunctionSourceColumnHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MissingAggregateFunctionSourceColumnSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MissingAggregateFunctionSourceColumnHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MissingAggregateFunctionSourceColumnHourlyMetric, MissingAggregateFunctionSourceColumnSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                );
+                // Add aggregate functions - one with valid source, one with invalid
+                List<string> aggregateFunctions = [
+                    "AvgValue:Avg:NonExistentColumn",  // Invalid - source column doesn't exist
+                    "MinValue:Min:Value"  // Valid
+                ];
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, aggregateFunctions);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_AggregateFunction_When_SourceColumn_Not_Found()
+    {
+        // Arrange
+        using MissingAggregateFunctionSourceColumnContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Single(operations);
+        // Should only include the valid function, skipping the one with non-existent source column
+        Assert.Single(operations[0].AggregateFunctions);
+        Assert.Equal("MinValue:Min:Value", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Use_Model_Name_As_Alias_When_Property_Not_Found_In_Aggregate_Entity
+
+    private class FallbackAliasSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class FallbackAliasHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        // Note: AvgValue property is NOT defined here to test the fallback
+    }
+
+    private class FallbackAliasContext : DbContext
+    {
+        public DbSet<FallbackAliasSourceMetric> Metrics => Set<FallbackAliasSourceMetric>();
+        public DbSet<FallbackAliasHourlyMetric> HourlyMetrics => Set<FallbackAliasHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<FallbackAliasSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<FallbackAliasHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<FallbackAliasHourlyMetric, FallbackAliasSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                );
+                // Manually add aggregate function where alias property doesn't exist in aggregate entity
+                List<string> aggregateFunctions = ["AvgValue:Avg:Value"];
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, aggregateFunctions);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Use_Model_Name_As_Alias_When_Property_Not_Found_In_Aggregate_Entity()
+    {
+        // Arrange
+        using FallbackAliasContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Single(operations);
+        Assert.Single(operations[0].AggregateFunctions);
+        // Should use the model name directly since the property doesn't exist in the aggregate entity
+        Assert.Equal("AvgValue:Avg:Value", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
 }
