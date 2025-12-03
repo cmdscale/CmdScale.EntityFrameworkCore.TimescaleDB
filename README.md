@@ -12,6 +12,7 @@ This repository provides the essential libraries and tooling to seamlessly integ
 
 - **CmdScale.EntityFrameworkCore.TimescaleDB**: The core runtime library. You include this in your project to enable TimescaleDB-specific features when configuring your `DbContext`.
 - **CmdScale.EntityFrameworkCore.TimescaleDB.Design**: Provides crucial design-time extensions. This package enhances the EF Core CLI tools (`dotnet ef`) to understand TimescaleDB concepts, enabling correct schema generation for migrations and scaffolding.
+
 ---
 
 ## ✨ Features
@@ -44,6 +45,7 @@ Create and manage **TimescaleDB continuous aggregates** — automatically refres
 ---
 
 ## 📦 NuGet Packages
+
 To get started, install the necessary packages from NuGet. For a typical project, you will need both.
 
 | Package | Description |
@@ -70,10 +72,13 @@ builder.Services.AddDbContext<TimescaleContext>(options =>
 ---
 
 ## 🔧 Fluent API Example
+
 The Fluent API provides a powerful, type-safe way to configure your entities. Use the `.IsHypertable()` extension method on an entity builder to designate it as a hypertable and configure its properties.
 
 ### Model
+
 A standard POCO class representing our time-series data.
+
 ```csharp
 public class WeatherData
 {
@@ -85,7 +90,9 @@ public class WeatherData
 ```
 
 ### Configuration
+
 In a separate configuration class, you can define the hypertable settings.
+
 ```csharp
 public class WeatherDataConfiguration : IEntityTypeConfiguration<WeatherData>
 {
@@ -109,6 +116,7 @@ public class WeatherDataConfiguration : IEntityTypeConfiguration<WeatherData>
 ---
 
 ## 🏷️ Data Annotations Example
+
 For simpler configurations, you can use the [Hypertable] attribute directly on your model class.
 
 ```csharp
@@ -134,14 +142,18 @@ public class DeviceReading
 For convenient local development, a `docker-compose.yml` file is included in the **Solution Items**. This allows you to spin up a pre-configured TimescaleDB instance with a single command.
 
 ### Start TimescaleDB container
+
 From the solution root, run:
+
 ```bash
 docker-compose up -d
 ```
 
-### Resetting the Database Environment 
+### Resetting the Database Environment
+
 If you need to start with a completely fresh, empty database, you can stop the running container and permanently delete all of its data.
 > **Warning**: This command is destructive and will erase all tables and data stored in your local TimescaleDB instance.
+
 ```bash
 docker-compose down -v
 ```
@@ -209,15 +221,19 @@ Results are generated in `StrykerOutput/reports/mutation-report.html`. See `STRY
 ---
 
 ## 🛠️ Scripts
+
 This repository includes PowerShell scripts to streamline the development workflow, particularly for switching between local project development and package-based testing.
 
 ### Allow PowerShell Scripts to Run
+
 To run these scripts, you may first need to change the execution policy for the current process:
+
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 ```
 
 ### Switch Project/Package References
+
 These script modify your `.csproj` files to switch between referencing the core libraries as direct project or as local NuGet packages.
 
 Switch to **project references** (ideal for active development):
@@ -235,6 +251,7 @@ Switch to **NuGet package references** (to simulate a real-world consumer):
 ---
 
 ## 📦 Publish Local NuGet Package
+
 To build and publish the core libraries to a local NuGet feed for testing, use the central publishing script. Note that this also done automatically by the `.\SwitchToPackageReferences.ps1` script.
 
 ```powershell
@@ -328,7 +345,8 @@ Thank you for contributing! 💜
 ---
 
 # 📄 License
-```
+
+```txt
 MIT License
 Copyright (c) 2025 CmdScale GmbH
 
