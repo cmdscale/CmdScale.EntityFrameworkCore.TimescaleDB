@@ -1,0 +1,168 @@
+name: Snapshot Build and Pre-Release
+
+on:
+    push:
+        branches: ["main"]
+
+permissions:
+    contents: write
+
+jobs:
+    test:
+        name: Run Tests
+        uses: ./.github/workflows/run-tests.yml
+        secrets: inherit
+
+    version-from-git:
+        name: Version from git
+        needs: test
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.version.outputs.version }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Calculate version
+              id: version
+              shell: bash
+              run: |
+                  GIT_VERSION=$(git describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --always || echo "")
+                  if [[ ! $GIT_VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+                    COMMIT_COUNT=$(git rev-list --count HEAD)
+                    GIT_VERSION="v0.0.0-dev.${COMMIT_COUNT}.${GITHUB_SHA:0:7}"
+                  else
+                    GIT_VERSION=$(echo "$GIT_VERSION" | sed -E 's/^v//; s/-([0-9]+)-g([a-f0-9]+)$/-dev.\1.\2/')
+                  fi
+                  GIT_VERSION=${GIT_VERSION#v}
+                  echo "version=$GIT_VERSION" >> $GITHUB_OUTPUT
+                  echo "Version: $GIT_VERSION"
+
+    build-and-pack:
+        name: Build and Pack NuGet Packages
+        needs: version-from-git
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: "8.0.x"
+
+            - name: Restore dependencies
+              run: dotnet restore
+
+            - name: Build
+              run: dotnet build -c Release --no-restore
+
+            - name: Pack Eftdb
+              run: |
+                  dotnet pack src/Eftdb/Eftdb.csproj -c Release --no-build -o ./packages /p:PackageVersion=${{ needs.version-from-git.outputs.version }}
+
+            - name: Pack Eftdb.Design
+              run: |
+                  dotnet pack src/Eftdb.Design/Eftdb.Design.csproj -c Release --no-build -o ./packages /p:PackageVersion=${{ needs.version-from-git.outputs.version }}
+            - name: Upload NuGet packages as artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: nuget-packages-snapshot
+                  path: ./packages/*.nupkg
+
+    generate-changelog:
+        name: Generate Changelog
+        runs-on: ubuntu-latest
+        needs: build-and-pack
+        outputs:
+            changelog: ${{ steps.generate.outputs.changelog }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Generate Changelog
+              id: generate
+              shell: bash
+              run: |
+                  chmod +x .github/scripts/generate-changelog.sh
+                  OUTFILE=changelog_output.md
+                  .github/scripts/generate-changelog.sh "$OUTFILE"
+                  echo "changelog<<CHANGELOG_EOF" >> $GITHUB_OUTPUT
+                  cat "$OUTFILE" >> $GITHUB_OUTPUT
+                  echo "CHANGELOG_EOF" >> $GITHUB_OUTPUT
+
+    create-pre-release:
+        name: Create Pre-Release
+        needs: [version-from-git, build-and-pack, generate-changelog]
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Download all artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Organize artifacts
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  mkdir -p release_files
+                  for dir in artifacts/*; do
+                    if [ -d "$dir" ]; then
+                      echo "Processing artifact: $(basename "$dir")"
+                      for file in "$dir"/*; do
+                        if [ -f "$file" ]; then
+                          cp "$file" "release_files/$(basename "$file")"
+                        fi
+                      done
+                    fi
+                  done
+                  ls -la release_files/
+
+            - name: Extract build info
+              id: build_info
+              shell: bash
+              run: |
+                  echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+                  echo "time=$(date +'%H%M')" >> $GITHUB_OUTPUT
+                  echo "sha=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
+                  GIT_VERSION=$(git describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --always || echo "")
+                  if [[ ! $GIT_VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+                    COMMIT_COUNT=$(git rev-list --count HEAD)
+                    GIT_VERSION="v0.0.0-${COMMIT_COUNT}-${GITHUB_SHA:0:7}"
+                  fi
+                  echo "version=$GIT_VERSION" >> $GITHUB_OUTPUT
+                  echo "Version from git: $GIT_VERSION"
+
+            - name: Update Dev Snapshot Release
+              uses: andelf/nightly-release@main
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  tag_name: dev-snapshot
+                  name: "Dev Build ${{ steps.build_info.outputs.version }}"
+                  prerelease: true
+                  body: |
+                      ## Automated dev-snapshot
+
+                      Version: ${{ steps.build_info.outputs.version }}
+                      Date: ${{ steps.build_info.outputs.date }} ${{ steps.build_info.outputs.time }}
+                      Commit: [${{ steps.build_info.outputs.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+
+                      > ⚠️ These are the latest development builds and may contain bugs or unfinished features.
+
+                      ### Changes
+                      ${{ needs.generate-changelog.outputs.changelog }}
+                  files: |
+                      ./release_files/*

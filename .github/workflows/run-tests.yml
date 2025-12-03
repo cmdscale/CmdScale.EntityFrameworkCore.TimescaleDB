@@ -1,9 +1,12 @@
-name: Run Tests
+name: Test
 
-# This workflow runs on pushes and pull requests to the main branch
 on:
   push:
+    branches-ignore: [main] # handled by snapshots...
+    tags-ignore:
+      - "v*.*.*" # handled by release.yml
   pull_request:
+  workflow_call:
 
 jobs:
   test:
