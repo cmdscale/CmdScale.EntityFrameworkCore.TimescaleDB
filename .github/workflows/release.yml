@@ -1,0 +1,202 @@
+name: Release
+
+on:
+    push:
+        tags:
+            - "v*.*.*"
+
+permissions:
+    contents: write
+    id-token: write
+
+jobs:
+    test:
+        name: Run Tests
+        uses: ./.github/workflows/run-tests.yml
+        secrets: inherit
+
+    build-and-pack:
+        name: Build and Pack NuGet Packages
+        needs: test
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Extract version from tag
+              id: version
+              shell: bash
+              run: |
+                  TAG_NAME=${GITHUB_REF#refs/tags/}
+                  VERSION=${TAG_NAME#v}
+                  echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+                  echo "Tag: $TAG_NAME"
+                  echo "Version: $VERSION"
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: "8.0.x"
+
+            - name: Restore dependencies
+              run: dotnet restore
+
+            - name: Build
+              run: dotnet build -c Release --no-restore
+
+            - name: Pack Eftdb
+              run: |
+                  dotnet pack src/Eftdb/Eftdb.csproj -c Release --no-build -o ./packages /p:PackageVersion=${{ steps.version.outputs.version }}
+
+            - name: Pack Eftdb.Design
+              run: |
+                  dotnet pack src/Eftdb.Design/Eftdb.Design.csproj -c Release --no-build -o ./packages /p:PackageVersion=${{ steps.version.outputs.version }}
+
+            - name: Upload NuGet packages as artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: nuget-packages-release
+                  path: ./packages/*.nupkg
+
+    generate-changelog:
+        name: Generate Changelog
+        needs: build-and-pack
+        runs-on: ubuntu-latest
+        outputs:
+            changelog: ${{ steps.generate.outputs.changelog }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Extract tag name
+              id: tag
+              shell: bash
+              run: |
+                  TAG_NAME=${GITHUB_REF#refs/tags/}
+                  echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+            - name: Generate Changelog
+              id: generate
+              shell: bash
+              run: |
+                  chmod +x .github/scripts/generate-changelog.sh
+                  OUTFILE=changelog_output.md
+                  .github/scripts/generate-changelog.sh "$OUTFILE" "${{ steps.tag.outputs.tag_name }}"
+                  echo "changelog<<CHANGELOG_EOF" >> $GITHUB_OUTPUT
+                  cat "$OUTFILE" >> $GITHUB_OUTPUT
+                  echo "CHANGELOG_EOF" >> $GITHUB_OUTPUT
+
+    publish-to-nuget:
+        name: Publish to NuGet
+        needs: [build-and-pack, generate-changelog]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Download NuGet packages
+              uses: actions/download-artifact@v4
+              with:
+                  name: nuget-packages-release
+                  path: ./packages
+
+            - name: Setup .NET SDK (for NuGet publish)
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: "8.0.x"
+
+            - name: NuGet login (OIDC → temp API key)
+              id: login
+              uses: NuGet/login@v1
+              with:
+                  user: ${{ secrets.NUGET_USER }}
+
+            - name: Publish to NuGet.org
+              shell: bash
+              working-directory: ./packages
+              run: |
+                  set -euo pipefail
+                  for nupkg in *.nupkg; do
+                    if [ ! -f "$nupkg" ]; then
+                      echo "ERROR: No .nupkg files found" >&2
+                      exit 1
+                    fi
+                    echo "Publishing NuGet package: $nupkg"
+                    dotnet nuget push "$nupkg" \
+                      --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+                      --source https://api.nuget.org/v3/index.json \
+                      --skip-duplicate
+                  done
+
+    create-release:
+        name: Create Release
+        needs: [build-and-pack, generate-changelog, publish-to-nuget]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Download all artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Organize artifacts
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  mkdir -p release_files
+                  for dir in artifacts/*; do
+                    if [ -d "$dir" ]; then
+                      echo "Processing artifact: $(basename "$dir")"
+                      for file in "$dir"/*; do
+                        if [ -f "$file" ]; then
+                          cp "$file" "release_files/$(basename "$file")"
+                        fi
+                      done
+                    fi
+                  done
+                  ls -la release_files/
+
+            - name: Extract build info
+              id: build_info
+              shell: bash
+              run: |
+                  echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+                  echo "time=$(date +'%H%M')" >> $GITHUB_OUTPUT
+                  echo "sha=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
+                  TAG_NAME=${GITHUB_REF#refs/tags/}
+                  echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+                  GIT_VERSION=$(git describe --tags --match "v[0-9]*.[0-9]*.[0-9]*" --always || echo "")
+                  if [[ ! $GIT_VERSION =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+                    COMMIT_COUNT=$(git rev-list --count HEAD)
+                    GIT_VERSION="v0.0.0-${COMMIT_COUNT}-${GITHUB_SHA:0:7}"
+                  fi
+                  echo "version=$GIT_VERSION" >> $GITHUB_OUTPUT
+                  echo "Version from git: $GIT_VERSION"
+
+            - name: Create Release
+              id: create_release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ steps.build_info.outputs.tag_name }}
+                  name: "Release ${{ steps.build_info.outputs.version }}"
+                  body: |
+                      ## CmdScale.EntityFrameworkCore.TimescaleDB Release ${{ steps.build_info.outputs.version }}
+
+                      Release Date: ${{ steps.build_info.outputs.date }} ${{ steps.build_info.outputs.time }}
+
+                      ### Changes
+                      ${{ needs.generate-changelog.outputs.changelog }}
+                  files: release_files/*
+                  prerelease: false
+                  draft: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
