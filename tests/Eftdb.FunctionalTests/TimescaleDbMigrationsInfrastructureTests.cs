@@ -75,6 +75,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests
             Fixture.ListLoggerFactory.Clear();
         }
 
+        protected override Task ExecuteSqlAsync(string value)
+        {
+            ((TimescaleTestStore)Fixture.TestStore).ExecuteScript(value);
+            return Task.CompletedTask;
+        }
+
         [ConditionalFact]
         public override void Can_diff_against_2_1_ASP_NET_Identity_model()
         {

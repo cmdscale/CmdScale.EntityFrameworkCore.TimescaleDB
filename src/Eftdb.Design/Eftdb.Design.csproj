@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>CmdScale.EntityFrameworkCore.TimescaleDB.Design</AssemblyName>
     <RootNamespace>CmdScale.EntityFrameworkCore.TimescaleDB.Design</RootNamespace>
     <PackageId>CmdScale.EntityFrameworkCore.TimescaleDB.Design</PackageId>
-    <Version>0.3.3</Version>
+    <Version>0.4.0</Version>
     <Authors>CmdScale</Authors>
     <Description>Provides crucial design-time extensions. This package enhances the EF Core CLI tools (dotnet ef) to understand TimescaleDB concepts, enabling correct schema generation for migrations and scaffolding.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -24,7 +24,7 @@
     <PackageTags>timescaledb;timescale;efcore;ef-core;entityframeworkcore;postgresql;postgres;time-series;timeseries;data;database;efcore-provider;provider;design;migrations;scaffolding;codegen;cli;tools</PackageTags>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\assets\cmd-nuget-logo.jpg">
