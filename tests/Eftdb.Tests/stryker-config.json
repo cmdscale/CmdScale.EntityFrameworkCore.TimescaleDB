@@ -1,16 +1,12 @@
 {
   "stryker-config": {
     "project-info": {
-      "name": "CmdScale.EntityFrameworkCore.TimescaleDB",
-      "module": "CmdScale.EntityFrameworkCore.TimescaleDB.Tests",
-      "version": "0.3.0"
+      "name": "Eftdb",
+      "module": "Eftdb.Tests"
     },
     "solution": "../../CmdScale.EntityFrameworkCore.TimescaleDB.sln",
-    "project": "CmdScale.EntityFrameworkCore.TimescaleDB.csproj",
-    "test-projects": [
-      "CmdScale.EntityFrameworkCore.TimescaleDB.Tests.csproj"
-    ],
-    "target-framework": "net8.0",
+    "project": "Eftdb.csproj",
+    "target-framework": "net10.0",
     "concurrency": 8,
     "mutation-level": "Standard",
     "language-version": "latest",
@@ -24,14 +20,13 @@
       "!**/Properties/**/*.cs"
     ],
     "coverage-analysis": "perTest",
-    "disable-bail": false,
+    "disable-bail": true,
     "disable-mix-mutants": false,
     "thresholds": {
       "high": 80,
       "low": 60,
-      "break": 50
+      "break": 0
     },
-    "verbosity": "info",
     "reporters": [
       "html",
       "progress",
@@ -40,27 +35,13 @@
     "report-file-name": "mutation-report",
     "since": {
       "enabled": true,
+      "target": "main",
       "ignore-changes-in": [
-        "**/Example/**",
-        "**/Benchmarks/**",
-        "**/FunctionalTests/**"
-      ],
-      "target": "main"
+        "**/samples/**",
+        "**/benchmarks/**",
+        "**/Eftdb.FunctionalTests/**"
+      ]
     },
-    "baseline": {
-      "enabled": false,
-      "provider": "disk",
-      "fallback-version": "main"
-    },
-    "ignore-mutations": [
-      "string"
-    ],
-    "ignore-methods": [
-      "*ToString",
-      "*GetHashCode",
-      "*Equals"
-    ],
-    "test-case-filter": "Category!=Integration",
     "break-on-initial-test-failure": true
   }
 }

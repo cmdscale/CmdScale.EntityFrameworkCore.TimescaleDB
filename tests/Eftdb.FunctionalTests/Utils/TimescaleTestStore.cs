@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using Npgsql;
 using System.Collections.Concurrent;
 using System.Data;
+using System.Data.Common;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils;
 
@@ -20,14 +21,14 @@ public class TimescaleTestStore : RelationalTestStore
         => new(name, shared: false, connectionString);
 
     public static TimescaleTestStore GetOrCreateShared(string name, string connectionString)
-        => _sharedStores.GetOrAdd(name, _ =>
+        => _sharedStores.GetOrAdd(name, key =>
         {
             TimescaleTestStore store = new(name, shared: true, connectionString);
 
             DbContextOptions<MigrationsInfrastructureFixtureBase.MigrationsContext> options =
                 new DbContextOptionsBuilder<MigrationsInfrastructureFixtureBase.MigrationsContext>()
                     .UseNpgsql(connectionString).UseTimescaleDb().Options;
-            var __ = store.InitializeAsync(null,
+            _ = store.InitializeAsync(null,
                 () => new MigrationsInfrastructureFixtureBase.MigrationsContext(options), null).Result;
             return store;
         });
@@ -47,10 +48,8 @@ public class TimescaleTestStore : RelationalTestStore
         if (ConnectionState != ConnectionState.Open)
             Connection.Open();
 
-        using (var cmd = Connection.CreateCommand())
-        {
-            cmd.CommandText = script;
-            cmd.ExecuteNonQuery();
-        }
+        using DbCommand cmd = Connection.CreateCommand();
+        cmd.CommandText = script;
+        cmd.ExecuteNonQuery();
     }
 }
