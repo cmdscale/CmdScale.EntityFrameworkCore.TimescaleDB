@@ -22,12 +22,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Snapshots
                     .HasColumnType("integer")
                     .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
 
+                b.Property<int>("Bar")
+                    .HasColumnType("integer");
+
                 b.Property<string>("Description")
                     .HasColumnType("text");
 
                 b.HasKey("Id");
 
-                b.ToTable("Foos");
+                b.ToTable("Table1");
             });
 #pragma warning restore 612, 618
         }

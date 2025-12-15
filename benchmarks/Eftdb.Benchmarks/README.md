@@ -6,7 +6,7 @@ This project uses **BenchmarkDotNet** to measure the performance of high-through
 
 ## Prerequisites
 
-- .NET 8 SDK or later  
+- .NET 10 SDK or later  
 - Docker
 
 ## Run the Benchmarks

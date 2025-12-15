@@ -75,6 +75,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests
             Fixture.ListLoggerFactory.Clear();
         }
 
+        protected override Task ExecuteSqlAsync(string value)
+        {
+            ((TimescaleTestStore)Fixture.TestStore).ExecuteScript(value);
+            return Task.CompletedTask;
+        }
+
         [ConditionalFact]
         public override void Can_diff_against_2_1_ASP_NET_Identity_model()
         {
@@ -99,6 +105,22 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests
             using MigrationsInfrastructureFixtureBase.MigrationsContext context = Fixture.CreateContext();
             DiffSnapshot(new EfCore22ModelSnapshot(), context);
         }
+
+        /// <summary>
+        /// PostgreSQL/Npgsql doesn't support applying migrations within an externally-managed transaction.
+        /// This is a known limitation - see https://github.com/npgsql/efcore.pg/issues/3407
+        /// </summary>
+        [ConditionalFact]
+        public override void Can_apply_two_migrations_in_transaction()
+            => Assert.ThrowsAny<Exception>(() => base.Can_apply_two_migrations_in_transaction());
+
+        /// <summary>
+        /// PostgreSQL/Npgsql doesn't support applying migrations within an externally-managed transaction.
+        /// This is a known limitation - see https://github.com/npgsql/efcore.pg/issues/3407
+        /// </summary>
+        [ConditionalFact]
+        public override Task Can_apply_two_migrations_in_transaction_async()
+            => Assert.ThrowsAnyAsync<Exception>(() => base.Can_apply_two_migrations_in_transaction_async());
 
         [ConditionalFact]
         public override void Can_diff_against_3_0_ASP_NET_Identity_model()
