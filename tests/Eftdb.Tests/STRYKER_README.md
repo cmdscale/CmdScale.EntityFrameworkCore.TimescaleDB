@@ -32,7 +32,8 @@ dotnet stryker --mutate "**/HypertableDiffer.cs"
 ### 3. View Results
 
 After completion, the HTML report will be generated in:
-```
+
+```text
 StrykerOutput/reports/mutation-report.html
 ```
 
@@ -45,16 +46,19 @@ The `stryker-config.json` file is optimized for this project:
 ### Key Settings
 
 - **Projects Mutated:**
+
   - `CmdScale.EntityFrameworkCore.TimescaleDB` (main library)
   - `CmdScale.EntityFrameworkCore.TimescaleDB.Design` (design-time library)
 
 - **Test Project:**
+
   - `CmdScale.EntityFrameworkCore.TimescaleDB.Tests` ✅
   - **Excludes:** `CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests` ❌
 
 - **Concurrency:** 8 parallel processes (adjust based on CPU cores)
 
 - **Thresholds:**
+
   - **High:** 80% (green) - Excellent mutation score
   - **Low:** 60% (orange) - Needs improvement
   - **Break:** 50% (red) - Build fails if below this
@@ -68,6 +72,7 @@ The `stryker-config.json` file is optimized for this project:
 ### Files Excluded from Mutation
 
 The following are automatically excluded:
+
 - `*.Designer.cs` files
 - `obj/` and `bin/` directories
 - `Migrations/` directories
@@ -82,7 +87,7 @@ The following are automatically excluded:
 
 ### Mutation Score
 
-```
+```text
 Mutation Score = (Killed Mutations / Total Mutations) × 100%
 ```
 
@@ -93,7 +98,7 @@ Mutation Score = (Killed Mutations / Total Mutations) × 100%
 
 ### Example Output
 
-```
+```text
 All files | 87.5% | 350/400 | 350 | 40 | 10 | 0
 ├── Differs | 92.3% | 120/130 | 120 | 8 | 2 | 0
 ├── Generators | 85.7% | 180/210 | 180 | 25 | 5 | 0
@@ -105,17 +110,21 @@ All files | 87.5% | 350/400 | 350 | 40 | 10 | 0
 ### Speed Up Mutation Testing
 
 1. **Use `--since` flag:**
+
    ```bash
    dotnet stryker --since
    ```
+
    Only mutates files changed since last commit.
 
 2. **Increase concurrency:**
+
    ```bash
    dotnet stryker --concurrency 16
    ```
 
 3. **Use baseline (after first run):**
+
    ```json
    "baseline": {
      "enabled": true
@@ -123,6 +132,7 @@ All files | 87.5% | 350/400 | 350 | 40 | 10 | 0
    ```
 
 4. **Target specific files:**
+
    ```bash
    dotnet stryker --mutate "**/Differs/**"
    ```
@@ -144,6 +154,7 @@ If a file has a low mutation score (<60%), it usually means:
 ### Issue: Tests are too slow
 
 **Solution:** Increase `additional-timeout` in config:
+
 ```json
 "additional-timeout": 20000
 ```
@@ -151,6 +162,7 @@ If a file has a low mutation score (<60%), it usually means:
 ### Issue: Too many mutations to process
 
 **Solution:** Use `--since` or target specific files:
+
 ```bash
 dotnet stryker --since --mutate "**/Differs/**"
 ```
@@ -158,6 +170,7 @@ dotnet stryker --since --mutate "**/Differs/**"
 ### Issue: False positives on string mutations
 
 **Solution:** Already configured to ignore string mutations:
+
 ```json
 "ignore-mutations": ["string"]
 ```
@@ -165,6 +178,7 @@ dotnet stryker --since --mutate "**/Differs/**"
 ### Issue: Integration tests timing out
 
 **Solution:** Already excluded via:
+
 ```json
 "test-case-filter": "Category!=Integration"
 ```

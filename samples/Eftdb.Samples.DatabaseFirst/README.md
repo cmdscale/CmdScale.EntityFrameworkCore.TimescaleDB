@@ -64,4 +64,3 @@ CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.DbFirst/
 
 - [Entity Framework Core Documentation](https://learn.microsoft.com/en-us/ef/core/)
 - [TimescaleDB Documentation](https://docs.timescale.com/)
-

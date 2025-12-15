@@ -1,12 +1,12 @@
-﻿![CmdScale Project](https://github.com/cmdscale/.github/raw/main/profile/assets/CmdShield.svg)
+﻿# CmdScale.EntityFrameworkCore.TimescaleDB
+
+![CmdScale Project](https://github.com/cmdscale/.github/raw/main/profile/assets/CmdShield.svg)
 [![Test Workflow](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml/badge.svg)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml)
 [![codecov](https://codecov.io/gh/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/graph/badge.svg?token=YP3YCJLQ41)](https://codecov.io/gh/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/tag/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/tags)
 [![GitHub issues](https://img.shields.io/github/issues/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/issues)
 [![GitHub license](https://img.shields.io/github/license/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/blob/main/LICENSE)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
-
-# CmdScale.EntityFrameworkCore.TimescaleDB
 
 This repository provides the essential libraries and tooling to seamlessly integrate [TimescaleDB](https://www.timescale.com/), the leading open-source time-series database, with Entity Framework Core. It is designed to give you the full power of TimescaleDB's features, like hypertables and compression, directly within the familiar EF Core environment.
 
@@ -48,10 +48,10 @@ Create and manage **TimescaleDB continuous aggregates** — automatically refres
 
 To get started, install the necessary packages from NuGet. For a typical project, you will need both.
 
-| Package | Description |
-|--------|-------------|
-| `CmdScale.EntityFrameworkCore.TimescaleDB` | Runtime support for EF Core + TimescaleDB |
-| `CmdScale.EntityFrameworkCore.TimescaleDB.Design` | Design-time support for EF Core tooling |
+| Package                                           | Description                               |
+| ------------------------------------------------- | ----------------------------------------- |
+| `CmdScale.EntityFrameworkCore.TimescaleDB`        | Runtime support for EF Core + TimescaleDB |
+| `CmdScale.EntityFrameworkCore.TimescaleDB.Design` | Design-time support for EF Core tooling   |
 
 ---
 
@@ -152,6 +152,7 @@ docker-compose up -d
 ### Resetting the Database Environment
 
 If you need to start with a completely fresh, empty database, you can stop the running container and permanently delete all of its data.
+
 > **Warning**: This command is destructive and will erase all tables and data stored in your local TimescaleDB instance.
 
 ```bash
@@ -168,10 +169,10 @@ This project uses a two-tier testing strategy to ensure code quality and correct
 
 ### Test Projects
 
-| Project | Purpose |
-|---------|---------|
-| `CmdScale.EntityFrameworkCore.TimescaleDB.Tests` | Unit tests using xUnit and Moq. Fast, isolated tests for differs, extractors, generators, and conventions. Also includes integration tests using Testcontainers. |
-| `CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests` | EF Core specification tests validating end-to-end behavior against a real TimescaleDB instance. |
+| Project                                                    | Purpose                                                                                                                                                          |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CmdScale.EntityFrameworkCore.TimescaleDB.Tests`           | Unit tests using xUnit and Moq. Fast, isolated tests for differs, extractors, generators, and conventions. Also includes integration tests using Testcontainers. |
+| `CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests` | EF Core specification tests validating end-to-end behavior against a real TimescaleDB instance.                                                                  |
 
 ### Running Tests
 
@@ -282,7 +283,18 @@ Or, configure it in Visual Studio:
 2. Navigate to the `Package Sources` section.
 3. Click the '+' icon to add a new source, give it a name (e.g., "LocalCmdScale"), and set the path to your local feed folder.
 
----
+## 🔖 Release strategy
+
+Eftdb targets the latest .NET LTS release. Support follows a rolling two-version model:
+
+| Support Level    | Scope                      |
+| ---------------- | -------------------------- |
+| **Current LTS**  | New features and bug fixes |
+| **Previous LTS** | Critical bug fixes only    |
+
+**Example:** When .NET 12 (LTS) releases, it becomes the development target. .NET 10 receives only critical fixes, and .NET 8 support ends.
+
+This policy balances maintainability with ensuring the most widely-used .NET versions receive support.
 
 ## 📚 Resources
 
@@ -342,9 +354,7 @@ If you have questions, ideas, or need help getting started, feel free to [open a
 
 Thank you for contributing! 💜
 
----
-
-# 📄 License
+## 📄 License
 
 ```txt
 MIT License

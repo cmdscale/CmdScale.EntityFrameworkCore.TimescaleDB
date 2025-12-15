@@ -6,7 +6,7 @@ This project uses **BenchmarkDotNet** to measure the performance of high-through
 
 ## Prerequisites
 
-- .NET 10 SDK or later  
+- .NET 10 SDK or later
 - Docker
 
 ## Run the Benchmarks
@@ -25,7 +25,7 @@ You can run the benchmark project in one of two ways:
 
 Right-click on the `CmdScale.EntityFrameworkCore.TimescaleDB.Benchmarks` project and select:
 
-```
+```text
 Debug > Start Without Debugging
 ```
 

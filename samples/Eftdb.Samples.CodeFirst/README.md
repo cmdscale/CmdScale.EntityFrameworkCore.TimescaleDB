@@ -76,4 +76,3 @@ Connection string settings should match the configuration in your `docker-compos
 
 - [Entity Framework Core Documentation](https://learn.microsoft.com/en-us/ef/core/)
 - [TimescaleDB Documentation](https://docs.timescale.com/)
-
