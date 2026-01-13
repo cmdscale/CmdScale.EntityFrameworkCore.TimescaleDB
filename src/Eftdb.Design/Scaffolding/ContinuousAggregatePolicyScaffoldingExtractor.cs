@@ -36,19 +36,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 using (DbCommand command = connection.CreateCommand())
                 {
                     // Query continuous aggregate policies from TimescaleDB jobs table
-                    // The config column contains JSONB with start_offset, end_offset, and other policy parameters
+                    // The config column contains JSONB with start_offset, end_offset, timezone, mat_hypertable_id and other policy parameters
                     command.CommandText = @"
                         SELECT
-                            ca.view_schema,
-                            ca.view_name,
+                            ca.user_view_schema,
+                            ca.user_view_name,
                             j.config,
                             j.schedule_interval::text,
-                            j.initial_start,
-                            j.timezone
+                            j.initial_start
                         FROM timescaledb_information.jobs j
-                        INNER JOIN timescaledb_information.continuous_aggregates ca
-                            ON j.hypertable_schema = ca.materialization_hypertable_schema
-                            AND j.hypertable_name = ca.materialization_hypertable_name
+                        INNER JOIN _timescaledb_catalog.continuous_agg ca
+                            ON (j.config->>'mat_hypertable_id')::integer = ca.mat_hypertable_id
                         WHERE j.proc_name = 'policy_refresh_continuous_aggregate';";
 
                     using DbDataReader reader = command.ExecuteReader();
@@ -59,11 +57,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         string? configJson = reader.IsDBNull(2) ? null : reader.GetString(2);
                         string? scheduleInterval = reader.IsDBNull(3) ? null : reader.GetString(3);
                         DateTime? initialStart = reader.IsDBNull(4) ? null : reader.GetDateTime(4);
-                        string? timezone = reader.IsDBNull(5) ? null : reader.GetString(5);
 
                         // Parse the JSONB config to extract policy parameters
                         string? startOffset = null;
                         string? endOffset = null;
+                        string? timezone = null;
                         bool? includeTieredData = null;
                         int? bucketsPerBatch = null;
                         int? maxBatchesPerExecution = null;
@@ -84,6 +82,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                             if (root.TryGetProperty("end_offset", out JsonElement endOffsetElement))
                             {
                                 endOffset = ParseIntervalOrInteger(endOffsetElement);
+                            }
+
+                            // Extract timezone
+                            if (root.TryGetProperty("timezone", out JsonElement timezoneElement)
+                                && timezoneElement.ValueKind == JsonValueKind.String)
+                            {
+                                timezone = timezoneElement.GetString();
                             }
 
                             // Extract include_tiered_data (optional)

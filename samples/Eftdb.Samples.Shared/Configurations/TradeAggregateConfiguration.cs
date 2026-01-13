@@ -1,5 +1,6 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -18,7 +19,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Configurat
                 .AddGroupByColumn(x => x.Exchange)
                 .AddGroupByColumn("1, 2")
                 .Where("\"ticker\" = 'MCRS'")
-                .MaterializedOnly();
+                .MaterializedOnly()
+                .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour")
+                .WithTimezone("UTC")
+                .WithRefreshNewestFirst(true);
         }
     }
 }
