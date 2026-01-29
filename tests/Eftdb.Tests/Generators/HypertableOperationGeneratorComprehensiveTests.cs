@@ -374,7 +374,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 CompressionSegmentBy = ["tenant_id", "device_id"]
             };
 
-            // Expected: compress=true AND compress_segmentby='tenant_id, device_id'
             string expected = @".Sql(@""
                 SELECT create_hypertable('public.""""segmented_data""""', 'time');
                 DO $$
@@ -384,7 +383,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE """"public"""".""""segmented_data"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''tenant_id, device_id'')';
+                        EXECUTE 'ALTER TABLE """"public"""".""""segmented_data"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""tenant_id"", ""device_id""'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -419,7 +418,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE """"public"""".""""ordered_data"""" SET (timescaledb.compress = true, timescaledb.compress_orderby = ''time DESC, value ASC NULLS LAST'')';
+                        EXECUTE 'ALTER TABLE """"public"""".""""ordered_data"""" SET (timescaledb.compress = true, timescaledb.compress_orderby = ''""time"" DESC, ""value"" ASC NULLS LAST'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -453,10 +452,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             Assert.Contains("ALTER TABLE \"public\".\"full_compression\" SET", result);
-            // Must contain all settings in one statement
             Assert.Contains("timescaledb.compress = true", result);
-            Assert.Contains("timescaledb.compress_segmentby = ''tenant_id''", result);
-            Assert.Contains("timescaledb.compress_orderby = ''time DESC''", result);
+            Assert.Contains("timescaledb.compress_segmentby = ''\"tenant_id\"''", result);
+            Assert.Contains("timescaledb.compress_orderby = ''\"time\" DESC''", result);
         }
 
         #endregion
@@ -864,7 +862,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE """"public"""".""""metrics"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''device_id'')';
+                        EXECUTE 'ALTER TABLE """"public"""".""""metrics"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""device_id""'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -897,7 +895,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             // Note: EnableCompression=true is NOT generated if it hasn't changed state (implicit false->false or true->true)
             // But we do expect the update to the specific setting.
-            Assert.Contains("timescaledb.compress_orderby = ''time DESC''", result);
+            Assert.Contains("timescaledb.compress_orderby = ''\"time\" DESC''", result);
         }
 
         [Fact]
@@ -970,7 +968,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             // Should be a single ALTER TABLE statement with 3 settings
             Assert.Contains("ALTER TABLE \"public\".\"metrics\" SET", result);
-            Assert.Contains("timescaledb.compress_segmentby = ''new_col''", result);
+            Assert.Contains("timescaledb.compress_segmentby = ''\"new_col\"''", result);
             Assert.Contains("timescaledb.compress_orderby = ''''", result);
         }
 

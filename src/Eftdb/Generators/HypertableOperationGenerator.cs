@@ -65,13 +65,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (hasSegmentBy)
             {
-                string segmentList = string.Join(", ", operation.CompressionSegmentBy!);
+                string segmentList = string.Join(", ", operation.CompressionSegmentBy!.Select(QuoteIdentifier));
                 compressionSettings.Add($"timescaledb.compress_segmentby = '{segmentList}'");
             }
 
             if (hasOrderBy)
             {
-                string orderList = string.Join(", ", operation.CompressionOrderBy!);
+                string orderList = QuoteOrderByList(operation.CompressionOrderBy!);
                 compressionSettings.Add($"timescaledb.compress_orderby = '{orderList}'");
             }
 
@@ -176,9 +176,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (ListsChanged(operation.OldCompressionSegmentBy, operation.CompressionSegmentBy))
             {
-                // If list is null/empty, set to '' to clear setting in DB
                 string val = (operation.CompressionSegmentBy?.Count > 0)
-                    ? $"'{string.Join(", ", operation.CompressionSegmentBy)}'"
+                    ? $"'{string.Join(", ", operation.CompressionSegmentBy.Select(QuoteIdentifier))}'"
                     : "''";
                 compressionSettings.Add($"timescaledb.compress_segmentby = {val}");
             }
@@ -186,7 +185,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (ListsChanged(operation.OldCompressionOrderBy, operation.CompressionOrderBy))
             {
                 string val = (operation.CompressionOrderBy?.Count > 0)
-                    ? $"'{string.Join(", ", operation.CompressionOrderBy)}'"
+                    ? $"'{QuoteOrderByList(operation.CompressionOrderBy)}'"
                     : "''";
                 compressionSettings.Add($"timescaledb.compress_orderby = {val}");
             }
@@ -303,6 +302,32 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             sb.AppendLine("END $$;");
 
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Wraps an identifier in double quotes to preserve case-sensitivity in Postgres.
+        /// Escapes existing double quotes.
+        /// Example: TenantId -> "TenantId"
+        /// </summary>
+        private static string QuoteIdentifier(string identifier)
+        {
+            return $"\"{identifier.Replace("\"", "\"\"")}\"";
+        }
+
+        /// <summary>
+        /// Quotes the column name within an ORDER BY clause while preserving direction/nulls.
+        /// Example: Timestamp DESC -> "Timestamp" DESC
+        /// </summary>
+        private static string QuoteOrderByList(IEnumerable<string> orderByClauses)
+        {
+            return string.Join(", ", orderByClauses.Select(clause =>
+            {
+                var parts = clause.Split(' ', 2);
+                string col = parts[0];
+                string suffix = parts.Length > 1 ? " " + parts[1] : "";
+
+                return QuoteIdentifier(col) + suffix;
+            }));
         }
     }
 }
