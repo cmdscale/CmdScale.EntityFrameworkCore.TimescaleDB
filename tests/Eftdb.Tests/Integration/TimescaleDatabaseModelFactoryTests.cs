@@ -189,6 +189,182 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
 
     #endregion
 
+    #region Should_Scaffold_Hypertable_With_Compression_SegmentBy
+
+    private class ScaffoldSegmentByMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldSegmentByContext(string connectionString) : DbContext
+    {
+        public DbSet<ScaffoldSegmentByMetric> Metrics => Set<ScaffoldSegmentByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldSegmentByMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.TenantId);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Scaffold_Hypertable_With_Compression_SegmentBy()
+    {
+        await using ScaffoldSegmentByContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        TimescaleDatabaseModelFactory factory = CreateFactory();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        DatabaseModelFactoryOptions options = new(tables: ["Metrics"], schemas: []);
+        DatabaseModel model = factory.Create(connection, options);
+
+        DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
+        Assert.NotNull(metricsTable);
+
+        // Verify Hypertable
+        Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
+
+        // Compression should be implicitly enabled
+        Assert.Equal(true, metricsTable[HypertableAnnotations.EnableCompression]);
+
+        // Verify SegmentBy Annotation
+        // The annotation value should be the column name "TenantId"
+        string? segmentBy = metricsTable[HypertableAnnotations.CompressionSegmentBy] as string;
+        Assert.NotNull(segmentBy);
+        Assert.Equal("TenantId", segmentBy);
+    }
+
+    #endregion
+
+    #region Should_Scaffold_Hypertable_With_Compression_OrderBy
+
+    private class ScaffoldOrderByMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldOrderByContext(string connectionString) : DbContext
+    {
+        public DbSet<ScaffoldOrderByMetric> Metrics => Set<ScaffoldOrderByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldOrderByMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [
+                          s.ByDescending(x => x.Timestamp),
+                          s.By(x => x.Value, nullsFirst: true)
+                      ]);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Scaffold_Hypertable_With_Compression_OrderBy()
+    {
+        await using ScaffoldOrderByContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        TimescaleDatabaseModelFactory factory = CreateFactory();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        DatabaseModelFactoryOptions options = new(tables: ["Metrics"], schemas: []);
+        DatabaseModel model = factory.Create(connection, options);
+
+        DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
+        Assert.NotNull(metricsTable);
+
+        Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
+        Assert.Equal(true, metricsTable[HypertableAnnotations.EnableCompression]);
+
+        // Verify OrderBy Annotation
+        // Expect comma-separated string of clauses
+        string? orderBy = metricsTable[HypertableAnnotations.CompressionOrderBy] as string;
+        Assert.NotNull(orderBy);
+
+        // The extractor reconstructs strings like "Column [ASC|DESC] [NULLS FIRST|LAST]"
+        Assert.Contains("Timestamp DESC", orderBy);
+        Assert.Contains("Value ASC", orderBy);
+        Assert.Contains("NULLS FIRST", orderBy);
+    }
+
+    #endregion
+
+    #region Should_Scaffold_Hypertable_With_Full_Compression_Settings
+
+    private class ScaffoldFullCompMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int DeviceId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldFullCompContext(string connectionString) : DbContext
+    {
+        public DbSet<ScaffoldFullCompMetric> Metrics => Set<ScaffoldFullCompMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldFullCompMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.DeviceId)
+                      .WithCompressionOrderBy(s => [s.ByDescending(x => x.Timestamp)]);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Scaffold_Hypertable_With_Full_Compression_Settings()
+    {
+        await using ScaffoldFullCompContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        TimescaleDatabaseModelFactory factory = CreateFactory();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        DatabaseModelFactoryOptions options = new(tables: ["Metrics"], schemas: []);
+        DatabaseModel model = factory.Create(connection, options);
+
+        DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
+        Assert.NotNull(metricsTable);
+
+        // Verify all compression settings are present
+        Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
+        Assert.Equal(true, metricsTable[HypertableAnnotations.EnableCompression]);
+
+        Assert.Equal("DeviceId", metricsTable[HypertableAnnotations.CompressionSegmentBy]);
+
+        string? orderBy = metricsTable[HypertableAnnotations.CompressionOrderBy] as string;
+        Assert.NotNull(orderBy);
+        Assert.Contains("Timestamp DESC", orderBy);
+    }
+
+    #endregion
+
     #region Should_Scaffold_Hypertable_With_Hash_Dimension
 
     private class HashDimensionMetric

@@ -330,6 +330,193 @@ public class HypertableTypeBuilderTests
 
     #endregion
 
+    #region WithCompressionSegmentBy_Should_Set_Annotation_And_Enable_Compression
+
+    private class SegmentByEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public int DeviceId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SegmentByContext : DbContext
+    {
+        public DbSet<SegmentByEntity> Metrics => Set<SegmentByEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SegmentByEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.TenantId, x => x.DeviceId);
+            });
+        }
+    }
+
+    [Fact]
+    public void WithCompressionSegmentBy_Should_Set_Annotation_And_Enable_Compression()
+    {
+        using SegmentByContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(SegmentByEntity))!;
+
+        // Verify Annotation Value (comma separated)
+        Assert.Equal("TenantId, DeviceId", entityType.FindAnnotation(HypertableAnnotations.CompressionSegmentBy)?.Value);
+
+        // Verify Implicit Compression Enablement
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
+    }
+
+    #endregion
+
+    #region WithCompressionOrderBy_Builder_Syntax_Should_Set_Annotation
+
+    private class OrderByBuilderEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderByBuilderContext : DbContext
+    {
+        public DbSet<OrderByBuilderEntity> Metrics => Set<OrderByBuilderEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderByBuilderEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(
+                          OrderByBuilder.For<OrderByBuilderEntity>(x => x.Timestamp).Descending(),
+                          OrderByBuilder.For<OrderByBuilderEntity>(x => x.Value).Ascending(nullsFirst: true)
+                      );
+            });
+        }
+    }
+
+    [Fact]
+    public void WithCompressionOrderBy_Builder_Syntax_Should_Set_Annotation()
+    {
+        using OrderByBuilderContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(OrderByBuilderEntity))!;
+
+        // Verify Annotation Value
+        Assert.Equal("Timestamp DESC, Value ASC NULLS FIRST", entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy)?.Value);
+
+        // Verify Implicit Compression Enablement
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
+    }
+
+    #endregion
+
+    #region WithCompressionOrderBy_Selector_Syntax_Should_Set_Annotation
+
+    private class OrderBySelectorEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderBySelectorContext : DbContext
+    {
+        public DbSet<OrderBySelectorEntity> Metrics => Set<OrderBySelectorEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderBySelectorEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [
+                          s.ByDescending(x => x.Timestamp),
+                          s.ByAscending(x => x.Value, nullsFirst: true)
+                      ]);
+            });
+        }
+    }
+
+    [Fact]
+    public void WithCompressionOrderBy_Selector_Syntax_Should_Set_Annotation()
+    {
+        using OrderBySelectorContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(OrderBySelectorEntity))!;
+
+        // Verify Annotation Value matches the builder syntax result
+        Assert.Equal("Timestamp DESC, Value ASC NULLS FIRST", entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Support_Chaining_All_Compression_Methods
+
+    private class FullCompressionEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public int DeviceId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class FullCompressionContext : DbContext
+    {
+        public DbSet<FullCompressionEntity> Metrics => Set<FullCompressionEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<FullCompressionEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithChunkTimeInterval("7 days")
+                      .WithCompressionSegmentBy(x => x.DeviceId)
+                      .WithCompressionOrderBy(s => [s.ByDescending(x => x.Timestamp)])
+                      .WithChunkSkipping(x => x.DeviceId); // Often same as segment by
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Support_Chaining_All_Compression_Methods()
+    {
+        using FullCompressionContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(FullCompressionEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
+
+        Assert.Equal("DeviceId", entityType.FindAnnotation(HypertableAnnotations.CompressionSegmentBy)?.Value);
+        Assert.Equal("Timestamp DESC", entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy)?.Value);
+        Assert.Equal("DeviceId", entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns)?.Value);
+    }
+
+    #endregion
+
     #region WithChunkSkipping_Should_Set_ChunkSkipColumns_Annotation
 
     private class ChunkSkippingEntity

@@ -15,6 +15,25 @@
         public bool EnableCompression { get; set; } = false;
 
         /// <summary>
+        /// Specifies the columns to group by when compressing the hypertable.
+        /// Maps to <c>timescaledb.compress_segmentby</c>.
+        /// </summary>
+        /// <example>
+        /// <code>[Hypertable("time", CompressionSegmentBy = ["device_id", "tenant_id"])]</code>
+        /// </example>
+        public string[]? CompressionSegmentBy { get; set; } = null;
+
+        /// <summary>
+        /// Specifies the columns to order by within each compressed segment.
+        /// Maps to <c>timescaledb.compress_orderby</c>.
+        /// Since attributes cannot use Expressions, you must specify the full SQL syntax if direction is needed.
+        /// </summary>
+        /// <example>
+        /// <code>[Hypertable("time", CompressionOrderBy = ["time DESC", "value ASC NULLS LAST"])]</code>
+        /// </example>
+        public string[]? CompressionOrderBy { get; set; } = null;
+
+        /// <summary>
         /// Specifies whether existing data should be migrated when converting a table to a hypertable.
         /// </summary>
         public bool MigrateData { get; set; } = false;

@@ -8,6 +8,8 @@
         public const string IsHypertable = "TimescaleDB:IsHypertable";
         public const string HypertableTimeColumn = "TimescaleDB:TimeColumnName";
         public const string EnableCompression = "TimescaleDB:EnableCompression";
+        public const string CompressionSegmentBy = "TimescaleDB:CompressionSegmentBy";
+        public const string CompressionOrderBy = "TimescaleDB:CompressionOrderBy";
         public const string MigrateData = "TimescaleDB:MigrateData";
         public const string ChunkTimeInterval = "TimescaleDB:ChunkTimeInterval";
         public const string ChunkSkipColumns = "TimescaleDB:ChunkSkipColumns";

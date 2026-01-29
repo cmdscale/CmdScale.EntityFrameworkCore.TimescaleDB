@@ -1267,6 +1267,323 @@ public class HypertableDifferTests
 
     #endregion
 
+    #region Should_Detect_CompressionSegmentBy_Added
+
+    private class MetricEntity19
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class BasicHypertableContext19 : DbContext
+    {
+        public DbSet<MetricEntity19> Metrics => Set<MetricEntity19>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity19>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    private class SegmentByContext19 : DbContext
+    {
+        public DbSet<MetricEntity19> Metrics => Set<MetricEntity19>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity19>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.TenantId);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Detect_CompressionSegmentBy_Added()
+    {
+        using BasicHypertableContext19 sourceContext = new();
+        using SegmentByContext19 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+        Assert.NotNull(alterOp);
+
+        // Ensure SegmentBy was detected
+        Assert.Null(alterOp.OldCompressionSegmentBy);
+        Assert.NotNull(alterOp.CompressionSegmentBy);
+        Assert.Single(alterOp.CompressionSegmentBy);
+        Assert.Equal("TenantId", alterOp.CompressionSegmentBy[0]);
+
+        // Ensure Compression was implicitly enabled
+        Assert.True(alterOp.EnableCompression);
+    }
+
+    #endregion
+
+    #region Should_Detect_Change_When_SegmentBy_Order_Different
+
+    // Unlike ChunkSkipColumns, SegmentBy order matters for physical storage layout.
+    // This test ensures the differ detects a change even if the set of columns is the same.
+
+    private class MetricEntity20
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public int DeviceId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SegmentByOrderAContext20 : DbContext
+    {
+        public DbSet<MetricEntity20> Metrics => Set<MetricEntity20>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity20>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.TenantId, x => x.DeviceId);
+            });
+        }
+    }
+
+    private class SegmentByOrderBContext20 : DbContext
+    {
+        public DbSet<MetricEntity20> Metrics => Set<MetricEntity20>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity20>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.DeviceId, x => x.TenantId);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Detect_Change_When_SegmentBy_Order_Different()
+    {
+        using SegmentByOrderAContext20 sourceContext = new();
+        using SegmentByOrderBContext20 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+
+        // Assert: A diff SHOULD be generated because SequenceEqual checks order
+        Assert.NotNull(alterOp);
+        Assert.Equal("TenantId", alterOp.OldCompressionSegmentBy![0]);
+        Assert.Equal("DeviceId", alterOp.OldCompressionSegmentBy![1]);
+
+        Assert.Equal("DeviceId", alterOp.CompressionSegmentBy![0]);
+        Assert.Equal("TenantId", alterOp.CompressionSegmentBy![1]);
+    }
+
+    #endregion
+
+    #region Should_Detect_CompressionOrderBy_Added
+
+    private class MetricEntity21
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class BasicHypertableContext21 : DbContext
+    {
+        public DbSet<MetricEntity21> Metrics => Set<MetricEntity21>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity21>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    private class OrderByContext21 : DbContext
+    {
+        public DbSet<MetricEntity21> Metrics => Set<MetricEntity21>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity21>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [
+                          s.ByDescending(x => x.Timestamp),
+                          s.By(x => x.Value)
+                      ]);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Detect_CompressionOrderBy_Added()
+    {
+        using BasicHypertableContext21 sourceContext = new();
+        using OrderByContext21 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+        Assert.NotNull(alterOp);
+
+        Assert.Null(alterOp.OldCompressionOrderBy);
+        Assert.NotNull(alterOp.CompressionOrderBy);
+        Assert.Equal(2, alterOp.CompressionOrderBy.Count);
+
+        Assert.Equal("Timestamp DESC", alterOp.CompressionOrderBy[0]);
+        Assert.Equal("Value", alterOp.CompressionOrderBy[1]);
+
+        Assert.True(alterOp.EnableCompression);
+    }
+
+    #endregion
+
+    #region Should_Detect_CompressionSettings_Removed
+
+    private class MetricEntity22
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class FullCompressionContext22 : DbContext
+    {
+        public DbSet<MetricEntity22> Metrics => Set<MetricEntity22>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity22>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.TenantId)
+                      .WithCompressionOrderBy(b => [
+                            b.ByDescending(x => x.Timestamp)
+                      ]);
+            });
+        }
+    }
+
+    private class BasicHypertableContext22 : DbContext
+    {
+        public DbSet<MetricEntity22> Metrics => Set<MetricEntity22>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity22>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Detect_CompressionSettings_Removed()
+    {
+        using FullCompressionContext22 sourceContext = new();
+        using BasicHypertableContext22 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+        Assert.NotNull(alterOp);
+
+        // Verify Old Values are present
+        Assert.NotNull(alterOp.OldCompressionSegmentBy);
+        Assert.NotNull(alterOp.OldCompressionOrderBy);
+        Assert.NotEmpty(alterOp.OldCompressionSegmentBy);
+        Assert.NotEmpty(alterOp.OldCompressionOrderBy);
+
+        Assert.Equal("TenantId", alterOp.OldCompressionSegmentBy[0]);
+        Assert.Equal("Timestamp DESC", alterOp.OldCompressionOrderBy[0]);
+
+        Assert.Null(alterOp.CompressionSegmentBy);
+        Assert.Null(alterOp.CompressionOrderBy);
+
+        Assert.False(alterOp.EnableCompression);
+    }
+
+    #endregion
+
     #region Should_Detect_ChunkSkipColumns_Removed
 
     private class MetricEntity18

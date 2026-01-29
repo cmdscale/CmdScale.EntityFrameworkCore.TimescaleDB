@@ -48,6 +48,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, string.Join(",", attribute.ChunkSkipColumns));
                 }
+
+                if (attribute.CompressionSegmentBy != null && attribute.CompressionSegmentBy.Length > 0)
+                {
+                    /// SegmentBy requires compression to be enabled
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionSegmentBy, string.Join(", ", attribute.CompressionSegmentBy));
+                }
+
+                if (attribute.CompressionOrderBy != null && attribute.CompressionOrderBy.Length > 0)
+                {
+                    /// OrderBy requires compression to be enabled
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionOrderBy, string.Join(", ", attribute.CompressionOrderBy));
+                }
             }
         }
     }

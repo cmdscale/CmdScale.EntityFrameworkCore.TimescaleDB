@@ -18,7 +18,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
 
         public string OldChunkTimeInterval { get; set; } = string.Empty;
         public bool OldEnableCompression { get; set; }
+
         public IReadOnlyList<string>? OldChunkSkipColumns { get; set; }
         public IReadOnlyList<Dimension>? OldAdditionalDimensions { get; set; }
+
+        public IReadOnlyList<string>? CompressionSegmentBy { get; set; }
+        public IReadOnlyList<string>? OldCompressionSegmentBy { get; set; }
+
+        public IReadOnlyList<string>? CompressionOrderBy { get; set; }
+        public IReadOnlyList<string>? OldCompressionOrderBy { get; set; }
     }
 }

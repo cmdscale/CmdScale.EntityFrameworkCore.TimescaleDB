@@ -175,6 +175,167 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
 
     #endregion
 
+    #region Should_Extract_CompressionSegmentBy
+
+    private class ScaffoldingSegmentByMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldingSegmentByContext(string connectionString) : DbContext
+    {
+        public DbSet<ScaffoldingSegmentByMetric> Metrics => Set<ScaffoldingSegmentByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldingSegmentByMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.TenantId);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_CompressionSegmentBy()
+    {
+        await using ScaffoldingSegmentByContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        Assert.Single(result);
+        var info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+
+        // Compression should be enabled
+        Assert.True(info.CompressionEnabled);
+
+        // SegmentBy list should contain "TenantId"
+        Assert.Single(info.CompressionSegmentBy);
+        Assert.Equal("TenantId", info.CompressionSegmentBy[0]);
+    }
+
+    #endregion
+
+    #region Should_Extract_CompressionOrderBy
+
+    private class ScaffoldingOrderByMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldingOrderByContext(string connectionString) : DbContext
+    {
+        public DbSet<ScaffoldingOrderByMetric> Metrics => Set<ScaffoldingOrderByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldingOrderByMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                // "Timestamp DESC", "Value ASC NULLS FIRST"
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [
+                          s.ByDescending(x => x.Timestamp),
+                          s.By(x => x.Value, nullsFirst: true)
+                      ]);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_CompressionOrderBy()
+    {
+        await using ScaffoldingOrderByContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        Assert.Single(result);
+        var info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+
+        Assert.True(info.CompressionEnabled);
+
+        Assert.Equal(2, info.CompressionOrderBy.Count);
+
+        // Extractor reconstructs the string: "ColumnName [ASC|DESC] [NULLS FIRST|LAST]"
+        Assert.Equal("Timestamp DESC NULLS FIRST", info.CompressionOrderBy[0]);
+        // Note: Default for ASC is usually NULLS LAST in Postgres, but if we set NULLS FIRST explicitly:
+        Assert.Equal("Value ASC NULLS FIRST", info.CompressionOrderBy[1]);
+    }
+
+    #endregion
+
+    #region Should_Extract_Full_Compression_Configuration
+
+    private class ScaffoldingFullCompressionMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int DeviceId { get; set; }
+        public double Temperature { get; set; }
+    }
+
+    private class ScaffoldingFullCompressionContext(string connectionString) : DbContext
+    {
+        public DbSet<ScaffoldingFullCompressionMetric> Metrics => Set<ScaffoldingFullCompressionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldingFullCompressionMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.DeviceId)
+                      .WithCompressionOrderBy(s => [s.ByDescending(x => x.Timestamp)]);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_Full_Compression_Configuration()
+    {
+        await using ScaffoldingFullCompressionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        Assert.Single(result);
+        var info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+
+        // SegmentBy
+        Assert.Single(info.CompressionSegmentBy);
+        Assert.Equal("DeviceId", info.CompressionSegmentBy[0]);
+
+        // OrderBy
+        Assert.Single(info.CompressionOrderBy);
+        // Postgres default for DESC is NULLS FIRST, extractor logic appends what it reads
+        Assert.Contains("Timestamp DESC", info.CompressionOrderBy[0]);
+    }
+
+    #endregion
+
     #region Should_Extract_ChunkSkipColumns
 
     private class ChunkSkippingMetric

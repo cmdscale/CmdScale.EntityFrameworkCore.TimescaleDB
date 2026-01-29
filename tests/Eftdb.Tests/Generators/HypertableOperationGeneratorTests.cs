@@ -164,6 +164,155 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         [Fact]
+        public void Generate_Create_With_Compression_Segment_And_OrderBy_Generates_Correct_Sql()
+        {
+            // Arrange
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "CompressedTable",
+                Schema = "public",
+                TimeColumnName = "Timestamp",
+                EnableCompression = true,
+                CompressionSegmentBy = ["TenantId", "DeviceId"],
+                CompressionOrderBy = ["Timestamp DESC", "Value ASC NULLS LAST"]
+            };
+
+            // Expected: implicit compress=true, plus segmentby/orderby strings
+            string expected = @".Sql(@""
+                SELECT create_hypertable('public.""""CompressedTable""""', 'Timestamp');
+                DO $$
+                DECLARE
+                    license TEXT;
+                BEGIN
+                    license := current_setting('timescaledb.license', true);
+
+                    IF license IS NULL OR license != 'apache' THEN
+                        EXECUTE 'ALTER TABLE """"public"""".""""CompressedTable"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""TenantId"", ""DeviceId""'', timescaledb.compress_orderby = ''""Timestamp"" DESC, ""Value"" ASC NULLS LAST'')';
+                    ELSE
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
+                    END IF;
+                END $$;
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void Generate_Alter_Adding_Compression_SegmentBy_Generates_Correct_Sql()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "Metrics",
+                Schema = "public",
+                // Adding segment by configuration
+                CompressionSegmentBy = ["DeviceId"],
+                OldCompressionSegmentBy = []
+            };
+
+            string expected = @".Sql(@""
+                DO $$
+                DECLARE
+                    license TEXT;
+                BEGIN
+                    license := current_setting('timescaledb.license', true);
+
+                    IF license IS NULL OR license != 'apache' THEN
+                        EXECUTE 'ALTER TABLE """"public"""".""""Metrics"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""DeviceId""'')';
+                    ELSE
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
+                    END IF;
+                END $$;
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void Generate_Alter_Modifying_Compression_OrderBy_Generates_Correct_Sql()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "Metrics",
+                Schema = "public",
+                // Changing from ASC to DESC
+                CompressionOrderBy = ["Timestamp DESC"],
+                OldCompressionOrderBy = ["Timestamp ASC"]
+            };
+
+            string expected = @".Sql(@""
+                DO $$
+                DECLARE
+                    license TEXT;
+                BEGIN
+                    license := current_setting('timescaledb.license', true);
+
+                    IF license IS NULL OR license != 'apache' THEN
+                        EXECUTE 'ALTER TABLE """"public"""".""""Metrics"""" SET (timescaledb.compress_orderby = ''""Timestamp"" DESC'')';
+                    ELSE
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
+                    END IF;
+                END $$;
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void Generate_Alter_Removing_Compression_Configuration_Generates_Empty_Strings()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "Metrics",
+                Schema = "public",
+                EnableCompression = true,
+                OldEnableCompression = true,
+
+                // Removing both settings
+                CompressionSegmentBy = [],
+                OldCompressionSegmentBy = ["DeviceId"],
+                CompressionOrderBy = null,
+                OldCompressionOrderBy = ["Timestamp DESC"]
+            };
+
+            // TimescaleDB requires setting the value to '' (empty string) to clear it
+            string expected = @".Sql(@""
+                DO $$
+                DECLARE
+                    license TEXT;
+                BEGIN
+                    license := current_setting('timescaledb.license', true);
+
+                    IF license IS NULL OR license != 'apache' THEN
+                        EXECUTE 'ALTER TABLE """"public"""".""""Metrics"""" SET (timescaledb.compress_segmentby = '''', timescaledb.compress_orderby = '''')';
+                    ELSE
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
+                    END IF;
+                END $$;
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
         public void Generate_Alter_when_adding_and_removing_skip_columns_generates_correct_sql()
         {
             // Arrange

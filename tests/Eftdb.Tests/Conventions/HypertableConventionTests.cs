@@ -137,6 +137,140 @@ public class HypertableConventionTests
 
     #endregion
 
+    #region Should_Process_Hypertable_With_CompressionSegmentBy
+
+    [Hypertable("Timestamp", CompressionSegmentBy = ["TenantId", "DeviceId"])]
+    private class SegmentByEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public int DeviceId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SegmentByContext : DbContext
+    {
+        public DbSet<SegmentByEntity> Entities => Set<SegmentByEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SegmentByEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("SegmentBy");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Process_Hypertable_With_CompressionSegmentBy()
+    {
+        using SegmentByContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(SegmentByEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+        // Should implicitly enable compression
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
+        // Should join array with comma space
+        Assert.Equal("TenantId, DeviceId", entityType.FindAnnotation(HypertableAnnotations.CompressionSegmentBy)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Process_Hypertable_With_CompressionOrderBy
+
+    [Hypertable("Timestamp", CompressionOrderBy = ["Timestamp DESC", "Value ASC NULLS LAST"])]
+    private class OrderByEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderByContext : DbContext
+    {
+        public DbSet<OrderByEntity> Entities => Set<OrderByEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderByEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("OrderBy");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Process_Hypertable_With_CompressionOrderBy()
+    {
+        using OrderByContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(OrderByEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+        // Should implicitly enable compression
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
+        // Should preserve raw SQL strings joined by comma space
+        Assert.Equal("Timestamp DESC, Value ASC NULLS LAST", entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Not_Apply_Compression_Settings_When_Arrays_Empty
+
+    [Hypertable("Timestamp", CompressionSegmentBy = [], CompressionOrderBy = [])]
+    private class EmptyCompressionSettingsEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class EmptyCompressionSettingsContext : DbContext
+    {
+        public DbSet<EmptyCompressionSettingsEntity> Entities => Set<EmptyCompressionSettingsEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EmptyCompressionSettingsEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("EmptyCompressionSettings");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Apply_Compression_Settings_When_Arrays_Empty()
+    {
+        using EmptyCompressionSettingsContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(EmptyCompressionSettingsEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+
+        // Should NOT enable compression because arrays are empty
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.EnableCompression));
+
+        // Should NOT set the segment/order annotations
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.CompressionSegmentBy));
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy));
+    }
+
+    #endregion
+
     #region Should_Process_Hypertable_With_ChunkSkipColumns
 
     [Hypertable("Timestamp", ChunkSkipColumns = ["Value", "DeviceId"])]
