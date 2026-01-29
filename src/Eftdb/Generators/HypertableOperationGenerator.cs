@@ -50,11 +50,35 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             createHypertableCall.Append(");");
             statements.Add(createHypertableCall.ToString());
 
-            // EnableCompression (Community Edition only)
-            if (operation.EnableCompression || operation.ChunkSkipColumns?.Count > 0)
+            List<string> compressionSettings = [];
+
+            bool hasSegmentBy = operation.CompressionSegmentBy != null && operation.CompressionSegmentBy.Count > 0;
+            bool hasOrderBy = operation.CompressionOrderBy != null && operation.CompressionOrderBy.Count > 0;
+            bool hasChunkSkipping = operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0;
+
+            bool shouldEnableCompression = operation.EnableCompression || hasChunkSkipping || hasSegmentBy || hasOrderBy;
+
+            if (shouldEnableCompression)
             {
-                bool enableCompression = operation.EnableCompression || operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0;
-                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {enableCompression.ToString().ToLower()});");
+                compressionSettings.Add("timescaledb.compress = true");
+            }
+
+            if (hasSegmentBy)
+            {
+                string segmentList = string.Join(", ", operation.CompressionSegmentBy!);
+                compressionSettings.Add($"timescaledb.compress_segmentby = '{segmentList}'");
+            }
+
+            if (hasOrderBy)
+            {
+                string orderList = string.Join(", ", operation.CompressionOrderBy!);
+                compressionSettings.Add($"timescaledb.compress_orderby = '{orderList}'");
+            }
+
+            // If there are compression settings, add the ALTER TABLE SET (...) statement
+            if (compressionSettings.Count > 0)
+            {
+                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});");
             }
 
             // ChunkSkipColumns (Community Edition only)
@@ -128,14 +152,49 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 statements.Add(setChunkTimeInterval.ToString());
             }
 
-            // Check for EnableCompression change (Community Edition only)
-            bool newCompressionState = operation.EnableCompression || operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Any();
-            bool oldCompressionState = operation.OldEnableCompression || operation.OldChunkSkipColumns != null && operation.OldChunkSkipColumns.Any();
+            List<string> compressionSettings = [];
+
+            static bool ListsChanged(IReadOnlyList<string>? oldList, IReadOnlyList<string>? newList)
+            {
+                return !(oldList ?? []).SequenceEqual(newList ?? []);
+            }
+
+            bool newCompressionState = operation.EnableCompression
+                                    || (operation.ChunkSkipColumns?.Count > 0)
+                                    || (operation.CompressionSegmentBy?.Count > 0)
+                                    || (operation.CompressionOrderBy?.Count > 0);
+
+            bool oldCompressionState = operation.OldEnableCompression
+                                    || (operation.OldChunkSkipColumns?.Count > 0)
+                                    || (operation.OldCompressionSegmentBy?.Count > 0)
+                                    || (operation.OldCompressionOrderBy?.Count > 0);
 
             if (newCompressionState != oldCompressionState)
             {
-                string compressionValue = newCompressionState.ToString().ToLower();
-                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {compressionValue});");
+                compressionSettings.Add($"timescaledb.compress = {newCompressionState.ToString().ToLower()}");
+            }
+
+            if (ListsChanged(operation.OldCompressionSegmentBy, operation.CompressionSegmentBy))
+            {
+                // If list is null/empty, set to '' to clear setting in DB
+                string val = (operation.CompressionSegmentBy?.Count > 0)
+                    ? $"'{string.Join(", ", operation.CompressionSegmentBy)}'"
+                    : "''";
+                compressionSettings.Add($"timescaledb.compress_segmentby = {val}");
+            }
+
+            if (ListsChanged(operation.OldCompressionOrderBy, operation.CompressionOrderBy))
+            {
+                string val = (operation.CompressionOrderBy?.Count > 0)
+                    ? $"'{string.Join(", ", operation.CompressionOrderBy)}'"
+                    : "''";
+                compressionSettings.Add($"timescaledb.compress_orderby = {val}");
+            }
+
+            // If there are compression settings, add the ALTER TABLE SET (...) statement
+            if (compressionSettings.Count > 0)
+            {
+                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});");
             }
 
             // Handle ChunkSkipColumns (Community Edition only)

@@ -27,6 +27,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 table[HypertableAnnotations.ChunkSkipColumns] = string.Join(",", info.ChunkSkipColumns);
             }
 
+            // Apply SegmentBy annotation if present
+            if (info.CompressionSegmentBy.Count > 0)
+            {
+                table[HypertableAnnotations.CompressionSegmentBy] = string.Join(", ", info.CompressionSegmentBy);
+            }
+
+            // Apply OrderBy annotation if present
+            if (info.CompressionOrderBy.Count > 0)
+            {
+                table[HypertableAnnotations.CompressionOrderBy] = string.Join(", ", info.CompressionOrderBy);
+            }
+
             if (info.AdditionalDimensions.Count > 0)
             {
                 table[HypertableAnnotations.AdditionalDimensions] = JsonSerializer.Serialize(info.AdditionalDimensions);

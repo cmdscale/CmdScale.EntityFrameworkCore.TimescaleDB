@@ -129,6 +129,62 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         }
 
         /// <summary>
+        /// Specifies the columns to group by when compressing the hypertable (SegmentBy).
+        /// </summary>
+        /// <remarks>
+        /// Valid settings for <c>timescaledb.compress_segmentby</c>.
+        /// Columns used for segmenting are not compressed themselves but are used as keys to group rows.
+        /// Good candidates are columns with low cardinality (e.g., "device_id", "tenant_id").
+        /// </remarks>
+        public static EntityTypeBuilder<TEntity> WithCompressionSegmentBy<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            params Expression<Func<TEntity, object>>[] segmentByColumns) where TEntity : class
+        {
+            string[] columnNames = [.. segmentByColumns.Select(GetPropertyName)];
+
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionSegmentBy, string.Join(", ", columnNames));
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+
+            return entityTypeBuilder;
+        }
+
+        /// <summary>
+        /// Specifies the columns to order by within each compressed segment using explicit OrderBy definitions.
+        /// </summary>
+        /// <remarks>
+        /// Uses the <see cref="OrderByBuilder"/> to define direction and null handling.
+        /// Example: <c>.WithCompressionOrderBy(OrderByBuilder.For&lt;T&gt;(x => x.Time).Descending())</c>
+        /// </remarks>
+        public static EntityTypeBuilder<TEntity> WithCompressionOrderBy<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            params OrderBy[] orderByRules) where TEntity : class
+        {
+            string annotationValue = string.Join(", ", orderByRules.Select(r => r.ToSql()));
+
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionOrderBy, annotationValue);
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+
+            return entityTypeBuilder;
+        }
+
+        /// <summary>
+        /// Specifies the columns to order by within each compressed segment using the OrderBySelector.
+        /// </summary>
+        /// <remarks>
+        /// Provides a simplified syntax for defining order.
+        /// Example: <c>.WithCompressionOrderBy(s => [s.ByDescending(x => x.Time), s.By(x => x.Value)])</c>
+        /// </remarks>
+        public static EntityTypeBuilder<TEntity> WithCompressionOrderBy<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Func<OrderBySelector<TEntity>, IEnumerable<OrderBy>> orderSelector) where TEntity : class
+        {
+            var selector = new OrderBySelector<TEntity>();
+            var rules = orderSelector(selector);
+
+            return entityTypeBuilder.WithCompressionOrderBy(rules.ToArray());
+        }
+
+        /// <summary>
         /// Specifies whether existing data should be migrated when converting a table to a hypertable.
         /// </summary>
         /// <remarks>

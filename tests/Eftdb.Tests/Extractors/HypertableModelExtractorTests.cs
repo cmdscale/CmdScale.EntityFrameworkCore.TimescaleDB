@@ -324,6 +324,224 @@ public class HypertableModelExtractorTests
 
     #endregion
 
+    #region Should_Extract_CompressionSegmentBy
+
+    private class SegmentByMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SegmentByContext : DbContext
+    {
+        public DbSet<SegmentByMetric> Metrics => Set<SegmentByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SegmentByMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.TenantId);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_CompressionSegmentBy()
+    {
+        using SegmentByContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        CreateHypertableOperation operation = operations[0];
+
+        Assert.NotNull(operation.CompressionSegmentBy);
+        Assert.Single(operation.CompressionSegmentBy);
+        Assert.Equal("TenantId", operation.CompressionSegmentBy[0]);
+        // Compression should be enabled implicitly
+        Assert.True(operation.EnableCompression);
+    }
+
+    #endregion
+
+    #region Should_Extract_CompressionOrderBy
+
+    private class OrderByMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderByContext : DbContext
+    {
+        public DbSet<OrderByMetric> Metrics => Set<OrderByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderByMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [
+                          s.ByDescending(x => x.Timestamp),
+                          s.By(x => x.Value, nullsFirst: true)
+                      ]);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_CompressionOrderBy()
+    {
+        using OrderByContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        CreateHypertableOperation operation = operations[0];
+
+        Assert.NotNull(operation.CompressionOrderBy);
+        Assert.Equal(2, operation.CompressionOrderBy.Count);
+
+        // Verify formatted strings
+        Assert.Equal("Timestamp DESC", operation.CompressionOrderBy[0]);
+        Assert.Equal("Value NULLS FIRST", operation.CompressionOrderBy[1]);
+
+        Assert.True(operation.EnableCompression);
+    }
+
+    #endregion
+
+    #region Should_Resolve_Compression_Columns_With_Naming_Convention
+
+    private class SnakeCaseCompressionMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public double SensorValue { get; set; }
+    }
+
+    private class SnakeCaseCompressionContext : DbContext
+    {
+        public DbSet<SnakeCaseCompressionMetric> Metrics => Set<SnakeCaseCompressionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseSnakeCaseNamingConvention()
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SnakeCaseCompressionMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.TenantId)
+                      .WithCompressionOrderBy(s => [
+                          s.ByDescending(x => x.SensorValue)
+                      ]);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_Compression_Columns_With_Naming_Convention()
+    {
+        using SnakeCaseCompressionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        CreateHypertableOperation operation = operations[0];
+
+        // Verify SegmentBy (TenantId -> tenant_id)
+        Assert.NotNull(operation.CompressionSegmentBy);
+        Assert.Equal("tenant_id", operation.CompressionSegmentBy[0]);
+
+        // Verify OrderBy (SensorValue -> sensor_value)
+        // This confirms the complex parsing logic in Extractor works (Split -> Resolve -> Rebuild)
+        Assert.NotNull(operation.CompressionOrderBy);
+        Assert.Equal("sensor_value DESC", operation.CompressionOrderBy[0]);
+    }
+
+    #endregion
+
+    #region Should_Resolve_Compression_Columns_With_Explicit_Names
+
+    private class ExplicitCompressionMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public double SensorValue { get; set; }
+    }
+
+    private class ExplicitCompressionContext : DbContext
+    {
+        public DbSet<ExplicitCompressionMetric> Metrics => Set<ExplicitCompressionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ExplicitCompressionMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+
+                // Explicitly map properties to different column names
+                entity.Property(x => x.TenantId).HasColumnName("tid");
+                entity.Property(x => x.SensorValue).HasColumnName("val");
+
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.TenantId)
+                      .WithCompressionOrderBy(s => [
+                          s.ByDescending(x => x.SensorValue)
+                      ]);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_Compression_Columns_With_Explicit_Names()
+    {
+        using ExplicitCompressionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        Assert.Single(operations);
+        CreateHypertableOperation operation = operations[0];
+
+        // Verify SegmentBy used explicit name "tid"
+        Assert.NotNull(operation.CompressionSegmentBy);
+        Assert.Equal("tid", operation.CompressionSegmentBy[0]);
+
+        // Verify OrderBy used explicit name "val"
+        Assert.NotNull(operation.CompressionOrderBy);
+        Assert.Equal("val DESC", operation.CompressionOrderBy[0]);
+    }
+
+    #endregion
+
     #region Should_Extract_Single_ChunkSkipColumn
 
     private class SingleChunkSkipMetric

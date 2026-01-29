@@ -13,6 +13,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             string TimeColumnName,
             string ChunkTimeInterval,
             bool CompressionEnabled,
+            List<string> CompressionSegmentBy,
+            List<string> CompressionOrderBy,
             List<string> ChunkSkipColumns,
             List<Dimension> AdditionalDimensions
         );
@@ -32,6 +34,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
                 GetHypertableSettings(connection, hypertables, compressionSettings);
                 GetChunkSkipColumns(connection, hypertables);
+                GetCompressionConfiguration(connection, hypertables);
 
                 // Convert to object dictionary to match interface
                 return hypertables.ToDictionary(
@@ -99,6 +102,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         TimeColumnName: columnName,
                         ChunkTimeInterval: chunkInterval.ToString(),
                         CompressionEnabled: compressionEnabled,
+                        CompressionSegmentBy: [],
+                        CompressionOrderBy: [],
                         ChunkSkipColumns: [],
                         AdditionalDimensions: []
                     );
@@ -156,6 +161,59 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 if (hypertables.TryGetValue((schema, name), out HypertableInfo? info))
                 {
                     info.ChunkSkipColumns.Add(columnName);
+                }
+            }
+        }
+
+        private static void GetCompressionConfiguration(DbConnection connection, Dictionary<(string, string), HypertableInfo> hypertables)
+        {
+            using DbCommand command = connection.CreateCommand();
+
+            // This view provides the column-level details for compression.
+            // segmentby_column_index is not null for segment columns.
+            // orderby_column_index is not null for order columns.
+            command.CommandText = @"
+                SELECT 
+                    hypertable_schema, 
+                    hypertable_name, 
+                    attname, 
+                    segmentby_column_index, 
+                    orderby_column_index, 
+                    orderby_asc, 
+                    orderby_nullsfirst 
+                FROM timescaledb_information.compression_settings 
+                ORDER BY hypertable_schema, hypertable_name, segmentby_column_index, orderby_column_index;";
+
+            using DbDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                string schema = reader.GetString(0);
+                string name = reader.GetString(1);
+                string columnName = reader.GetString(2);
+
+                // Find the corresponding hypertable info
+                if (!hypertables.TryGetValue((schema, name), out HypertableInfo? info))
+                {
+                    continue;
+                }
+
+                // Handle SegmentBy
+                if (!reader.IsDBNull(3)) // segmentby_column_index
+                {
+                    info.CompressionSegmentBy.Add(columnName);
+                }
+
+                // Handle OrderBy
+                if (!reader.IsDBNull(4)) // orderby_column_index
+                {
+                    bool isAscending = reader.GetBoolean(5);
+                    bool isNullsFirst = reader.GetBoolean(6);
+
+                    string direction = isAscending ? "ASC" : "DESC";
+                    string nulls = isNullsFirst ? "NULLS FIRST" : "NULLS LAST";
+
+                    // Reconstruct the full string format: "colName DESC NULLS LAST"
+                    info.CompressionOrderBy.Add($"{columnName} {direction} {nulls}");
                 }
             }
         }
