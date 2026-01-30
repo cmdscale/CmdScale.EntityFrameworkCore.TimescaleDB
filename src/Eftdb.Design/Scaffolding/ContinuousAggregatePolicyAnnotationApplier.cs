@@ -36,12 +36,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 table[ContinuousAggregatePolicyAnnotations.ScheduleInterval] = info.ScheduleInterval;
             }
 
-            // Apply timezone
-            if (!string.IsNullOrWhiteSpace(info.Timezone))
-            {
-                table[ContinuousAggregatePolicyAnnotations.Timezone] = info.Timezone;
-            }
-
             // Apply initial_start
             if (info.InitialStart.HasValue)
             {

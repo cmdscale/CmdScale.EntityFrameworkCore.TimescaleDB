@@ -71,14 +71,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         public bool IfNotExists { get; set; } = false;
 
         /// <summary>
-        /// Gets or sets the timezone to mitigate daylight savings alignment shifts.
-        /// </summary>
-        /// <example>
-        /// "UTC", "America/New_York", "Europe/London"
-        /// </example>
-        public string? Timezone { get; set; }
-
-        /// <summary>
         /// Gets or sets a value indicating whether to override tiered read settings.
         /// NULL means use default behavior.
         /// </summary>

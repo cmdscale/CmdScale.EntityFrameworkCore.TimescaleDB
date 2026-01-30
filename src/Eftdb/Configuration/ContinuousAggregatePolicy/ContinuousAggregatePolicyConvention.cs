@@ -60,10 +60,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             if (attribute.IfNotExists)
                 entityTypeBuilder.HasAnnotation(ContinuousAggregatePolicyAnnotations.IfNotExists, attribute.IfNotExists);
 
-            // Apply timezone
-            if (!string.IsNullOrWhiteSpace(attribute.Timezone))
-                entityTypeBuilder.HasAnnotation(ContinuousAggregatePolicyAnnotations.Timezone, attribute.Timezone);
-
             // Apply include_tiered_data if explicitly set
             if (attribute.IncludeTieredData.HasValue)
                 entityTypeBuilder.HasAnnotation(ContinuousAggregatePolicyAnnotations.IncludeTieredData, attribute.IncludeTieredData.Value);

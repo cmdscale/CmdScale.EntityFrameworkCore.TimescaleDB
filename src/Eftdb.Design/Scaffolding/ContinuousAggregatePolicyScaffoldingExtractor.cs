@@ -13,7 +13,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             string? StartOffset,
             string? EndOffset,
             string? ScheduleInterval,
-            string? Timezone,
             DateTime? InitialStart,
             bool? IncludeTieredData,
             int? BucketsPerBatch,
@@ -36,7 +35,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 using (DbCommand command = connection.CreateCommand())
                 {
                     // Query continuous aggregate policies from TimescaleDB jobs table
-                    // The config column contains JSONB with start_offset, end_offset, timezone, mat_hypertable_id and other policy parameters
                     command.CommandText = @"
                         SELECT
                             ca.user_view_schema,
@@ -61,7 +59,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         // Parse the JSONB config to extract policy parameters
                         string? startOffset = null;
                         string? endOffset = null;
-                        string? timezone = null;
                         bool? includeTieredData = null;
                         int? bucketsPerBatch = null;
                         int? maxBatchesPerExecution = null;
@@ -75,20 +72,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                             // Extract start_offset
                             if (root.TryGetProperty("start_offset", out JsonElement startOffsetElement))
                             {
-                                startOffset = ParseIntervalOrInteger(startOffsetElement);
+                                startOffset = IntervalParsingHelper.ParseIntervalOrInteger(startOffsetElement);
                             }
 
                             // Extract end_offset
                             if (root.TryGetProperty("end_offset", out JsonElement endOffsetElement))
                             {
-                                endOffset = ParseIntervalOrInteger(endOffsetElement);
-                            }
-
-                            // Extract timezone
-                            if (root.TryGetProperty("timezone", out JsonElement timezoneElement)
-                                && timezoneElement.ValueKind == JsonValueKind.String)
-                            {
-                                timezone = timezoneElement.GetString();
+                                endOffset = IntervalParsingHelper.ParseIntervalOrInteger(endOffsetElement);
                             }
 
                             // Extract include_tiered_data (optional)
@@ -124,7 +114,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                             StartOffset: startOffset,
                             EndOffset: endOffset,
                             ScheduleInterval: scheduleInterval,
-                            Timezone: timezone,
                             InitialStart: initialStart,
                             IncludeTieredData: includeTieredData,
                             BucketsPerBatch: bucketsPerBatch,
@@ -147,81 +136,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     connection.Close();
                 }
             }
-        }
-
-        /// <summary>
-        /// Parses an interval or integer value from JSONB.
-        /// TimescaleDB stores intervals as strings (e.g., "1 mon", "7 days")
-        /// or integers for integer-based time columns.
-        /// </summary>
-        private static string? ParseIntervalOrInteger(JsonElement element)
-        {
-            if (element.ValueKind == JsonValueKind.Null)
-            {
-                return null;
-            }
-
-            if (element.ValueKind == JsonValueKind.String)
-            {
-                string value = element.GetString() ?? string.Empty;
-                // TimescaleDB stores intervals in PostgreSQL format (e.g., "1 mon", "7 days", "01:00:00")
-                // We need to normalize these to a format that matches what users would write
-                return NormalizeInterval(value);
-            }
-
-            if (element.ValueKind == JsonValueKind.Number)
-            {
-                // Integer-based time column
-                return element.GetInt64().ToString();
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Normalizes PostgreSQL interval format to user-friendly format.
-        /// </summary>
-        /// <remarks>
-        /// PostgreSQL stores intervals in formats like:
-        /// - "1 mon" for 1 month
-        /// - "7 days" for 7 days
-        /// - "01:00:00" for 1 hour
-        /// We normalize these to match the format users would use in Fluent API:
-        /// - "1 month"
-        /// - "7 days"
-        /// - "1 hour"
-        /// </remarks>
-        private static string NormalizeInterval(string pgInterval)
-        {
-            if (string.IsNullOrWhiteSpace(pgInterval))
-            {
-                return pgInterval;
-            }
-
-            string normalized = pgInterval.Trim();
-
-            // Replace "mon" with "month"
-            normalized = normalized.Replace(" mon", " month");
-
-            // Convert time-only intervals (HH:MM:SS) to hour/minute format
-            if (TimeSpan.TryParse(normalized, out TimeSpan timeSpan))
-            {
-                if (timeSpan.TotalMinutes < 60 && timeSpan.Minutes > 0 && timeSpan.Hours == 0)
-                {
-                    return $"{timeSpan.Minutes} minute{(timeSpan.Minutes > 1 ? "s" : "")}";
-                }
-                if (timeSpan.TotalHours < 24 && timeSpan.Hours > 0)
-                {
-                    return $"{timeSpan.Hours} hour{(timeSpan.Hours > 1 ? "s" : "")}";
-                }
-                // For days, use the total days
-                if (timeSpan.Days > 0)
-                {
-                    return $"{timeSpan.Days} day{(timeSpan.Days > 1 ? "s" : "")}";
-                }
-            }
-
-            return normalized;
         }
     }
 }

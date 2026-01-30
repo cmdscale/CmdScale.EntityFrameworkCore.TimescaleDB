@@ -23,7 +23,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
         StartOffset = "30 days",
         EndOffset = "1 day",
         ScheduleInterval = "1 hour",
-        Timezone = "UTC",
         RefreshNewestFirst = true)]
     public class WeatherAggregate
     {

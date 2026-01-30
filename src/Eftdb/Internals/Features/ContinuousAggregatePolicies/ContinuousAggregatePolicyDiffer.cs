@@ -76,7 +76,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                    source.EndOffset == target.EndOffset &&
                    source.ScheduleInterval == target.ScheduleInterval &&
                    source.InitialStart == target.InitialStart &&
-                   source.Timezone == target.Timezone &&
                    source.IncludeTieredData == target.IncludeTieredData &&
                    source.BucketsPerBatch == target.BucketsPerBatch &&
                    source.MaxBatchesPerExecution == target.MaxBatchesPerExecution &&
