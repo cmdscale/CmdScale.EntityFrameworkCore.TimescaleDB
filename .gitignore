@@ -436,6 +436,7 @@ samples/Eftdb.Samples.DatabaseFirst/**/*.cs
 # AI
 CLAUDE.md
 .claude
+tmpclaude-*
 
 # Code coverage report
 coverage

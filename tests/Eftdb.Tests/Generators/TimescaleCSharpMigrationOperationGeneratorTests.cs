@@ -466,6 +466,181 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region ContinuousAggregatePolicyOperation Tests
+
+        [Fact]
+        public void Generate_AddContinuousAggregatePolicy_WithAllParameters_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddContinuousAggregatePolicyOperation operation = new()
+            {
+                MaterializedViewName = "hourly_stats",
+                Schema = "public",
+                StartOffset = "1 month",
+                EndOffset = "1 hour",
+                ScheduleInterval = "1 hour",
+                InitialStart = new DateTime(2026, 1, 15, 12, 0, 0, DateTimeKind.Utc),
+                IfNotExists = true,
+                IncludeTieredData = true,
+                BucketsPerBatch = 5,
+                MaxBatchesPerExecution = 10,
+                RefreshNewestFirst = false
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".Sql(@\"", result);
+            Assert.Contains("add_continuous_aggregate_policy", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_AddContinuousAggregatePolicy_WithMinimalParameters_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddContinuousAggregatePolicyOperation operation = new()
+            {
+                MaterializedViewName = "hourly_stats",
+                Schema = "public",
+                StartOffset = "1 month",
+                EndOffset = "1 hour"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".Sql(@\"", result);
+            Assert.Contains("add_continuous_aggregate_policy", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_AddContinuousAggregatePolicy_WithNullOffsets_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddContinuousAggregatePolicyOperation operation = new()
+            {
+                MaterializedViewName = "hourly_stats",
+                Schema = "public",
+                StartOffset = null,
+                EndOffset = null
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".Sql(@\"", result);
+            Assert.Contains("add_continuous_aggregate_policy", result);
+            Assert.Contains("start_offset => NULL", result);
+            Assert.Contains("end_offset => NULL", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_AddContinuousAggregatePolicy_WithIntegerOffsets_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddContinuousAggregatePolicyOperation operation = new()
+            {
+                MaterializedViewName = "sensor_data_cagg",
+                Schema = "public",
+                StartOffset = "1000",
+                EndOffset = "100"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".Sql(@\"", result);
+            Assert.Contains("add_continuous_aggregate_policy", result);
+            Assert.Contains("start_offset => 1000", result);
+            Assert.Contains("end_offset => 100", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_RemoveContinuousAggregatePolicy_BasicRemoval_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            RemoveContinuousAggregatePolicyOperation operation = new()
+            {
+                MaterializedViewName = "hourly_stats",
+                Schema = "public"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".Sql(@\"", result);
+            Assert.Contains("remove_continuous_aggregate_policy", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_RemoveContinuousAggregatePolicy_WithIfExists_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            RemoveContinuousAggregatePolicyOperation operation = new()
+            {
+                MaterializedViewName = "hourly_stats",
+                Schema = "public",
+                IfExists = true
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".Sql(@\"", result);
+            Assert.Contains("remove_continuous_aggregate_policy", result);
+            Assert.Contains("if_exists => true", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private static CSharpMigrationOperationGeneratorDependencies CreateDependencies()
