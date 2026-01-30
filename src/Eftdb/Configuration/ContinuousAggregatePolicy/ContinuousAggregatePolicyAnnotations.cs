@@ -39,11 +39,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         public const string IfNotExists = "TimescaleDB:ContinuousAggregatePolicy:IfNotExists";
 
         /// <summary>
-        /// Timezone to mitigate daylight savings alignment shifts. Stored as string (e.g., "UTC", "America/New_York").
-        /// </summary>
-        public const string Timezone = "TimescaleDB:ContinuousAggregatePolicy:Timezone";
-
-        /// <summary>
         /// Override tiered read settings. Stored as nullable bool.
         /// </summary>
         public const string IncludeTieredData = "TimescaleDB:ContinuousAggregatePolicy:IncludeTieredData";

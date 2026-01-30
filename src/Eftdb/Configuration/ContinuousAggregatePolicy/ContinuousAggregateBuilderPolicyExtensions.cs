@@ -21,7 +21,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         /// <code>
         /// builder.IsContinuousAggregate&lt;HourlyMetric, Metric&gt;("hourly_metrics", "1 hour", x => x.Timestamp)
         ///     .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "1 hour")
-        ///     .WithTimezone("UTC")
         ///     .WithRefreshNewestFirst(true);
         /// </code>
         /// </example>

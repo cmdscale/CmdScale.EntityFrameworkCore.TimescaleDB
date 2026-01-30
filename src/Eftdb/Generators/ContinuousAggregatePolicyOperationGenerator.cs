@@ -82,11 +82,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 arguments.Add($"if_not_exists => {operation.IfNotExists.ToString().ToLowerInvariant()}");
             }
 
-            if (!string.IsNullOrWhiteSpace(operation.Timezone))
-            {
-                arguments.Add($"timezone => '{operation.Timezone}'");
-            }
-
             if (operation.IncludeTieredData.HasValue)
             {
                 arguments.Add($"include_tiered_data => {operation.IncludeTieredData.Value.ToString().ToLowerInvariant()}");

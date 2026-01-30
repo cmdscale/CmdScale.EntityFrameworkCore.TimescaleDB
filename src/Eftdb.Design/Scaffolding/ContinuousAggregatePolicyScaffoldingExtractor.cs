@@ -13,7 +13,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             string? StartOffset,
             string? EndOffset,
             string? ScheduleInterval,
-            string? Timezone,
             DateTime? InitialStart,
             bool? IncludeTieredData,
             int? BucketsPerBatch,
@@ -36,7 +35,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 using (DbCommand command = connection.CreateCommand())
                 {
                     // Query continuous aggregate policies from TimescaleDB jobs table
-                    // The config column contains JSONB with start_offset, end_offset, timezone, mat_hypertable_id and other policy parameters
                     command.CommandText = @"
                         SELECT
                             ca.user_view_schema,
@@ -61,7 +59,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         // Parse the JSONB config to extract policy parameters
                         string? startOffset = null;
                         string? endOffset = null;
-                        string? timezone = null;
                         bool? includeTieredData = null;
                         int? bucketsPerBatch = null;
                         int? maxBatchesPerExecution = null;
@@ -82,13 +79,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                             if (root.TryGetProperty("end_offset", out JsonElement endOffsetElement))
                             {
                                 endOffset = ParseIntervalOrInteger(endOffsetElement);
-                            }
-
-                            // Extract timezone
-                            if (root.TryGetProperty("timezone", out JsonElement timezoneElement)
-                                && timezoneElement.ValueKind == JsonValueKind.String)
-                            {
-                                timezone = timezoneElement.GetString();
                             }
 
                             // Extract include_tiered_data (optional)
@@ -124,7 +114,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                             StartOffset: startOffset,
                             EndOffset: endOffset,
                             ScheduleInterval: scheduleInterval,
-                            Timezone: timezone,
                             InitialStart: initialStart,
                             IncludeTieredData: includeTieredData,
                             BucketsPerBatch: bucketsPerBatch,

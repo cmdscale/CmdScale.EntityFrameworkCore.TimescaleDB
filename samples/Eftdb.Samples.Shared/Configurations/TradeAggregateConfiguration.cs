@@ -21,7 +21,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Configurat
                 .Where("\"ticker\" = 'MCRS'")
                 .MaterializedOnly()
                 .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour")
-                .WithTimezone("UTC")
                 .WithRefreshNewestFirst(true);
         }
     }

@@ -57,7 +57,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 string? scheduleInterval = entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval)?.Value as string;
                 DateTime? initialStart = entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.InitialStart)?.Value as DateTime?;
                 bool ifNotExists = entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.IfNotExists)?.Value as bool? ?? false;
-                string? timezone = entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.Timezone)?.Value as string;
                 bool? includeTieredData = entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.IncludeTieredData)?.Value as bool?;
                 int bucketsPerBatch = entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.BucketsPerBatch)?.Value as int? ?? 1;
                 int maxBatchesPerExecution = entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.MaxBatchesPerExecution)?.Value as int? ?? 0;
@@ -72,7 +71,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     ScheduleInterval = scheduleInterval,
                     InitialStart = initialStart,
                     IfNotExists = ifNotExists,
-                    Timezone = timezone,
                     IncludeTieredData = includeTieredData,
                     BucketsPerBatch = bucketsPerBatch,
                     MaxBatchesPerExecution = maxBatchesPerExecution,

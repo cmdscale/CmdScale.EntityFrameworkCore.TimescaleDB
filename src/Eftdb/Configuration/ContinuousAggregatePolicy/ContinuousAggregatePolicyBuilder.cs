@@ -52,20 +52,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         }
 
         /// <summary>
-        /// Sets the timezone for the continuous aggregate refresh policy to mitigate daylight savings alignment shifts.
-        /// </summary>
-        /// <param name="timezone">The timezone (e.g., "UTC", "America/New_York", "Europe/London").</param>
-        /// <returns>The builder for method chaining.</returns>
-        public ContinuousAggregatePolicyBuilder<TEntity, TSourceEntity> WithTimezone(string timezone)
-        {
-            if (string.IsNullOrWhiteSpace(timezone))
-                throw new ArgumentException("Timezone must be provided.", nameof(timezone));
-
-            EntityTypeBuilder.HasAnnotation(ContinuousAggregatePolicyAnnotations.Timezone, timezone);
-            return this;
-        }
-
-        /// <summary>
         /// Configures whether to override tiered read settings for the continuous aggregate refresh policy.
         /// </summary>
         /// <param name="includeTieredData">True to include tiered data, false to exclude it.</param>
