@@ -1,8 +1,7 @@
 using System.Linq.Expressions;
 using System.Text;
 
-// TODO: Evtl. in .Configuration.Hypertable statt .Abstractions verschieben?
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
 {
     /// <summary>
     /// Represents an ordering specification for a column.

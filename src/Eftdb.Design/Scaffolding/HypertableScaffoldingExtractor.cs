@@ -29,7 +29,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
             try
             {
-                // TODO: Evtl. CompessionSettings und CompressionConfiguration combinen?
                 Dictionary<(string, string), HypertableInfo> hypertables = [];
                 Dictionary<(string, string), bool> compressionSettings = GetCompressionSettings(connection);
 
