@@ -50,11 +50,35 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             createHypertableCall.Append(");");
             statements.Add(createHypertableCall.ToString());
 
-            // EnableCompression (Community Edition only)
-            if (operation.EnableCompression || operation.ChunkSkipColumns?.Count > 0)
+            List<string> compressionSettings = [];
+
+            bool hasSegmentBy = operation.CompressionSegmentBy != null && operation.CompressionSegmentBy.Count > 0;
+            bool hasOrderBy = operation.CompressionOrderBy != null && operation.CompressionOrderBy.Count > 0;
+            bool hasChunkSkipping = operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0;
+
+            bool shouldEnableCompression = operation.EnableCompression || hasChunkSkipping || hasSegmentBy || hasOrderBy;
+
+            if (shouldEnableCompression)
             {
-                bool enableCompression = operation.EnableCompression || operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0;
-                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {enableCompression.ToString().ToLower()});");
+                compressionSettings.Add("timescaledb.compress = true");
+            }
+
+            if (hasSegmentBy)
+            {
+                string segmentList = string.Join(", ", operation.CompressionSegmentBy!.Select(QuoteIdentifier));
+                compressionSettings.Add($"timescaledb.compress_segmentby = '{segmentList}'");
+            }
+
+            if (hasOrderBy)
+            {
+                string orderList = QuoteOrderByList(operation.CompressionOrderBy!);
+                compressionSettings.Add($"timescaledb.compress_orderby = '{orderList}'");
+            }
+
+            // If there are compression settings, add the ALTER TABLE SET (...) statement
+            if (compressionSettings.Count > 0)
+            {
+                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});");
             }
 
             // ChunkSkipColumns (Community Edition only)
@@ -128,14 +152,48 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 statements.Add(setChunkTimeInterval.ToString());
             }
 
-            // Check for EnableCompression change (Community Edition only)
-            bool newCompressionState = operation.EnableCompression || operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Any();
-            bool oldCompressionState = operation.OldEnableCompression || operation.OldChunkSkipColumns != null && operation.OldChunkSkipColumns.Any();
+            List<string> compressionSettings = [];
+
+            static bool ListsChanged(IReadOnlyList<string>? oldList, IReadOnlyList<string>? newList)
+            {
+                return !(oldList ?? []).SequenceEqual(newList ?? []);
+            }
+
+            bool newCompressionState = operation.EnableCompression
+                                    || (operation.ChunkSkipColumns?.Count > 0)
+                                    || (operation.CompressionSegmentBy?.Count > 0)
+                                    || (operation.CompressionOrderBy?.Count > 0);
+
+            bool oldCompressionState = operation.OldEnableCompression
+                                    || (operation.OldChunkSkipColumns?.Count > 0)
+                                    || (operation.OldCompressionSegmentBy?.Count > 0)
+                                    || (operation.OldCompressionOrderBy?.Count > 0);
 
             if (newCompressionState != oldCompressionState)
             {
-                string compressionValue = newCompressionState.ToString().ToLower();
-                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET (timescaledb.compress = {compressionValue});");
+                compressionSettings.Add($"timescaledb.compress = {newCompressionState.ToString().ToLower()}");
+            }
+
+            if (ListsChanged(operation.OldCompressionSegmentBy, operation.CompressionSegmentBy))
+            {
+                string val = (operation.CompressionSegmentBy?.Count > 0)
+                    ? $"'{string.Join(", ", operation.CompressionSegmentBy.Select(QuoteIdentifier))}'"
+                    : "''";
+                compressionSettings.Add($"timescaledb.compress_segmentby = {val}");
+            }
+
+            if (ListsChanged(operation.OldCompressionOrderBy, operation.CompressionOrderBy))
+            {
+                string val = (operation.CompressionOrderBy?.Count > 0)
+                    ? $"'{QuoteOrderByList(operation.CompressionOrderBy)}'"
+                    : "''";
+                compressionSettings.Add($"timescaledb.compress_orderby = {val}");
+            }
+
+            // If there are compression settings, add the ALTER TABLE SET (...) statement
+            if (compressionSettings.Count > 0)
+            {
+                communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});");
             }
 
             // Handle ChunkSkipColumns (Community Edition only)
@@ -244,6 +302,32 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             sb.AppendLine("END $$;");
 
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Wraps an identifier in double quotes to preserve case-sensitivity in Postgres.
+        /// Escapes existing double quotes.
+        /// Example: TenantId -> "TenantId"
+        /// </summary>
+        private static string QuoteIdentifier(string identifier)
+        {
+            return $"\"{identifier.Replace("\"", "\"\"")}\"";
+        }
+
+        /// <summary>
+        /// Quotes the column name within an ORDER BY clause while preserving direction/nulls.
+        /// Example: Timestamp DESC -> "Timestamp" DESC
+        /// </summary>
+        private static string QuoteOrderByList(IEnumerable<string> orderByClauses)
+        {
+            return string.Join(", ", orderByClauses.Select(clause =>
+            {
+                string[] parts = clause.Split(' ', 2);
+                string col = parts[0];
+                string suffix = parts.Length > 1 ? " " + parts[1] : "";
+
+                return QuoteIdentifier(col) + suffix;
+            }));
         }
     }
 }

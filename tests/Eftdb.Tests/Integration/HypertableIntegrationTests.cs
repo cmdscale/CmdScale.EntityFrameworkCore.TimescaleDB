@@ -11,6 +11,15 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
     private PostgreSqlContainer? _container;
     private string? _connectionString;
 
+    private class CompressionSettingInfo
+    {
+        public string ColumnName { get; set; } = string.Empty;
+        public int? SegmentByIndex { get; set; }
+        public int? OrderByIndex { get; set; }
+        public bool IsAscending { get; set; }
+        public bool IsNullsFirst { get; set; }
+    }
+
     public async Task InitializeAsync()
     {
         _container = new PostgreSqlBuilder()
@@ -118,6 +127,53 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         }
 
         return result is bool boolResult && boolResult;
+    }
+
+    private static async Task<List<CompressionSettingInfo>> GetCompressionSettingsAsync(DbContext context, string tableName)
+    {
+        NpgsqlConnection connection = (NpgsqlConnection)context.Database.GetDbConnection();
+        bool wasOpen = connection.State == System.Data.ConnectionState.Open;
+
+        if (!wasOpen)
+        {
+            await connection.OpenAsync();
+        }
+
+        await using NpgsqlCommand command = connection.CreateCommand();
+        // This view contains the exact details of how compression is configured per column
+        command.CommandText = @"
+                SELECT 
+                    attname, 
+                    segmentby_column_index, 
+                    orderby_column_index, 
+                    orderby_asc, 
+                    orderby_nullsfirst
+                FROM timescaledb_information.compression_settings
+                WHERE hypertable_name = @tableName
+                ORDER BY segmentby_column_index, orderby_column_index;
+            ";
+        command.Parameters.AddWithValue("tableName", tableName);
+
+        List<CompressionSettingInfo> settings = [];
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            settings.Add(new CompressionSettingInfo
+            {
+                ColumnName = reader.GetString(0),
+                SegmentByIndex = reader.IsDBNull(1) ? null : reader.GetInt32(1),
+                OrderByIndex = reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                IsAscending = !reader.IsDBNull(3) && reader.GetBoolean(3),
+                IsNullsFirst = !reader.IsDBNull(4) && reader.GetBoolean(4)
+            });
+        }
+
+        if (!wasOpen)
+        {
+            await connection.CloseAsync();
+        }
+
+        return settings;
     }
 
     private static async Task<List<string>> GetChunkSkipColumnsAsync(DbContext context, string tableName)
@@ -353,6 +409,158 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         bool compressionEnabled = await IsCompressionEnabledAsync(context, "compressed_metrics");
 
         Assert.True(compressionEnabled);
+    }
+
+    #endregion
+
+    #region Should_Create_Hypertable_With_CompressionSegmentBy
+
+    private class SegmentByMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int TenantId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SegmentByContext(string connectionString) : DbContext
+    {
+        public DbSet<SegmentByMetric> Metrics => Set<SegmentByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SegmentByMetric>(entity =>
+            {
+                entity.ToTable("segment_by_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                       .WithCompressionSegmentBy(x => x.TenantId);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Create_Hypertable_With_CompressionSegmentBy()
+    {
+        await using SegmentByContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        bool isCompressed = await IsCompressionEnabledAsync(context, "segment_by_metrics");
+        Assert.True(isCompressed, "Compression should be implicitly enabled by SegmentBy");
+
+        List<CompressionSettingInfo> settings = await GetCompressionSettingsAsync(context, "segment_by_metrics");
+
+        CompressionSettingInfo? tenantSetting = settings.FirstOrDefault(s => s.ColumnName == "TenantId");
+        Assert.NotNull(tenantSetting);
+
+        Assert.Equal(1, tenantSetting.SegmentByIndex);
+        Assert.Null(tenantSetting.OrderByIndex);
+    }
+
+    #endregion
+
+    #region Should_Create_Hypertable_With_CompressionOrderBy
+
+    private class OrderByMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderByContext(string connectionString) : DbContext
+    {
+        public DbSet<OrderByMetric> Metrics => Set<OrderByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderByMetric>(entity =>
+            {
+                entity.ToTable("order_by_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                       .WithCompressionOrderBy(s => [
+                           s.ByDescending(x => x.Timestamp),
+                           s.By(x => x.Value, nullsFirst: true)
+                       ]);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Create_Hypertable_With_CompressionOrderBy()
+    {
+        await using OrderByContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        bool isCompressed = await IsCompressionEnabledAsync(context, "order_by_metrics");
+        Assert.True(isCompressed);
+
+        List<CompressionSettingInfo> settings = await GetCompressionSettingsAsync(context, "order_by_metrics");
+
+        // Verify Timestamp (DESC)
+        CompressionSettingInfo tsSetting = settings.First(s => s.ColumnName == "Timestamp");
+        Assert.NotNull(tsSetting.OrderByIndex); // Should be ordered
+        Assert.False(tsSetting.IsAscending);    // DESC
+
+        // Verify Value (ASC, NULLS FIRST)
+        CompressionSettingInfo valSetting = settings.First(s => s.ColumnName == "Value");
+        Assert.NotNull(valSetting.OrderByIndex);
+        Assert.True(valSetting.IsAscending);    // ASC (Default)
+        Assert.True(valSetting.IsNullsFirst);   // NULLS FIRST
+    }
+
+    #endregion
+
+    #region Should_Create_Hypertable_With_FullCompressionSettings
+
+    private class FullCompressionMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int DeviceId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class FullCompressionContext(string connectionString) : DbContext
+    {
+        public DbSet<FullCompressionMetric> Metrics => Set<FullCompressionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<FullCompressionMetric>(entity =>
+            {
+                entity.ToTable("full_comp_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                       .WithCompressionSegmentBy(x => x.DeviceId)
+                       .WithCompressionOrderBy(s => [s.ByDescending(x => x.Timestamp)]);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Create_Hypertable_With_FullCompressionSettings()
+    {
+        await using FullCompressionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        List<CompressionSettingInfo> settings = await GetCompressionSettingsAsync(context, "full_comp_metrics");
+
+        // DeviceId should be Segment #1
+        CompressionSettingInfo deviceSetting = settings.First(s => s.ColumnName == "DeviceId");
+        Assert.Equal(1, deviceSetting.SegmentByIndex);
+
+        // Timestamp should be Order #1 (DESC)
+        CompressionSettingInfo tsSetting = settings.First(s => s.ColumnName == "Timestamp");
+        Assert.Equal(1, tsSetting.OrderByIndex);
+        Assert.False(tsSetting.IsAscending);
     }
 
     #endregion

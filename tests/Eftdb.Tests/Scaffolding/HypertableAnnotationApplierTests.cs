@@ -27,6 +27,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: []
         );
@@ -58,6 +60,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "created_at",
             ChunkTimeInterval: "86400000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: []
         );
@@ -82,6 +86,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "3600000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: []
         );
@@ -106,6 +112,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: true,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: []
         );
@@ -130,6 +138,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: []
         );
@@ -139,6 +149,125 @@ public class HypertableAnnotationApplierTests
 
         // Assert
         Assert.Equal(false, table[HypertableAnnotations.EnableCompression]);
+    }
+
+    #endregion
+
+    #region Should_Apply_CompressionSegmentBy
+
+    [Fact]
+    public void Should_Apply_CompressionSegmentBy()
+    {
+        // Arrange
+        DatabaseTable table = CreateTable();
+        HypertableInfo info = new(
+            TimeColumnName: "Timestamp",
+            ChunkTimeInterval: "604800000000",
+            CompressionEnabled: true,
+            CompressionSegmentBy: ["TenantId", "DeviceId"], // Set segment columns
+            CompressionOrderBy: [],
+            ChunkSkipColumns: [],
+            AdditionalDimensions: []
+        );
+
+        // Act
+        _applier.ApplyAnnotations(table, info);
+
+        // Assert
+        Assert.NotNull(table[HypertableAnnotations.CompressionSegmentBy]);
+
+        // Expect comma+space separated string
+        Assert.Equal("TenantId, DeviceId", table[HypertableAnnotations.CompressionSegmentBy]);
+
+        // Ensure compression enabled is passed through
+        Assert.Equal(true, table[HypertableAnnotations.EnableCompression]);
+    }
+
+    #endregion
+
+    #region Should_Apply_CompressionOrderBy
+
+    [Fact]
+    public void Should_Apply_CompressionOrderBy()
+    {
+        // Arrange
+        DatabaseTable table = CreateTable();
+        HypertableInfo info = new(
+            TimeColumnName: "Timestamp",
+            ChunkTimeInterval: "604800000000",
+            CompressionEnabled: true,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: ["Timestamp DESC", "Value ASC NULLS LAST"], // Set order rules
+            ChunkSkipColumns: [],
+            AdditionalDimensions: []
+        );
+
+        // Act
+        _applier.ApplyAnnotations(table, info);
+
+        // Assert
+        Assert.NotNull(table[HypertableAnnotations.CompressionOrderBy]);
+
+        // Expect comma+space separated string
+        Assert.Equal("Timestamp DESC, Value ASC NULLS LAST", table[HypertableAnnotations.CompressionOrderBy]);
+    }
+
+    #endregion
+
+    #region Should_Apply_Full_Compression_Configuration
+
+    [Fact]
+    public void Should_Apply_Full_Compression_Configuration()
+    {
+        // Arrange
+        DatabaseTable table = CreateTable();
+        HypertableInfo info = new(
+            TimeColumnName: "Timestamp",
+            ChunkTimeInterval: "604800000000",
+            CompressionEnabled: true,
+            CompressionSegmentBy: ["DeviceId"],
+            CompressionOrderBy: ["Timestamp DESC"],
+            ChunkSkipColumns: ["DeviceId"], // Chunk skipping often overlaps with segment by
+            AdditionalDimensions: []
+        );
+
+        // Act
+        _applier.ApplyAnnotations(table, info);
+
+        // Assert
+        Assert.Equal(true, table[HypertableAnnotations.EnableCompression]);
+        Assert.Equal("DeviceId", table[HypertableAnnotations.CompressionSegmentBy]);
+        Assert.Equal("Timestamp DESC", table[HypertableAnnotations.CompressionOrderBy]);
+        Assert.Equal("DeviceId", table[HypertableAnnotations.ChunkSkipColumns]);
+    }
+
+    #endregion
+
+    #region Should_Not_Apply_Compression_Annotations_When_Lists_Empty
+
+    [Fact]
+    public void Should_Not_Apply_Compression_Annotations_When_Lists_Empty()
+    {
+        // Arrange
+        DatabaseTable table = CreateTable();
+        HypertableInfo info = new(
+            TimeColumnName: "Timestamp",
+            ChunkTimeInterval: "604800000000",
+            CompressionEnabled: true,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
+            ChunkSkipColumns: [],
+            AdditionalDimensions: []
+        );
+
+        // Act
+        _applier.ApplyAnnotations(table, info);
+
+        // Assert
+        // Compression is enabled, but specific segment/order annotations should be null
+        Assert.Equal(true, table[HypertableAnnotations.EnableCompression]);
+        Assert.Null(table[HypertableAnnotations.CompressionSegmentBy]);
+        Assert.Null(table[HypertableAnnotations.CompressionOrderBy]);
     }
 
     #endregion
@@ -154,6 +283,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: ["DeviceId"],
             AdditionalDimensions: []
         );
@@ -179,6 +310,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: ["DeviceId", "Location", "SensorType"],
             AdditionalDimensions: []
         );
@@ -204,6 +337,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: []
         );
@@ -229,6 +364,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: [hashDimension]
         );
@@ -266,6 +403,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: [rangeDimension]
         );
@@ -304,6 +443,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: [hashDimension, rangeDimension]
         );
@@ -344,6 +485,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: []
         );
@@ -370,6 +513,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "recorded_at",
             ChunkTimeInterval: "86400000000",
             CompressionEnabled: true,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: ["device_id", "sensor_type", "region_code"],
             AdditionalDimensions: [hashDimension, rangeDimension]
         );
@@ -466,6 +611,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: []
         );
@@ -494,6 +641,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "Timestamp",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: true,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: [],
             AdditionalDimensions: []
         );
@@ -524,6 +673,8 @@ public class HypertableAnnotationApplierTests
             TimeColumnName: "time_stamp_utc",
             ChunkTimeInterval: "604800000000",
             CompressionEnabled: false,
+            CompressionSegmentBy: [],
+            CompressionOrderBy: [],
             ChunkSkipColumns: ["device_id", "sensor_type_v2"],
             AdditionalDimensions: []
         );

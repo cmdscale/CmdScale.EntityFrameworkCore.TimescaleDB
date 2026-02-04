@@ -360,6 +360,105 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region CreateHypertableOperation - Compression Settings Tests
+
+        [Fact]
+        public void DesignTime_Create_WithCompressionSegmentBy_GeneratesCorrectCode()
+        {
+            // Arrange
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "segmented_data",
+                Schema = "public",
+                TimeColumnName = "time",
+                CompressionSegmentBy = ["tenant_id", "device_id"]
+            };
+
+            string expected = @".Sql(@""
+                SELECT create_hypertable('public.""""segmented_data""""', 'time');
+                DO $$
+                DECLARE
+                    license TEXT;
+                BEGIN
+                    license := current_setting('timescaledb.license', true);
+
+                    IF license IS NULL OR license != 'apache' THEN
+                        EXECUTE 'ALTER TABLE """"public"""".""""segmented_data"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""tenant_id"", ""device_id""'')';
+                    ELSE
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
+                    END IF;
+                END $$;
+            "")";
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void DesignTime_Create_WithCompressionOrderBy_GeneratesCorrectCode()
+        {
+            // Arrange
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "ordered_data",
+                Schema = "public",
+                TimeColumnName = "time",
+                CompressionOrderBy = ["time DESC", "value ASC NULLS LAST"]
+            };
+
+            string expected = @".Sql(@""
+                SELECT create_hypertable('public.""""ordered_data""""', 'time');
+                DO $$
+                DECLARE
+                    license TEXT;
+                BEGIN
+                    license := current_setting('timescaledb.license', true);
+
+                    IF license IS NULL OR license != 'apache' THEN
+                        EXECUTE 'ALTER TABLE """"public"""".""""ordered_data"""" SET (timescaledb.compress = true, timescaledb.compress_orderby = ''""time"" DESC, ""value"" ASC NULLS LAST'')';
+                    ELSE
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
+                    END IF;
+                END $$;
+            "")";
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void Runtime_Create_WithFullCompressionSettings_GeneratesUnifiedAlter()
+        {
+            // Arrange
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "full_compression",
+                Schema = "public",
+                TimeColumnName = "time",
+                // Explicit enable + segment + order
+                EnableCompression = true,
+                CompressionSegmentBy = ["tenant_id"],
+                CompressionOrderBy = ["time DESC"]
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("ALTER TABLE \"public\".\"full_compression\" SET", result);
+            Assert.Contains("timescaledb.compress = true", result);
+            Assert.Contains("timescaledb.compress_segmentby = ''\"tenant_id\"''", result);
+            Assert.Contains("timescaledb.compress_orderby = ''\"time\" DESC''", result);
+        }
+
+        #endregion
+
         #region AlterHypertableOperation - Design Time Tests
 
         [Fact]
@@ -737,6 +836,140 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        #endregion
+
+        #region AlterHypertableOperation - Compression Settings Tests
+
+        [Fact]
+        public void DesignTime_Alter_AddingCompressionSegmentBy_GeneratesCorrectCode()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "metrics",
+                Schema = "public",
+                CompressionSegmentBy = ["device_id"],
+                OldCompressionSegmentBy = []
+            };
+
+            string expected = @".Sql(@""
+                DO $$
+                DECLARE
+                    license TEXT;
+                BEGIN
+                    license := current_setting('timescaledb.license', true);
+
+                    IF license IS NULL OR license != 'apache' THEN
+                        EXECUTE 'ALTER TABLE """"public"""".""""metrics"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""device_id""'')';
+                    ELSE
+                        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
+                    END IF;
+                END $$;
+            "")";
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void Runtime_Alter_ChangingCompressionOrderBy_GeneratesCorrectSQL()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "metrics",
+                Schema = "public",
+                // Changing from ASC to DESC
+                CompressionOrderBy = ["time DESC"],
+                OldCompressionOrderBy = ["time ASC"]
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            // Note: EnableCompression=true is NOT generated if it hasn't changed state (implicit false->false or true->true)
+            // But we do expect the update to the specific setting.
+            Assert.Contains("timescaledb.compress_orderby = ''\"time\" DESC''", result);
+        }
+
+        [Fact]
+        public void Runtime_Alter_RemovingCompressionSegmentBy_GeneratesEmptyStringSetting()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "metrics",
+                Schema = "public",
+                // Removing the setting
+                CompressionSegmentBy = [],
+                OldCompressionSegmentBy = ["device_id"]
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            // TimescaleDB requires setting the value to an empty string '' to unset it
+            Assert.Contains("timescaledb.compress_segmentby = ''", result);
+        }
+
+        [Fact]
+        public void Runtime_Alter_RemovingCompressionOrderBy_GeneratesEmptyStringSetting()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "metrics",
+                Schema = "public",
+                // Removing the setting
+                CompressionOrderBy = null,
+                OldCompressionOrderBy = ["time DESC"]
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("timescaledb.compress_orderby = ''", result);
+        }
+
+        [Fact]
+        public void Runtime_Alter_ComplexCompressionUpdate_GeneratesUnifiedAlter()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "metrics",
+                Schema = "public",
+
+                // Enable compression (was off)
+                // Since SegmentBy was set, compression was turned on implicitly before; now explicitly enabling it
+                EnableCompression = true,
+                OldEnableCompression = false,
+
+                // Change SegmentBy
+                CompressionSegmentBy = ["new_col"],
+                OldCompressionSegmentBy = ["old_col"],
+
+                // Remove OrderBy
+                CompressionOrderBy = [],
+                OldCompressionOrderBy = ["time DESC"]
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            // Should be a single ALTER TABLE statement with 3 settings
+            Assert.Contains("ALTER TABLE \"public\".\"metrics\" SET", result);
+            Assert.Contains("timescaledb.compress_segmentby = ''\"new_col\"''", result);
+            Assert.Contains("timescaledb.compress_orderby = ''''", result);
         }
 
         #endregion

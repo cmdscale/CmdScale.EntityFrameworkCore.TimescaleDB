@@ -84,6 +84,8 @@ public class HypertableAttributeTests
         Assert.False(attr.EnableCompression);
         Assert.Equal(DefaultValues.ChunkTimeInterval, attr.ChunkTimeInterval);
         Assert.Null(attr.ChunkSkipColumns);
+        Assert.Null(attr.CompressionSegmentBy);
+        Assert.Null(attr.CompressionOrderBy);
     }
 
     [Fact]
@@ -149,6 +151,7 @@ public class HypertableAttributeTests
         };
 
         // Assert
+        Assert.NotNull(attr.ChunkSkipColumns);
         Assert.Equal(2, attr.ChunkSkipColumns.Length);
         Assert.Contains("Value", attr.ChunkSkipColumns);
         Assert.Contains("DeviceId", attr.ChunkSkipColumns);
@@ -167,6 +170,40 @@ public class HypertableAttributeTests
         // Assert
         Assert.NotNull(attr.ChunkSkipColumns);
         Assert.Empty(attr.ChunkSkipColumns);
+    }
+
+    [Fact]
+    public void CompressionSegmentBy_CanBeSetToArray()
+    {
+        // Arrange
+        HypertableAttribute attr = new("Timestamp")
+        {
+            // Act
+            CompressionSegmentBy = ["tenant_id", "device_id"]
+        };
+
+        // Assert
+        Assert.NotNull(attr.CompressionSegmentBy);
+        Assert.Equal(2, attr.CompressionSegmentBy.Length);
+        Assert.Contains("tenant_id", attr.CompressionSegmentBy);
+        Assert.Contains("device_id", attr.CompressionSegmentBy);
+    }
+
+    [Fact]
+    public void CompressionOrderBy_CanBeSetToArray()
+    {
+        // Arrange
+        HypertableAttribute attr = new("Timestamp")
+        {
+            // Act
+            CompressionOrderBy = ["time DESC", "value ASC NULLS LAST"]
+        };
+
+        // Assert
+        Assert.NotNull(attr.CompressionOrderBy);
+        Assert.Equal(2, attr.CompressionOrderBy.Length);
+        Assert.Equal("time DESC", attr.CompressionOrderBy[0]);
+        Assert.Equal("value ASC NULLS LAST", attr.CompressionOrderBy[1]);
     }
 
     [Fact]
