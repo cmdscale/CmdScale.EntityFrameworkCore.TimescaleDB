@@ -29,6 +29,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
             try
             {
+                // TODO: Evtl. CompessionSettings und CompressionConfiguration combinen?
                 Dictionary<(string, string), HypertableInfo> hypertables = [];
                 Dictionary<(string, string), bool> compressionSettings = GetCompressionSettings(connection);
 
@@ -210,10 +211,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     bool isNullsFirst = reader.GetBoolean(6);
 
                     string direction = isAscending ? "ASC" : "DESC";
-                    string nulls = isNullsFirst ? "NULLS FIRST" : "NULLS LAST";
+                    bool isDefaultNulls = (isAscending && !isNullsFirst) || (!isAscending && isNullsFirst);
+                    string nulls = isDefaultNulls ? "" : (isNullsFirst ? " NULLS FIRST" : " NULLS LAST");
 
-                    // Reconstruct the full string format: "colName DESC NULLS LAST"
-                    info.CompressionOrderBy.Add($"{columnName} {direction} {nulls}");
+                    info.CompressionOrderBy.Add($"{columnName} {direction}{nulls}");
                 }
             }
         }

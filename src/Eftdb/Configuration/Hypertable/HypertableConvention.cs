@@ -44,21 +44,21 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
 
                 if (attribute.ChunkSkipColumns != null && attribute.ChunkSkipColumns.Length > 0)
                 {
-                    /// Chunk skipping requires compression to be enabled
+                    // Chunk skipping requires compression to be enabled
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, string.Join(",", attribute.ChunkSkipColumns));
                 }
 
                 if (attribute.CompressionSegmentBy != null && attribute.CompressionSegmentBy.Length > 0)
                 {
-                    /// SegmentBy requires compression to be enabled
+                    // SegmentBy requires compression to be enabled
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionSegmentBy, string.Join(", ", attribute.CompressionSegmentBy));
                 }
 
                 if (attribute.CompressionOrderBy != null && attribute.CompressionOrderBy.Length > 0)
                 {
-                    /// OrderBy requires compression to be enabled
+                    // OrderBy requires compression to be enabled
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionOrderBy, string.Join(", ", attribute.CompressionOrderBy));
                 }

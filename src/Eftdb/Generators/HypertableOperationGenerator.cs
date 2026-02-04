@@ -322,7 +322,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         {
             return string.Join(", ", orderByClauses.Select(clause =>
             {
-                var parts = clause.Split(' ', 2);
+                string[] parts = clause.Split(' ', 2);
                 string col = parts[0];
                 string suffix = parts.Length > 1 ? " " + parts[1] : "";
 

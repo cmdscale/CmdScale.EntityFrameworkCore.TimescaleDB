@@ -67,12 +67,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                 if (!string.IsNullOrWhiteSpace(orderByString))
                 {
                     compressionOrderBy = [];
-                    var clauses = orderByString.Split(',', StringSplitOptions.TrimEntries);
+                    string[] clauses = orderByString.Split(',', StringSplitOptions.TrimEntries);
 
-                    foreach (var clause in clauses)
+                    foreach (string clause in clauses)
                     {
                         // Split by the first space to separate PropertyName from Directions (ASC/DESC/NULLS)
-                        var parts = clause.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                        string[] parts = clause.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
                         if (parts.Length > 0)
                         {
                             string propName = parts[0];

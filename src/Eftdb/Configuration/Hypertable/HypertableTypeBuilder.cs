@@ -178,10 +178,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Func<OrderBySelector<TEntity>, IEnumerable<OrderBy>> orderSelector) where TEntity : class
         {
-            var selector = new OrderBySelector<TEntity>();
-            var rules = orderSelector(selector);
+            OrderBySelector<TEntity> selector = new();
+            IEnumerable<OrderBy> rules = orderSelector(selector);
 
-            return entityTypeBuilder.WithCompressionOrderBy(rules.ToArray());
+            return entityTypeBuilder.WithCompressionOrderBy([.. rules]);
         }
 
         /// <summary>

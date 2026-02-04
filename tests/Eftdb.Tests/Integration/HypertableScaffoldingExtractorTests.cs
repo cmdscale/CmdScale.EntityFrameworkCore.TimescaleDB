@@ -214,7 +214,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
 
         Assert.Single(result);
-        var info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+        HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
 
         // Compression should be enabled
         Assert.True(info.CompressionEnabled);
@@ -268,14 +268,14 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
 
         Assert.Single(result);
-        var info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+        HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
 
         Assert.True(info.CompressionEnabled);
 
         Assert.Equal(2, info.CompressionOrderBy.Count);
 
         // Extractor reconstructs the string: "ColumnName [ASC|DESC] [NULLS FIRST|LAST]"
-        Assert.Equal("Timestamp DESC NULLS FIRST", info.CompressionOrderBy[0]);
+        Assert.Equal("Timestamp DESC", info.CompressionOrderBy[0]);
         // Note: Default for ASC is usually NULLS LAST in Postgres, but if we set NULLS FIRST explicitly:
         Assert.Equal("Value ASC NULLS FIRST", info.CompressionOrderBy[1]);
     }
@@ -322,7 +322,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
 
         Assert.Single(result);
-        var info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
+        HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
 
         // SegmentBy
         Assert.Single(info.CompressionSegmentBy);

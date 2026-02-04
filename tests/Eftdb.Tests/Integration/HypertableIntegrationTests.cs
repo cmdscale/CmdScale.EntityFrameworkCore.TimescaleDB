@@ -452,7 +452,7 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
 
         List<CompressionSettingInfo> settings = await GetCompressionSettingsAsync(context, "segment_by_metrics");
 
-        var tenantSetting = settings.FirstOrDefault(s => s.ColumnName == "TenantId");
+        CompressionSettingInfo? tenantSetting = settings.FirstOrDefault(s => s.ColumnName == "TenantId");
         Assert.NotNull(tenantSetting);
 
         Assert.Equal(1, tenantSetting.SegmentByIndex);
@@ -503,12 +503,12 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         List<CompressionSettingInfo> settings = await GetCompressionSettingsAsync(context, "order_by_metrics");
 
         // Verify Timestamp (DESC)
-        var tsSetting = settings.First(s => s.ColumnName == "Timestamp");
+        CompressionSettingInfo tsSetting = settings.First(s => s.ColumnName == "Timestamp");
         Assert.NotNull(tsSetting.OrderByIndex); // Should be ordered
         Assert.False(tsSetting.IsAscending);    // DESC
 
         // Verify Value (ASC, NULLS FIRST)
-        var valSetting = settings.First(s => s.ColumnName == "Value");
+        CompressionSettingInfo valSetting = settings.First(s => s.ColumnName == "Value");
         Assert.NotNull(valSetting.OrderByIndex);
         Assert.True(valSetting.IsAscending);    // ASC (Default)
         Assert.True(valSetting.IsNullsFirst);   // NULLS FIRST
@@ -554,11 +554,11 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         List<CompressionSettingInfo> settings = await GetCompressionSettingsAsync(context, "full_comp_metrics");
 
         // DeviceId should be Segment #1
-        var deviceSetting = settings.First(s => s.ColumnName == "DeviceId");
+        CompressionSettingInfo deviceSetting = settings.First(s => s.ColumnName == "DeviceId");
         Assert.Equal(1, deviceSetting.SegmentByIndex);
 
         // Timestamp should be Order #1 (DESC)
-        var tsSetting = settings.First(s => s.ColumnName == "Timestamp");
+        CompressionSettingInfo tsSetting = settings.First(s => s.ColumnName == "Timestamp");
         Assert.Equal(1, tsSetting.OrderByIndex);
         Assert.False(tsSetting.IsAscending);
     }
