@@ -2,6 +2,7 @@
 
 ![CmdScale Project](https://github.com/cmdscale/.github/raw/main/profile/assets/CmdShield.svg)
 [![Test Workflow](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml/badge.svg)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml)
+[![NuGet downloads](https://img.shields.io/nuget/dt/CmdScale.EntityFrameworkCore.TimescaleDB?logo=nuget&label=Downloads)](https://www.nuget.org/packages/CmdScale.EntityFrameworkCore.TimescaleDB)
 [![codecov](https://codecov.io/gh/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/graph/badge.svg?token=YP3YCJLQ41)](https://codecov.io/gh/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/tag/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/tags)
 [![GitHub issues](https://img.shields.io/github/issues/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/issues)
