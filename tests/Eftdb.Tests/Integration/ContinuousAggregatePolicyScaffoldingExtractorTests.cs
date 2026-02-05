@@ -76,7 +76,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "7 days")
-                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, Abstractions.EAggregateFunction.Avg)
+                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour");
             });
         }
@@ -157,7 +157,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "7 days")
-                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, Abstractions.EAggregateFunction.Avg)
+                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(
                         startOffset: "1 month",
                         endOffset: "1 hour",
@@ -245,7 +245,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "7 days")
-                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, Abstractions.EAggregateFunction.Avg);
+                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg);
                 // No WithRefreshPolicy call
             });
         }
@@ -310,7 +310,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "7 days")
-                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, Abstractions.EAggregateFunction.Avg)
+                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(
                         startOffset: "7 days",
                         endOffset: "1 hour",
@@ -392,7 +392,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "7 days")
-                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, Abstractions.EAggregateFunction.Avg)
+                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour");
             });
 
@@ -483,7 +483,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "7 days")
-                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, Abstractions.EAggregateFunction.Avg)
+                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour")
                     .WithIncludeTieredData(false);
             });
@@ -553,7 +553,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "7 days")
-                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, Abstractions.EAggregateFunction.Avg)
+                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour")
                     .WithBucketsPerBatch(10);
             });
@@ -623,7 +623,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "7 days")
-                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, Abstractions.EAggregateFunction.Avg)
+                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour")
                     .WithMaxBatchesPerExecution(100);
             });
@@ -693,7 +693,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "7 days")
-                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, Abstractions.EAggregateFunction.Avg)
+                    .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour")
                     .WithRefreshNewestFirst(false);
             });
