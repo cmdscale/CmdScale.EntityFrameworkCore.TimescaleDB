@@ -14,6 +14,9 @@ This repository provides the essential libraries and tooling to seamlessly integ
 - **CmdScale.EntityFrameworkCore.TimescaleDB**: The core runtime library. You include this in your project to enable TimescaleDB-specific features when configuring your `DbContext`.
 - **CmdScale.EntityFrameworkCore.TimescaleDB.Design**: Provides crucial design-time extensions. This package enhances the EF Core CLI tools (`dotnet ef`) to understand TimescaleDB concepts, enabling correct schema generation for migrations and scaffolding.
 
+> [!Tip]
+> Learn more about **Eftdb** in the [documentation](https://eftdb.cmdscale.com/docs/).
+
 ---
 
 ## ✨ Features
@@ -28,7 +31,9 @@ Seamlessly define and manage **TimescaleDB hypertables** using standard EF Core 
 - **Space Partitioning**: Add additional dimensions for hash or range partitioning to further optimize queries.
 - **Chunk Time Interval**: Configure chunk intervals to balance performance and storage efficiency.
 - **Data Migration**: Control whether existing data should be migrated when converting a regular table to a hypertable using `migrate_data`.
-- **Compression & Chunk Skipping**: Enable TimescaleDB's native compression and configure chunk skipping to improve query performance.
+- **Chunk Skipping**: Enable chunk skipping to improve query performance on specific columns.
+- **Compression Segment By**: Define columns to group compressed data by, allowing efficient access to specific segments without decompressing entire chunks.
+- **Compression Order By**: Specify the sort order within compressed segments, with support for ascending/descending direction and NULLS FIRST/LAST positioning.
 
 ### Reorder Policies
 
@@ -42,6 +47,7 @@ Create and manage **TimescaleDB continuous aggregates** — automatically refres
 - **Aggregate Functions**: Support for `Avg`, `Sum`, `Min`, `Max`, `Count`, `First`, and `Last`.
 - **Group By Columns**: Add additional grouping dimensions beyond time.
 - **Filtering**: Apply WHERE clauses to filter source data.
+- **Refresh Policies**: Configure automatic refresh with customizable time windows, schedule intervals, and batching options.
 
 ---
 
