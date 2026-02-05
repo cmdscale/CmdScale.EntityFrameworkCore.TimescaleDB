@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
@@ -405,7 +406,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     source => source.Timestamp,
                     true,
                     "30 days")
-                    .AddAggregateFunction(cagg => cagg.MaxValue, source => source.Value, Abstractions.EAggregateFunction.Max)
+                    .AddAggregateFunction(cagg => cagg.MaxValue, source => source.Value, EAggregateFunction.Max)
                     .WithRefreshPolicy(startOffset: "30 days", endOffset: "1 day", scheduleInterval: "1 day");
             });
         }
