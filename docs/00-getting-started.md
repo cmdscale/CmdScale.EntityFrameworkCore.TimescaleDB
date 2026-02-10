@@ -29,7 +29,7 @@ dotnet add package CmdScale.EntityFrameworkCore.TimescaleDB.Design
 
 **Description:** Enable TimescaleDB support in your `DbContext` configuration with a single line of code by chaining the `.UseTimescaleDb()` method onto your PostgreSQL provider configuration.
 
-**Code:** `
+**Code:**
 
 ```csharp
 string? connectionString = builder.Configuration.GetConnectionString("Timescale");
