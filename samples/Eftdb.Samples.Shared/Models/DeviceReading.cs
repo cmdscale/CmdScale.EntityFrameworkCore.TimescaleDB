@@ -2,7 +2,7 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
 using Microsoft.EntityFrameworkCore;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
 {
     [Hypertable(nameof(Time), ChunkSkipColumns = new[] { "Time" }, ChunkTimeInterval = "1 day", EnableCompression = true, CompressionSegmentBy = new[] { "DeviceId" }, CompressionOrderBy = new[] { "Time DESC" })]
     [Index(nameof(Time), Name = "ix_device_readings_time")]

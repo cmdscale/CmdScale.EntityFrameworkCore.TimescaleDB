@@ -1,7 +1,7 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared
 {
     /// <seealso cref="DbContext" />
     public class TimescaleContext(DbContextOptions<TimescaleContext> options) : DbContext(options)

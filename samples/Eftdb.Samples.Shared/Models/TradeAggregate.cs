@@ -1,4 +1,4 @@
-﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
+﻿namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
 {
     public class TradeAggregate
     {

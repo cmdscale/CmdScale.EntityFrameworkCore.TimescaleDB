@@ -1,5 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

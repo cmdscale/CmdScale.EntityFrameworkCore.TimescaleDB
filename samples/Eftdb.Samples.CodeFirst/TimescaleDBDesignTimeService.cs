@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations.Design;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.CodeFirst
 {
     public class TimescaleDBDesignTimeServices : IDesignTimeServices
     {

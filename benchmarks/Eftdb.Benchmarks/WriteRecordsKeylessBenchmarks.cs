@@ -1,6 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models;
 using Npgsql;
 using NpgsqlTypes;
 

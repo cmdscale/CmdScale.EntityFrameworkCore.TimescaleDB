@@ -1,9 +1,9 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Configurations
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
 {
     public class TradeWithIdConfiguration : IEntityTypeConfiguration<TradeWithId>
     {

@@ -1,5 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.PostgreSql;
 

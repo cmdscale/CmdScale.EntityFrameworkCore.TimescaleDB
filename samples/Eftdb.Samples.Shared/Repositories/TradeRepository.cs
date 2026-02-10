@@ -1,8 +1,8 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models;
 using NpgsqlTypes;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Repositories
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Repositories
 {
     public class TradeRepository(string connectionString)
     {

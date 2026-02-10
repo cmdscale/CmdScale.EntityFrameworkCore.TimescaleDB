@@ -3,7 +3,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using Microsoft.EntityFrameworkCore;
 
-namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
+namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
 {
     /// <summary>
     /// Example continuous aggregate showcasing all possible configuration properties and aggregate functions.
@@ -23,6 +23,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Example.DataAccess.Models
         StartOffset = "30 days",
         EndOffset = "1 day",
         ScheduleInterval = "1 hour",
+        
         RefreshNewestFirst = true)]
     public class WeatherAggregate
     {
