@@ -135,7 +135,7 @@ try {
 
             $PublishedVersions = @{}
             # Path to the new, single publish script in the solution root
-            $publishScript = Join-Path $SolutionRoot ".\Scripts\Publish-Local.ps1"
+            $publishScript = Join-Path $SolutionRoot ".\scripts\Publish-Local.ps1"
 
             if (-not (Test-Path $publishScript)) {
                 throw "The central Publish-Local.ps1 script was not found in the solution root."

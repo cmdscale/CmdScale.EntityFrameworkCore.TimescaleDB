@@ -1,0 +1,20 @@
+name: Notify Docs Update
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+
+jobs:
+  dispatch:
+    name: Trigger website rebuild
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.ADMIN_PAT }}
+          repository: cmdscale/efcore-timescale-website
+          event-type: docs-updated

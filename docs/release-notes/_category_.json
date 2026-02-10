@@ -1,0 +1,8 @@
+{
+  "label": "Release notes",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "description": "View the release notes for each version."
+  }
+}

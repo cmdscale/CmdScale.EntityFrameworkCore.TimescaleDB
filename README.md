@@ -247,13 +247,13 @@ These script modify your `.csproj` files to switch between referencing the core 
 Switch to **project references** (ideal for active development):
 
 ```powershell
-.\Scripts\Switch-References.ps1 -Mode Project
+.\scripts\Switch-References.ps1 -Mode Project
 ```
 
 Switch to **NuGet package references** (to simulate a real-world consumer):
 
 ```powershell
-.\Scripts\Switch-References.ps1 -Mode Package
+.\scripts\Switch-References.ps1 -Mode Package
 ```
 
 ---
@@ -264,10 +264,10 @@ To build and publish the core libraries to a local NuGet feed for testing, use t
 
 ```powershell
 # Publish the design-time package
-.\Scripts\Publish-Local.ps1 -ProjectName "Eftdb.Design"
+.\scripts\Publish-Local.ps1 -ProjectName "Eftdb.Design"
 
 # Publish the runtime package
-.\Scripts\Publish-Local.ps1 -ProjectName "Eftdb"
+.\scripts\Publish-Local.ps1 -ProjectName "Eftdb"
 ```
 
 > To change this path, edit the `$LocalNuGetRepo` variable inside the `Publish-Local.ps1` script.

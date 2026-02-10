@@ -1,0 +1,19 @@
+name: Documentation
+description: Report missing or incorrect documentation
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: what-needs-documenting
+    attributes:
+      label: What needs documenting
+      description: Describe the topic or area that needs documentation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-content
+    attributes:
+      label: Suggested content
+      description: If you have ideas for what the documentation should include, describe them here.
+    validations:
+      required: false

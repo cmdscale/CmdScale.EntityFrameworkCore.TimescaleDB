@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.0.11217.181 d18.0
+VisualStudioVersion = 18.0.11217.181
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 	ProjectSection(SolutionItems) = preProject
@@ -9,9 +9,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.gitignore = .gitignore
 		CODE_OF_CONDUCT.md = CODE_OF_CONDUCT.md
 		docker-compose.yml = docker-compose.yml
+		scripts\Publish-Local.ps1 = scripts\Publish-Local.ps1
 		README.md = README.md
-		Scripts\Publish-Local.ps1 = Scripts\Publish-Local.ps1
-		Scripts\Switch-References.ps1 = Scripts\Switch-References.ps1
+		scripts\Switch-References.ps1 = scripts\Switch-References.ps1
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
@@ -43,6 +43,41 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Eftdb.Samples.DatabaseFirst", "Eftdb.Samples.DatabaseFirst", "{90DFE874-FC84-218F-EDC2-090609ACD664}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Eftdb.Samples.DatabaseFirst", "samples\Eftdb.Samples.DatabaseFirst\Eftdb.Samples.DatabaseFirst.csproj", "{2FBA55BC-14C9-4137-B7D9-65920624C4FD}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{DD66FBE1-746C-4022-8D68-20DF5E65C902}"
+	ProjectSection(SolutionItems) = preProject
+		docs\00-getting-started.md = docs\00-getting-started.md
+		docs\01-dotnet-tools.md = docs\01-dotnet-tools.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "data-annotations", "data-annotations", "{97EBA3D4-DBB9-4564-B45B-D6ECF3A077DF}"
+	ProjectSection(SolutionItems) = preProject
+		docs\data-annotations\continuous-aggregates.md = docs\data-annotations\continuous-aggregates.md
+		docs\data-annotations\hypertable.md = docs\data-annotations\hypertable.md
+		docs\data-annotations\reorder-policies.md = docs\data-annotations\reorder-policies.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "fluent-api", "fluent-api", "{4FA5831A-43BD-41BD-9893-0617902290BD}"
+	ProjectSection(SolutionItems) = preProject
+		docs\fluent-api\continuous-aggregates.md = docs\fluent-api\continuous-aggregates.md
+		docs\fluent-api\hypertable.md = docs\fluent-api\hypertable.md
+		docs\fluent-api\reorder-policies.md = docs\fluent-api\reorder-policies.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "release-notes", "release-notes", "{84C9CCAD-8CA8-47E7-9473-92C5B4578818}"
+	ProjectSection(SolutionItems) = preProject
+		docs\release-notes\v0.1.5.md = docs\release-notes\v0.1.5.md
+		docs\release-notes\v0.2.0.md = docs\release-notes\v0.2.0.md
+		docs\release-notes\v0.2.1.md = docs\release-notes\v0.2.1.md
+		docs\release-notes\v0.2.2.md = docs\release-notes\v0.2.2.md
+		docs\release-notes\v0.2.3.md = docs\release-notes\v0.2.3.md
+		docs\release-notes\v0.2.4.md = docs\release-notes\v0.2.4.md
+		docs\release-notes\v0.3.0.md = docs\release-notes\v0.3.0.md
+		docs\release-notes\v0.3.1.md = docs\release-notes\v0.3.1.md
+		docs\release-notes\v0.3.2.md = docs\release-notes\v0.3.2.md
+		docs\release-notes\v0.3.3.md = docs\release-notes\v0.3.3.md
+		docs\release-notes\v10.0.1.md = docs\release-notes\v10.0.1.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -166,6 +201,9 @@ Global
 		{0AE92D9A-B5B8-44CC-AD65-F4256CCAB15A} = {EA8E3935-33B2-4D96-A294-5488AE39A401}
 		{90DFE874-FC84-218F-EDC2-090609ACD664} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 		{2FBA55BC-14C9-4137-B7D9-65920624C4FD} = {90DFE874-FC84-218F-EDC2-090609ACD664}
+		{97EBA3D4-DBB9-4564-B45B-D6ECF3A077DF} = {DD66FBE1-746C-4022-8D68-20DF5E65C902}
+		{4FA5831A-43BD-41BD-9893-0617902290BD} = {DD66FBE1-746C-4022-8D68-20DF5E65C902}
+		{84C9CCAD-8CA8-47E7-9473-92C5B4578818} = {DD66FBE1-746C-4022-8D68-20DF5E65C902}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5CCFF438-FD53-473A-96B6-4D69BA8E7166}
