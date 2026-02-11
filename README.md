@@ -355,11 +355,26 @@ Whether you're fixing bugs, adding new features, improving documentation, or sha
 - Be respectful in code reviews and discussions.
 - Use [BenchmarkDotNet](https://benchmarkdotnet.org/) where performance-related changes are involved.
 
+### AI Assistants
+
+Contributors are welcome to use AI assistants such as Claude Code, GitHub Copilot, or similar tools. However, AI-generated code must not be submitted blindly. Contributors are responsible for every line of code in their pull requests. Code quality is very important and AI-assisted contributions are held to the same standard as any other.
+
+Before submitting AI-assisted contributions, make sure to:
+
+- **Review all generated code** for correctness, readability, and security.
+- **Verify that tests pass** and add new tests where appropriate and effective.
+- **Follow the project's coding style and conventions** — don't let your AI assistant overuse comments; code should be self-explanatory, and comments should explain *why*, not *what*.
+
+This repository ships with a [Claude Code](https://claude.ai/code) setup in the `.claude/` directory, including specialized agents, coding rules, reusable skills, and architecture reference docs. Personal settings go in `.claude/settings.local.json` (gitignored).
+
+
 ### Questions or Ideas?
 
 If you have questions, ideas, or need help getting started, feel free to [open an issue](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/issues). We’re happy to help and discuss!
 
 Thank you for contributing! 💜
+
+---
 
 ## 📄 License
 

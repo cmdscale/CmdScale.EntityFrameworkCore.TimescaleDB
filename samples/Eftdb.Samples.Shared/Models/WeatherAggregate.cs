@@ -23,7 +23,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
         StartOffset = "30 days",
         EndOffset = "1 day",
         ScheduleInterval = "1 hour",
-        
+
         RefreshNewestFirst = true)]
     public class WeatherAggregate
     {

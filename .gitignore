@@ -433,9 +433,9 @@ samples/Eftdb.Samples.Shared/Migrations/
 # Ignore all scaffolded models and the DbContext from the DbFirst project
 samples/Eftdb.Samples.DatabaseFirst/**/*.cs
 
-# AI
-CLAUDE.md
-.claude
+# AI - personal overrides only
+.claude/settings.local.json
+.claude/CLAUDE.local.md
 tmpclaude-*
 
 # Code coverage report
