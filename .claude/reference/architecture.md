@@ -87,6 +87,20 @@ All inherit `MigrationOperation` and contain feature-specific properties:
 - `CreateContinuousAggregateOperation.cs` / `AlterContinuousAggregateOperation.cs` / `DropContinuousAggregateOperation.cs`
 - `AddContinuousAggregatePolicyOperation.cs` / `RemoveContinuousAggregatePolicyOperation.cs`
 
+### Query/ - EF.Functions Extensions and LINQ Translators
+
+Provides `EF.Functions` extension methods that translate to TimescaleDB SQL functions at query time.
+These are runtime-only — they have no in-memory implementation and throw when called outside LINQ.
+
+| File | Purpose |
+|------|---------|
+| `TimescaleDbFunctionsExtensions.cs` | Partial class entry point; defines the `Throw<T>()` helper |
+| `TimescaleDbFunctionsExtensions.TimeBucket.cs` | 10 `TimeBucket()` overloads covering `DateTime`, `DateTimeOffset`, `DateOnly`, `int`, `long` |
+| `Internal/TimescaleDbMethodCallTranslatorPlugin.cs` | `IMethodCallTranslatorPlugin` — registers all translators with EF Core's query pipeline |
+| `Internal/TimescaleDbTimeBucketTranslator.cs` | `IMethodCallTranslator` — maps each `TimeBucket` overload to `time_bucket(...)` SQL |
+
+The plugin is registered in `TimescaleDbServiceCollectionExtensions.AddEntityFrameworkTimescaleDb()` via `.TryAdd<IMethodCallTranslatorPlugin, TimescaleDbMethodCallTranslatorPlugin>()`.
+
 ### Generators/ - SQL and C# Code Generation
 
 | File | Purpose |

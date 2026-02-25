@@ -23,3 +23,5 @@ ignore:
   - "**/WhereClauseEpressionVisitor.cs"
   - "**/TimescaleDBDesignTimeServices.cs"
   - "**/TimescaleDbServiceCollectionExtensions.cs"
+  - "**/TimescaleDbFunctionsExtensions.cs"
+  - "**/TimescaleDbFunctionsExtensions.TimeBucket.cs"

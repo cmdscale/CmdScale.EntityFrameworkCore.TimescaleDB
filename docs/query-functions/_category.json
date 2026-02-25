@@ -1,0 +1,9 @@
+{
+  "label": "Query Functions",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "TimescaleDB functions available in LINQ queries through EF.Functions."
+  }
+}
+
