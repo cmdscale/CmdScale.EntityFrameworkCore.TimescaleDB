@@ -14,8 +14,11 @@ This repository provides the essential libraries and tooling to seamlessly integ
 - **CmdScale.EntityFrameworkCore.TimescaleDB**: The core runtime library. You include this in your project to enable TimescaleDB-specific features when configuring your `DbContext`.
 - **CmdScale.EntityFrameworkCore.TimescaleDB.Design**: Provides crucial design-time extensions. This package enhances the EF Core CLI tools (`dotnet ef`) to understand TimescaleDB concepts, enabling correct schema generation for migrations and scaffolding.
 
-> [!Tip]
+> [!TIP]
 > Learn more about **Eftdb** in the [documentation](https://eftdb.cmdscale.com/docs/).
+
+> [!NOTE]
+> While AI tools like Copilot or Claude are permitted, vibe-coded submissions will be rejected. All code must be manually verified and subject to the standard code review process.
 
 ---
 
@@ -357,7 +360,7 @@ Whether you're fixing bugs, adding new features, improving documentation, or sha
 
 ### AI Assistants
 
-Contributors are welcome to use AI assistants such as Claude Code, GitHub Copilot, or similar tools. However, AI-generated code must not be submitted blindly. Contributors are responsible for every line of code in their pull requests. Code quality is very important and AI-assisted contributions are held to the same standard as any other.
+Contributors are allowed to use AI assistants such as Claude Code, GitHub Copilot, or similar tools. However, AI-generated code must not be submitted blindly. Contributors are responsible for every line of code in their pull requests. Code quality is very important and AI-assisted contributions are held to the same standard as any other.
 
 Before submitting AI-assisted contributions, make sure to:
 
