@@ -3,11 +3,13 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -56,6 +58,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 services.AddSingleton<IConventionSetPlugin, TimescaleDbConventionSetPlugin>();
                 services.AddScoped<IMigrationsModelDiffer, TimescaleMigrationsModelDiffer>();
                 services.Replace(ServiceDescriptor.Scoped<IMigrationsSqlGenerator, TimescaleDbMigrationsSqlGenerator>());
+                services.TryAddEnumerable(
+                    ServiceDescriptor.Scoped<IMethodCallTranslatorPlugin, TimescaleDbMethodCallTranslatorPlugin>());
             }
 
             public void Validate(IDbContextOptions options) { }

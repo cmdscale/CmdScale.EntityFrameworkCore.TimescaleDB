@@ -16,7 +16,9 @@
             **/Migrations/*.cs,
             **/WhereClauseEpressionVisitor.cs,
             **/TimescaleDBDesignTimeServices.cs,
-            **/TimescaleDbServiceCollectionExtensions.cs
+            **/TimescaleDbServiceCollectionExtensions.cs,
+            **/TimescaleDbFunctionsExtensions.cs,
+            **/TimescaleDbFunctionsExtensions.TimeBucket.cs
           </ExcludeByFile>
           <SingleHit>false</SingleHit>
           <UseSourceLink>true</UseSourceLink>

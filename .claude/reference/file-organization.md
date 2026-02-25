@@ -75,6 +75,15 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Operations/AddContinuousAggregatePolicyOperation.cs` | Migration operation |
 | `Operations/RemoveContinuousAggregatePolicyOperation.cs` | Migration operation |
 
+### Query Functions
+
+| File | Purpose |
+|------|---------|
+| `Query/TimescaleDbFunctionsExtensions.cs` | EF.Functions extension entry point (partial class stub) |
+| `Query/TimescaleDbFunctionsExtensions.TimeBucket.cs` | `EF.Functions.TimeBucket()` overloads |
+| `Query/Internal/TimescaleDbMethodCallTranslatorPlugin.cs` | Registers method call translators with EF Core |
+| `Query/Internal/TimescaleDbTimeBucketTranslator.cs` | Translates `TimeBucket` calls to `time_bucket` SQL |
+
 ### Coordination & Utilities
 
 | File | Purpose |
@@ -137,6 +146,8 @@ src/
 │   │       ├── Hypertables/
 │   │       └── ReorderPolicies/
 │   ├── Operations/         # Migration operations
+│   ├── Query/              # EF.Functions extensions and LINQ translators
+│   │   └── Internal/       # EF Core query pipeline integration
 │   └── *.cs                # Entry points, extensions
 │
 └── Eftdb.Design/           # Design-time library (CmdScale.EntityFrameworkCore.TimescaleDB.Design)
