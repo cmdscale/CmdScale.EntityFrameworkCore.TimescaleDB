@@ -309,16 +309,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// Escapes existing double quotes.
         /// Example: TenantId -> "TenantId"
         /// </summary>
-        private static string QuoteIdentifier(string identifier)
+        private string QuoteIdentifier(string identifier)
         {
-            return $"\"{identifier.Replace("\"", "\"\"")}\"";
+            return $"{quoteString}{identifier.Replace("\"", "\"\"")}{quoteString}";
         }
 
         /// <summary>
         /// Quotes the column name within an ORDER BY clause while preserving direction/nulls.
         /// Example: Timestamp DESC -> "Timestamp" DESC
         /// </summary>
-        private static string QuoteOrderByList(IEnumerable<string> orderByClauses)
+        private string QuoteOrderByList(IEnumerable<string> orderByClauses)
         {
             return string.Join(", ", orderByClauses.Select(clause =>
             {

@@ -980,7 +980,7 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         for (int i = 0; i < 100; i++)
         {
             DateTime timestamp = baseTime.AddMinutes(i);
-            valueRows.Add($"('{timestamp:yyyy-MM-dd HH:mm:ss}+00', {i % 10}, {15.0 + i * 0.1})");
+            valueRows.Add(FormattableString.Invariant($"('{timestamp:yyyy-MM-dd HH:mm:ss}+00', {i % 10}, {15.0 + i * 0.1})"));
         }
 
         string sql = $@"INSERT INTO ""PerformanceTest"" (""Timestamp"", ""SensorId"", ""Value"")
