@@ -65,7 +65,7 @@ public class ReorderPolicyModelExtractorTests
         Assert.Equal(DefaultValues.ReorderPolicyScheduleInterval, operation.ScheduleInterval);
         Assert.Equal(DefaultValues.ReorderPolicyMaxRuntime, operation.MaxRuntime);
         Assert.Equal(DefaultValues.ReorderPolicyMaxRetries, operation.MaxRetries);
-        Assert.Equal(DefaultValues.ReorderPolicyRetryPeriod, operation.RetryPeriod);
+        Assert.Equal(DefaultValues.ReorderPolicyScheduleInterval, operation.RetryPeriod);
     }
 
     #endregion
@@ -555,7 +555,7 @@ public class ReorderPolicyModelExtractorTests
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
         Assert.Single(operations);
-        Assert.Equal(DefaultValues.ReorderPolicyRetryPeriod, operations[0].RetryPeriod);
+        Assert.Equal(DefaultValues.ReorderPolicyScheduleInterval, operations[0].RetryPeriod);
     }
 
     #endregion

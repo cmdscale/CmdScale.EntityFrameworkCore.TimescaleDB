@@ -90,18 +90,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         private static List<string> BuildAlterJobClauses(AddReorderPolicyOperation operation)
         {
             List<string> clauses = [];
-            // Assuming DefaultValues is accessible or static constants
-            // Note: You may need to adjust the default value comparisons if DefaultValues isn't available
-            if (!string.IsNullOrWhiteSpace(operation.ScheduleInterval)) // && operation.ScheduleInterval != DefaultValues.ReorderPolicyScheduleInterval)
+
+            if (!string.IsNullOrWhiteSpace(operation.ScheduleInterval))
                 clauses.Add($"schedule_interval => INTERVAL '{operation.ScheduleInterval}'");
 
-            if (!string.IsNullOrWhiteSpace(operation.MaxRuntime)) // && operation.MaxRuntime != DefaultValues.ReorderPolicyMaxRuntime)
+            if (!string.IsNullOrWhiteSpace(operation.MaxRuntime))
                 clauses.Add($"max_runtime => INTERVAL '{operation.MaxRuntime}'");
 
-            if (operation.MaxRetries != null) // && operation.MaxRetries != DefaultValues.ReorderPolicyMaxRetries)
+            if (operation.MaxRetries != null)
                 clauses.Add($"max_retries => {operation.MaxRetries}");
 
-            if (!string.IsNullOrWhiteSpace(operation.RetryPeriod)) // && operation.RetryPeriod != DefaultValues.ReorderPolicyRetryPeriod)
+            if (!string.IsNullOrWhiteSpace(operation.RetryPeriod))
                 clauses.Add($"retry_period => INTERVAL '{operation.RetryPeriod}'");
 
             return clauses;

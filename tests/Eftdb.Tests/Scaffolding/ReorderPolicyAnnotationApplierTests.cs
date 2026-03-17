@@ -27,7 +27,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -60,7 +60,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -88,7 +88,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -114,7 +114,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -139,7 +139,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -164,7 +164,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: "7 days",
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -189,7 +189,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval, // "1 day"
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -219,7 +219,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: scheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -244,7 +244,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: "01:00:00",
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -269,7 +269,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime, // "00:00:00"
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -294,7 +294,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: 5,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -319,7 +319,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries, // -1
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -344,7 +344,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: 0,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -373,7 +373,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: maxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -423,7 +423,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod // "00:05:00"
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval // "00:05:00"
         );
 
         // Act
@@ -598,7 +598,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -629,7 +629,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -655,7 +655,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyRetryPeriod
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act

@@ -129,7 +129,6 @@ ChunkTimeInterval = "7 days" // ChunkTimeIntervalLong = 604_800_000_000L
 ReorderPolicyScheduleInterval = "1 day"
 ReorderPolicyMaxRetries = -1 // indefinite
 ReorderPolicyMaxRuntime = "00:00:00" // no limit
-ReorderPolicyRetryPeriod = "00:05:00"
 ```
 
 ## Design Library Structure
