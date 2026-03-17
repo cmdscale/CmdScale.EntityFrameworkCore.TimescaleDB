@@ -40,7 +40,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 table[ReorderPolicyAnnotations.MaxRetries] = policyInfo.MaxRetries;
             }
 
-            if (policyInfo.RetryPeriod != DefaultValues.ReorderPolicyRetryPeriod)
+            if (policyInfo.RetryPeriod != DefaultValues.ReorderPolicyScheduleInterval)
             {
                 table[ReorderPolicyAnnotations.RetryPeriod] = policyInfo.RetryPeriod;
             }

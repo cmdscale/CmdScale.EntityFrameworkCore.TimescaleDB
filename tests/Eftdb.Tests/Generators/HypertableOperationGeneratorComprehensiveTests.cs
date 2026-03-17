@@ -383,7 +383,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE """"public"""".""""segmented_data"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""tenant_id"", ""device_id""'')';
+                        EXECUTE 'ALTER TABLE """"public"""".""""segmented_data"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""""tenant_id"""", """"device_id""""'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -418,7 +418,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE """"public"""".""""ordered_data"""" SET (timescaledb.compress = true, timescaledb.compress_orderby = ''""time"" DESC, ""value"" ASC NULLS LAST'')';
+                        EXECUTE 'ALTER TABLE """"public"""".""""ordered_data"""" SET (timescaledb.compress = true, timescaledb.compress_orderby = ''""""time"""" DESC, """"value"""" ASC NULLS LAST'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -862,7 +862,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE """"public"""".""""metrics"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""device_id""'')';
+                        EXECUTE 'ALTER TABLE """"public"""".""""metrics"""" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""""device_id""""'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
