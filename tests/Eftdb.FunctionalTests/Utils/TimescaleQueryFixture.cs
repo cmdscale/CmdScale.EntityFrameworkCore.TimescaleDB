@@ -6,8 +6,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils;
 
 public class TimescaleQueryFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
-        .WithImage("timescale/timescaledb:latest-pg17")
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
         .WithDatabase("query_tests_db")
         .WithUsername(TimescaleConnectionHelper.Username)
         .WithPassword(TimescaleConnectionHelper.Password)

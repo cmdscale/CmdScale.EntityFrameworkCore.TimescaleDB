@@ -11,8 +11,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Benchmarks
         public int MaxBatchSize;
         public int NumberOfWorkers;
 
-        private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder()
-            .WithImage("timescale/timescaledb:latest-pg17")
+        private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
             .WithDatabase("benchmark_tests_db")
             .WithUsername("test_user")
             .WithPassword("test_password")
