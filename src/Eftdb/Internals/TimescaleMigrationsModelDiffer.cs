@@ -3,6 +3,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggr
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertables;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPolicies;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.RetentionPolicies;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -26,6 +27,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
                 new ReorderPolicyDiffer(),
                 new ContinuousAggregateDiffer(),
                 new ContinuousAggregatePolicyDiffer(),
+                new RetentionPolicyDiffer(),
             ];
 
         public override IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
@@ -46,30 +48,51 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
         /// <summary>
         /// Assigns a priority to operations to ensure correct execution order.
         /// Lower numbers execute first.
+        /// Add/Create operations use positive priorities (run after standard EF table creation).
+        /// Drop operations use negative priorities (run before standard EF table drops).
         /// </summary>
         private static int GetOperationPriority(MigrationOperation operation)
         {
             switch (operation)
             {
+                // --- Drop operations: negative priorities, reverse dependency order ---
+                // Retention policies depend on hypertables and continuous aggregates
+                case DropRetentionPolicyOperation:
+                    return -60;
+
+                // CA policies depend on continuous aggregates
+                case RemoveContinuousAggregatePolicyOperation:
+                    return -50;
+
+                // Continuous aggregates depend on parent hypertables
+                case DropContinuousAggregateOperation:
+                    return -40;
+
+                // Reorder policies depend on hypertables
+                case DropReorderPolicyOperation:
+                    return -20;
+
+                // --- Add/Alter operations: positive priorities, dependency order ---
                 case CreateHypertableOperation:
                     return 10;
 
                 case AddReorderPolicyOperation:
                 case AlterReorderPolicyOperation:
-                case DropReorderPolicyOperation:
                     return 20;
 
                 case CreateContinuousAggregateOperation:
                     return 30;
                 case AlterContinuousAggregateOperation:
-                case DropContinuousAggregateOperation:
                     return 40;
 
                 case AddContinuousAggregatePolicyOperation:
-                case RemoveContinuousAggregatePolicyOperation:
                     return 50;
 
-                // Standard EF Core operations (CreateTable, etc.)
+                case AddRetentionPolicyOperation:
+                case AlterRetentionPolicyOperation:
+                    return 60;
+
+                // Standard EF Core operations (CreateTable, DropTable, etc.)
                 default:
                     return 0;
             }

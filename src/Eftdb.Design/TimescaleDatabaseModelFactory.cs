@@ -21,7 +21,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             (new HypertableScaffoldingExtractor(), new HypertableAnnotationApplier()),
             (new ReorderPolicyScaffoldingExtractor(), new ReorderPolicyAnnotationApplier()),
             (new ContinuousAggregateScaffoldingExtractor(), new ContinuousAggregateAnnotationApplier()),
-            (new ContinuousAggregatePolicyScaffoldingExtractor(), new ContinuousAggregatePolicyAnnotationApplier())
+            (new ContinuousAggregatePolicyScaffoldingExtractor(), new ContinuousAggregatePolicyAnnotationApplier()),
+            (new RetentionPolicyScaffoldingExtractor(), new RetentionPolicyAnnotationApplier())
         ];
 
         public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)

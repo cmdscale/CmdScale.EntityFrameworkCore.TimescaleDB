@@ -11,5 +11,9 @@
         public const string ReorderPolicyScheduleInterval = "1 day";
         public const int ReorderPolicyMaxRetries = -1;
         public const string ReorderPolicyMaxRuntime = "00:00:00";
+
+        public const string RetentionPolicyScheduleInterval = "1 day";
+        public const int RetentionPolicyMaxRetries = -1;
+        public const string RetentionPolicyMaxRuntime = "00:00:00";
     }
 }

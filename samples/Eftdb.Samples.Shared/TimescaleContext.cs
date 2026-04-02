@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared
@@ -13,6 +13,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared
         public DbSet<TradeWithId> TradesWithId { get; set; }
         public DbSet<TradeAggregate> TradeAggregates { get; set; }
         public DbSet<WeatherAggregate> WeatherAggregates { get; set; }
+        public DbSet<ApplicationLog> ApplicationLogs { get; set; }
+        public DbSet<ApiRequestLog> ApiRequestLogs { get; set; }
+        public DbSet<ApiRequestAggregate> ApiRequestAggregates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

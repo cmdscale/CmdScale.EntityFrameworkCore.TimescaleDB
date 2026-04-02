@@ -2,6 +2,11 @@
 
 This project demonstrates how to use the **Database-First** approach with [TimescaleDB](https://www.timescale.com/) using the `CmdScale.EntityFrameworkCore.TimescaleDB` package.
 
+
+> [!WARNING]  
+> Currently the `dotnet ef dbcontext scaffold` command can't be tested because of an issue in `efcore` (see https://github.com/dotnet/efcore/issues/37201).
+> <br />TODO: Test as soon as there is a fix available
+
 ---
 
 ## Required NuGet Packages
