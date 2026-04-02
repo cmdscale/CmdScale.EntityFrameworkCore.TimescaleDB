@@ -14,7 +14,7 @@ public class ContinuousAggregatePolicyIntegrationTests : MigrationTestBase, IAsy
     private PostgreSqlContainer? _container;
     private string? _connectionString;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
             .WithDatabase("test_db")
@@ -26,7 +26,7 @@ public class ContinuousAggregatePolicyIntegrationTests : MigrationTestBase, IAsy
         _connectionString = _container.GetConnectionString();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_container != null)
         {
@@ -91,7 +91,7 @@ public class ContinuousAggregatePolicyIntegrationTests : MigrationTestBase, IAsy
         await CreateDatabaseViaMigrationAsync(context);
 
         // Assert - Verify the continuous aggregate view exists
-        List<AggregateEntity1> aggregates = await context.Aggregates.ToListAsync();
+        List<AggregateEntity1> aggregates = await context.Aggregates.ToListAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(aggregates);
     }
 
@@ -525,13 +525,13 @@ public class ContinuousAggregatePolicyIntegrationTests : MigrationTestBase, IAsy
         await context.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO ""Metrics"" (""Timestamp"", ""Value"")
             VALUES ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {100.5})
-        ");
+        ", TestContext.Current.CancellationToken);
 
         // Manually refresh the continuous aggregate
         await context.Database.ExecuteSqlRawAsync(
-            "CALL refresh_continuous_aggregate('public.hourly_metrics', NULL, NULL);");
+            "CALL refresh_continuous_aggregate('public.hourly_metrics', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-        List<AggregateEntity7> aggregates = await context.Aggregates.ToListAsync();
+        List<AggregateEntity7> aggregates = await context.Aggregates.ToListAsync(TestContext.Current.CancellationToken);
         Assert.NotEmpty(aggregates);
     }
 
@@ -689,7 +689,7 @@ public class ContinuousAggregatePolicyIntegrationTests : MigrationTestBase, IAsy
         await using CustomSchemaContext9 context = new(_connectionString!);
 
         // Create the schema first
-        await context.Database.ExecuteSqlRawAsync("CREATE SCHEMA IF NOT EXISTS analytics;");
+        await context.Database.ExecuteSqlRawAsync("CREATE SCHEMA IF NOT EXISTS analytics;", [], TestContext.Current.CancellationToken);
 
         // Act
         await CreateDatabaseViaMigrationAsync(context);

@@ -27,7 +27,7 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
     private PostgreSqlContainer? _container;
     private string? _connectionString;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
             .WithDatabase("test_db")
@@ -39,7 +39,7 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         _connectionString = _container.GetConnectionString();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_container != null)
         {

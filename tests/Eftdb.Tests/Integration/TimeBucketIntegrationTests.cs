@@ -10,7 +10,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
     private PostgreSqlContainer? _container;
     private string? _connectionString;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
             .WithDatabase("test_db")
@@ -22,7 +22,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
         _connectionString = _container.GetConnectionString();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_container != null)
         {
@@ -68,14 +68,15 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
         {
             DateTime ts = baseTime.AddMinutes(i);
             await context.Database.ExecuteSqlInterpolatedAsync(
-                $"INSERT INTO \"tb_select_metrics\" (\"Timestamp\", \"Value\") VALUES ({ts}, {(double)(i * 10)})");
+                $"INSERT INTO \"tb_select_metrics\" (\"Timestamp\", \"Value\") VALUES ({ts}, {(double)(i * 10)})",
+                TestContext.Current.CancellationToken);
         }
 
         // Act
         List<DateTime> buckets = await context.Metrics
             .Select(m => EF.Functions.TimeBucket(TimeSpan.FromMinutes(5), m.Timestamp))
             .Distinct()
-            .ToListAsync();
+            .ToListAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Single(buckets);
@@ -122,7 +123,8 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
         {
             DateTime ts = baseTime.AddMinutes(i);
             await context.Database.ExecuteSqlInterpolatedAsync(
-                $"INSERT INTO \"tb_groupby_metrics\" (\"Timestamp\", \"Value\") VALUES ({ts}, {(double)(i + 1)})");
+                $"INSERT INTO \"tb_groupby_metrics\" (\"Timestamp\", \"Value\") VALUES ({ts}, {(double)(i + 1)})",
+                TestContext.Current.CancellationToken);
         }
 
         // Act — group into 5-minute buckets and sum
@@ -135,7 +137,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
                 Count = g.Count()
             })
             .OrderBy(r => r.Bucket)
-            .ToListAsync();
+            .ToListAsync(TestContext.Current.CancellationToken);
 
         // Assert — expect 3 buckets: [10:00-10:05), [10:05-10:10), [10:10-10:15)
         Assert.Equal(3, results.Count);
@@ -186,12 +188,13 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
     {
         // Arrange
         await using TimeBucketIntContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         for (int i = 0; i < 20; i++)
         {
             await context.Database.ExecuteSqlInterpolatedAsync(
-                $"INSERT INTO \"tb_int_metrics\" (\"Id\", \"SequenceNumber\", \"Value\") VALUES ({i + 1}, {i}, {(double)(i * 10)})");
+                $"INSERT INTO \"tb_int_metrics\" (\"Id\", \"SequenceNumber\", \"Value\") VALUES ({i + 1}, {i}, {(double)(i * 10)})",
+                TestContext.Current.CancellationToken);
         }
 
         // Act — bucket SequenceNumber into groups of 5
@@ -203,7 +206,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
                 Count = g.Count()
             })
             .OrderBy(r => r.Bucket)
-            .ToListAsync();
+            .ToListAsync(TestContext.Current.CancellationToken);
 
         // Assert — expect 4 buckets: [0-5), [5-10), [10-15), [15-20)
         Assert.Equal(4, results.Count);
