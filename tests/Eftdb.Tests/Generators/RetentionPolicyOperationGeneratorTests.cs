@@ -400,6 +400,118 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region Generate_Alter_DropCreatedBefore_job_settings_change_skips_alter_job
+
+        [Fact]
+        public void Generate_Alter_DropCreatedBefore_job_settings_change_skips_alter_job()
+        {
+            // Arrange
+            AlterRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropAfter = null,
+                OldDropAfter = null,
+                DropCreatedBefore = "30 days",
+                OldDropCreatedBefore = "30 days",
+                InitialStart = null,
+                OldInitialStart = null,
+                ScheduleInterval = "2 days",          // <-- Changed from "1 day"
+                OldScheduleInterval = "1 day"
+            };
+
+            // No recreation needed, but alter_job is skipped for DropCreatedBefore due to TimescaleDB bug #9446.
+            RetentionPolicyOperationGenerator generator = new(true);
+            List<string> result = generator.Generate(operation);
+
+            // Assert
+            Assert.Empty(result);
+        }
+
+        #endregion
+
+        #region Generate_Alter_MaxRuntime_change_emits_alter_job
+
+        [Fact]
+        public void Generate_Alter_MaxRuntime_change_emits_alter_job()
+        {
+            // Arrange
+            AlterRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropAfter = "7 days",
+                OldDropAfter = "7 days",
+                DropCreatedBefore = null,
+                OldDropCreatedBefore = null,
+                InitialStart = null,
+                OldInitialStart = null,
+                MaxRuntime = "2 hours",               // <-- Changed from "1 hour"
+                OldMaxRuntime = "1 hour",
+                ScheduleInterval = "1 day",
+                OldScheduleInterval = "1 day",
+                MaxRetries = -1,
+                OldMaxRetries = -1,
+                RetryPeriod = "1 day",
+                OldRetryPeriod = "1 day"
+            };
+
+            string expected = @".Sql(@""
+                SELECT alter_job(job_id, max_runtime => INTERVAL '2 hours')
+                FROM timescaledb_information.jobs
+                WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        #endregion
+
+        #region Generate_Alter_RetryPeriod_change_emits_alter_job
+
+        [Fact]
+        public void Generate_Alter_RetryPeriod_change_emits_alter_job()
+        {
+            // Arrange
+            AlterRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropAfter = "7 days",
+                OldDropAfter = "7 days",
+                DropCreatedBefore = null,
+                OldDropCreatedBefore = null,
+                InitialStart = null,
+                OldInitialStart = null,
+                ScheduleInterval = "1 day",
+                OldScheduleInterval = "1 day",
+                MaxRuntime = "00:00:00",
+                OldMaxRuntime = "00:00:00",
+                MaxRetries = -1,
+                OldMaxRetries = -1,
+                RetryPeriod = "30 minutes",           // <-- Changed from "1 day"
+                OldRetryPeriod = "1 day"
+            };
+
+            string expected = @".Sql(@""
+                SELECT alter_job(job_id, retry_period => INTERVAL '30 minutes')
+                FROM timescaledb_information.jobs
+                WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        #endregion
+
         // --- Tests for runtime quoting (isDesignTime=false) ---
 
         private static List<string> GetRuntimeStatements(dynamic operation)
