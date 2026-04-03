@@ -25,16 +25,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 BuildAddRetentionPolicySql(operation.TableName, operation.Schema, operation.DropAfter, operation.DropCreatedBefore, operation.InitialStart)
             ];
 
-            // alter_job fails for drop_created_before retention policies.
-            // TimescaleDB's policy_retention_check expects drop_after in the job config JSONB
-            // but finds drop_created_before instead. Workaround: avoid alter_job for
-            // drop_created_before policies, or recreate the policy entirely.
-            // TODO: Remove this when a fix has been applied to TimescaleDB.
-            if (string.IsNullOrEmpty(operation.DropAfter))
-            {
-                return statements;
-            }
-
             List<string> alterJobClauses = BuildAlterJobClauses(operation);
             if (alterJobClauses.Count != 0)
             {
@@ -106,6 +96,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         {
             List<string> clauses = [];
 
+            // alter_job fails for drop_created_before retention policies.
+            // TimescaleDB's policy_retention_check expects drop_after in the job config JSONB
+            // but finds drop_created_before instead. Workaround: avoid alter_job for
+            // drop_created_before policies, or recreate the policy entirely.
+            // TODO: Remove this when a fix has been applied to TimescaleDB.
+            if (!string.IsNullOrEmpty(operation.DropCreatedBefore))
+            {
+                return clauses;
+            }
+
             if (!string.IsNullOrWhiteSpace(operation.ScheduleInterval))
                 clauses.Add($"schedule_interval => INTERVAL '{operation.ScheduleInterval}'");
 
@@ -124,6 +124,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         private static List<string> BuildAlterJobClauses(AlterRetentionPolicyOperation operation)
         {
             List<string> clauses = [];
+
+            // alter_job fails for drop_created_before retention policies.
+            // TimescaleDB's policy_retention_check expects drop_after in the job config JSONB
+            // but finds drop_created_before instead. Workaround: avoid alter_job for
+            // drop_created_before policies, or recreate the policy entirely.
+            // TODO: Remove this when a fix has been applied to TimescaleDB.
+            if (!string.IsNullOrEmpty(operation.DropCreatedBefore))
+            {
+                return clauses;
+            }
 
             if (!string.IsNullOrWhiteSpace(operation.ScheduleInterval) && operation.ScheduleInterval != operation.OldScheduleInterval)
                 clauses.Add($"schedule_interval => INTERVAL '{operation.ScheduleInterval}'");
