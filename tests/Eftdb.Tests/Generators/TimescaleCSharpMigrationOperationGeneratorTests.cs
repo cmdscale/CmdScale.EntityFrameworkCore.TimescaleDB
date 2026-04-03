@@ -641,6 +641,138 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region RetentionPolicyOperation Tests
+
+        [Fact]
+        public void Generate_AddRetentionPolicy_WithDropAfter_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddRetentionPolicyOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                DropAfter = "30 days"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".Sql(@\"", result);
+            Assert.Contains("add_retention_policy", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_AddRetentionPolicy_WithDropCreatedBefore_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddRetentionPolicyOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                DropCreatedBefore = "60 days"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("add_retention_policy", result);
+            Assert.DoesNotContain("alter_job", result);
+        }
+
+        [Fact]
+        public void Generate_AlterRetentionPolicy_WithDropAfterChange_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AlterRetentionPolicyOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                DropAfter = "60 days",
+                OldDropAfter = "30 days" // <-- Changed from 30 days
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("remove_retention_policy", result);
+            Assert.Contains("add_retention_policy", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_AlterRetentionPolicy_WithScheduleIntervalChange_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AlterRetentionPolicyOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                DropAfter = "30 days",
+                OldDropAfter = "30 days", // Same drop_after
+                ScheduleInterval = "1 day",
+                OldScheduleInterval = "4 days" // <-- Changed from 4 days
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("alter_job", result);
+            Assert.DoesNotContain("remove_retention_policy", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_DropRetentionPolicy_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            DropRetentionPolicyOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("remove_retention_policy", result);
+            Assert.Contains("if_exists", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private static CSharpMigrationOperationGeneratorDependencies CreateDependencies()

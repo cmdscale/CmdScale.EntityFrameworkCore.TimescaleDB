@@ -12,10 +12,9 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
     private PostgreSqlContainer? _container;
     private string? _connectionString;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder()
-            .WithImage("timescale/timescaledb:latest-pg16")
+        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")
@@ -25,7 +24,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         _connectionString = _container.GetConnectionString();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_container != null)
         {
@@ -374,9 +373,11 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         await CreateDatabaseViaMigrationAsync(context);
 
         await context.Database.ExecuteSqlRawAsync(
-            "INSERT INTO \"Metrics\" (\"Timestamp\", \"DeviceId\", \"Location\", \"Value\", \"SensorId\") VALUES (NOW(), 'device1', 'location1', 100.0, 1)");
+            "INSERT INTO \"Metrics\" (\"Timestamp\", \"DeviceId\", \"Location\", \"Value\", \"SensorId\") VALUES (NOW(), 'device1', 'location1', 100.0, 1)",
+            TestContext.Current.CancellationToken);
         await context.Database.ExecuteSqlRawAsync(
-            "SELECT compress_chunk(i) FROM show_chunks('\"Metrics\"') AS i;");
+            "SELECT compress_chunk(i) FROM show_chunks('\"Metrics\"') AS i;",
+            TestContext.Current.CancellationToken);
 
         HypertableScaffoldingExtractor extractor = new();
         await using NpgsqlConnection connection = new(_connectionString);

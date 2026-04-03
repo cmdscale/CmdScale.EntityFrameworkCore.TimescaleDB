@@ -11,10 +11,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
         private PostgreSqlContainer? _container;
         private string? _connectionString;
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
-            _container = new PostgreSqlBuilder()
-                .WithImage("timescale/timescaledb:latest-pg16")
+            _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
                 .WithDatabase("test_db")
                 .WithUsername("test_user")
                 .WithPassword("test_password")
@@ -24,7 +23,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             _connectionString = _container.GetConnectionString();
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (_container != null)
             {
@@ -104,14 +103,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
-                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_basic', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_basic', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
             List<BasicAggregatesAggregate> aggregates = await context.TradeAggregates
                 .OrderBy(a => a.TimeBucket)
-                .ToListAsync();
+                .ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.NotEmpty(aggregates);
             BasicAggregatesAggregate firstAggregate = aggregates.First();
@@ -186,12 +185,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {105.00m}, {200}, {"NYSE"}),
-                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {103.00m}, {150}, {"NYSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {103.00m}, {150}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_first_last', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_first_last', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-            List<FirstLastAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            List<FirstLastAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.Single(aggregates);
             Assert.Equal(100.00m, aggregates[0].FirstPrice);
@@ -263,14 +262,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {110.00m}, {200}, {"NASDAQ"}),
-                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {105.00m}, {150}, {"LSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {105.00m}, {150}, {"LSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_grouped', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_grouped', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
             List<GroupByAggregate> aggregates = await context.TradeAggregates
                 .OrderBy(a => a.Exchange)
-                .ToListAsync();
+                .ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.Equal(3, aggregates.Count);
             Assert.Equal("LSE", aggregates[0].Exchange);
@@ -344,12 +343,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"TSLA"}, {200.00m}, {200}, {"NYSE"}),
-                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"MSFT"}, {300.00m}, {150}, {"NYSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"MSFT"}, {300.00m}, {150}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_filtered', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_filtered', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-            List<WhereClauseAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            List<WhereClauseAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.Single(aggregates);
             Assert.Equal(100.00m, aggregates[0].AvgPrice);
@@ -416,16 +415,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 
             await context.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
-                VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})");
+                VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})", TestContext.Current.CancellationToken);
 
-            List<WithNoDataAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            List<WithNoDataAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.Empty(aggregates);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_no_data', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_no_data', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-            aggregates = await context.TradeAggregates.ToListAsync();
+            aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
             Assert.Single(aggregates);
         }
 
@@ -492,12 +491,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
-                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_custom_chunk', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_custom_chunk', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-            List<CustomChunkIntervalAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            List<CustomChunkIntervalAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.NotEmpty(aggregates);
         }
@@ -568,12 +567,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
-                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_with_indexes', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_with_indexes', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-            List<CreateGroupIndexesAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            List<CreateGroupIndexesAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.NotEmpty(aggregates);
         }
@@ -638,9 +637,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 
             await context.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
-                VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})");
+                VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})", TestContext.Current.CancellationToken);
 
-            List<MaterializedOnlyFalseAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            List<MaterializedOnlyFalseAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.Single(aggregates);
             Assert.Equal(100.00m, aggregates[0].AvgPrice);
@@ -735,19 +734,19 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
         public async Task Should_Alter_ContinuousAggregate_ChunkInterval()
         {
             await using AlterChunkIntervalInitialContext context1 = new(_connectionString!);
-            await context1.Database.EnsureCreatedAsync();
+            await context1.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
             await context1.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
-                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context1.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_alterable', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_alterable', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-            List<AlterChunkIntervalAggregate> aggregatesBefore = await context1.TradeAggregates.ToListAsync();
+            List<AlterChunkIntervalAggregate> aggregatesBefore = await context1.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
             Assert.NotEmpty(aggregatesBefore);
 
             await using AlterChunkIntervalModifiedContext context2 = new(_connectionString!);
@@ -755,9 +754,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await context2.Database.ExecuteSqlRawAsync(@"
                 ALTER MATERIALIZED VIEW trade_aggregate_alterable
                 SET (timescaledb.chunk_interval = '14 days');
-            ");
+            ", [], TestContext.Current.CancellationToken);
 
-            List<AlterChunkIntervalAggregate> aggregatesAfter = await context2.TradeAggregates.ToListAsync();
+            List<AlterChunkIntervalAggregate> aggregatesAfter = await context2.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
             Assert.NotEmpty(aggregatesAfter);
             Assert.Equal(aggregatesBefore.Count, aggregatesAfter.Count);
         }
@@ -825,17 +824,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
-                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_materialized_only', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_materialized_only', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(@"
                 ALTER MATERIALIZED VIEW trade_aggregate_materialized_only
                 SET (timescaledb.materialized_only = true);
-            ");
+            ", [], TestContext.Current.CancellationToken);
 
-            List<AlterMaterializedOnlyAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            List<AlterMaterializedOnlyAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
             Assert.NotEmpty(aggregates);
         }
 
@@ -905,7 +904,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 await context.Database.ExecuteSqlRawAsync(@"
                     ALTER MATERIALIZED VIEW trade_aggregate_group_indexes
                     SET (timescaledb.create_group_indexes = true);
-                ");
+                ", [], TestContext.Current.CancellationToken);
             });
         }
 
@@ -971,20 +970,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
-                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_to_drop', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_to_drop', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-            List<DropAggregate> aggregatesBefore = await context.TradeAggregates.ToListAsync();
+            List<DropAggregate> aggregatesBefore = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
             Assert.NotEmpty(aggregatesBefore);
 
             await context.Database.ExecuteSqlRawAsync(
-                "DROP MATERIALIZED VIEW IF EXISTS trade_aggregate_to_drop;");
+                "DROP MATERIALIZED VIEW IF EXISTS trade_aggregate_to_drop;", [], TestContext.Current.CancellationToken);
 
             await Assert.ThrowsAsync<Npgsql.PostgresException>(async () =>
             {
-                await context.TradeAggregates.ToListAsync();
+                await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
             });
         }
 
@@ -1050,12 +1049,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
                     ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"AAPL"}, {151.00m}, {200}, {"NYSE"}),
-                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})");
+                    ({new DateTime(2025, 1, 6, 10, 45, 0, DateTimeKind.Utc)}, {"AAPL"}, {149.75m}, {150}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.trade_aggregate_sql_gen', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.trade_aggregate_sql_gen', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-            List<SqlGenerationAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            List<SqlGenerationAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.NotEmpty(aggregates);
             SqlGenerationAggregate firstAggregate = aggregates.First();
@@ -1122,12 +1121,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 
             await context.Database.ExecuteSqlInterpolatedAsync($@"
                 INSERT INTO trades (timestamp, ticker, price, size, exchange)
-                VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})");
+                VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})", TestContext.Current.CancellationToken);
 
             await context.Database.ExecuteSqlRawAsync(
-                "CALL refresh_continuous_aggregate('public.snake_case_test_aggregate', NULL, NULL);");
+                "CALL refresh_continuous_aggregate('public.snake_case_test_aggregate', NULL, NULL);", [], TestContext.Current.CancellationToken);
 
-            List<SnakeCaseAggregate> aggregates = await context.TradeAggregates.ToListAsync();
+            List<SnakeCaseAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
             Assert.Single(aggregates);
             Assert.Equal(100.00m, aggregates[0].AvgPrice);

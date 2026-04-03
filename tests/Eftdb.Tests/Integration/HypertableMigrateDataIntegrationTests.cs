@@ -14,10 +14,9 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
     private PostgreSqlContainer? _container;
     private string? _connectionString;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder()
-            .WithImage("timescale/timescaledb:latest-pg16")
+        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")
@@ -27,7 +26,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
         _connectionString = _container.GetConnectionString();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_container != null)
         {
@@ -307,7 +306,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
             VALUES
                 ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {"device_1"}, {20.5}),
                 ({new DateTime(2025, 1, 1, 11, 0, 0, DateTimeKind.Utc)}, {"device_2"}, {21.0}),
-                ({new DateTime(2025, 1, 2, 10, 0, 0, DateTimeKind.Utc)}, {"device_3"}, {19.5})");
+                ({new DateTime(2025, 1, 2, 10, 0, 0, DateTimeKind.Utc)}, {"device_3"}, {19.5})", TestContext.Current.CancellationToken);
 
         // Verify data exists before conversion
         int countBeforeConversion = await GetRowCountAsync(initialContext, "SensorDataMigration");
@@ -326,7 +325,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
         Assert.Equal(3, countAfterConversion);
 
         // Assert - Verify data can still be queried via EF Core
-        List<ExistingDataEntity> data = await convertedContext.SensorData.ToListAsync();
+        List<ExistingDataEntity> data = await convertedContext.SensorData.ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(3, data.Count);
         Assert.Contains(data, d => d.DeviceId == "device_1" && d.Temperature == 20.5);
         Assert.Contains(data, d => d.DeviceId == "device_2" && d.Temperature == 21.0);
@@ -392,7 +391,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
         await initialContext.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO ""SensorDataNoMigration"" (""Timestamp"", ""DeviceId"", ""Temperature"")
             VALUES
-                ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {"device_1"}, {20.5})");
+                ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {"device_1"}, {20.5})", TestContext.Current.CancellationToken);
 
         // Verify data exists before conversion
         int countBeforeConversion = await GetRowCountAsync(initialContext, "SensorDataNoMigration");

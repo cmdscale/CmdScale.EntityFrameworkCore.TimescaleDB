@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -722,6 +723,133 @@ public class MigrationOperationOrderingTests : MigrationTestBase
             $"Table (index {tableIndex}) should be created before humidity index (index {humidityIndexIndex})");
         Assert.True(tableIndex < sensorIndexIndex,
             $"Table (index {tableIndex}) should be created before sensor index (index {sensorIndexIndex})");
+    }
+
+    #endregion
+
+    #region Should_Order_CreateHypertable_Before_AddRetentionPolicy
+
+    private class OrderingMetric9
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderingContext9 : DbContext
+    {
+        public DbSet<OrderingMetric9> Metrics => Set<OrderingMetric9>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderingMetric9>(entity =>
+            {
+                entity.ToTable("OrderingMetrics9");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithChunkTimeInterval("1 day");
+                entity.WithRetentionPolicy(dropAfter: "30 days");
+            });
+        }
+    }
+
+    /// <summary>
+    /// Verifies that CreateHypertableOperation appears before AddRetentionPolicyOperation.
+    /// Retention policies require the hypertable to exist first.
+    /// </summary>
+    [Fact]
+    public void Should_Order_CreateHypertable_Before_AddRetentionPolicy()
+    {
+        // Arrange
+        using OrderingContext9 context = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(null, context);
+
+        // Assert
+        int createTableIndex = operations.ToList().FindIndex(op =>
+            op is CreateTableOperation createTable && createTable.Name == "OrderingMetrics9");
+        int hypertableIndex = operations.ToList().FindIndex(op =>
+            op is CreateHypertableOperation hypertable && hypertable.TableName == "OrderingMetrics9");
+        int retentionPolicyIndex = operations.ToList().FindIndex(op =>
+            op is AddRetentionPolicyOperation policy && policy.TableName == "OrderingMetrics9");
+
+        Assert.NotEqual(-1, createTableIndex);
+        Assert.NotEqual(-1, hypertableIndex);
+        Assert.NotEqual(-1, retentionPolicyIndex);
+
+        Assert.True(createTableIndex < hypertableIndex,
+            $"CreateTable (index {createTableIndex}) should appear before CreateHypertable (index {hypertableIndex})");
+        Assert.True(hypertableIndex < retentionPolicyIndex,
+            $"CreateHypertable (index {hypertableIndex}) should appear before AddRetentionPolicy (index {retentionPolicyIndex})");
+    }
+
+    #endregion
+
+    #region Should_Order_DropRetentionPolicy_Before_DropTable
+
+    private class OrderingMetric10
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderingSourceContext10 : DbContext
+    {
+        public DbSet<OrderingMetric10> Metrics => Set<OrderingMetric10>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderingMetric10>(entity =>
+            {
+                entity.ToTable("OrderingMetrics10");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithChunkTimeInterval("1 day");
+                entity.WithRetentionPolicy(dropAfter: "30 days");
+            });
+        }
+    }
+
+    private class OrderingTargetContext10 : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+    }
+
+    /// <summary>
+    /// Verifies that DropRetentionPolicyOperation appears before DropTableOperation.
+    /// The retention policy must be removed before the hypertable is dropped.
+    /// </summary>
+    [Fact]
+    public void Should_Order_DropRetentionPolicy_Before_DropTable()
+    {
+        // Arrange
+        using OrderingSourceContext10 sourceContext = new();
+        using OrderingTargetContext10 targetContext = new();
+
+        // Act — diff from source (has table + retention policy) to target (empty)
+        IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(sourceContext, targetContext);
+
+        // Assert
+        List<MigrationOperation> opsList = [.. operations];
+
+        int dropRetentionPolicyIndex = opsList.FindIndex(op => op is DropRetentionPolicyOperation);
+        int dropTableIndex = opsList.FindIndex(op =>
+            op is DropTableOperation dropTable && dropTable.Name == "OrderingMetrics10");
+
+        Assert.NotEqual(-1, dropRetentionPolicyIndex);
+        Assert.NotEqual(-1, dropTableIndex);
+        Assert.True(dropRetentionPolicyIndex < dropTableIndex,
+            $"DropRetentionPolicy (index {dropRetentionPolicyIndex}) should appear before DropTable (index {dropTableIndex})");
     }
 
     #endregion

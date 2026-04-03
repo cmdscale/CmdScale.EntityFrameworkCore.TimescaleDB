@@ -20,10 +20,9 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         public bool IsNullsFirst { get; set; }
     }
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder()
-            .WithImage("timescale/timescaledb:latest-pg16")
+        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")
@@ -33,7 +32,7 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         _connectionString = _container.GetConnectionString();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_container != null)
         {
@@ -320,12 +319,12 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         DateTime timestamp = new(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc);
         double value = 100.5;
         await context.Database.ExecuteSqlInterpolatedAsync(
-            $"INSERT INTO \"Metrics\" (\"Timestamp\", \"Value\") VALUES ({timestamp}, {value})");
+            $"INSERT INTO \"Metrics\" (\"Timestamp\", \"Value\") VALUES ({timestamp}, {value})", TestContext.Current.CancellationToken);
 
         bool isHypertable = await IsHypertableAsync(context, "Metrics");
         Assert.True(isHypertable);
 
-        List<MinimalHypertableMetric> metrics = await context.Metrics.ToListAsync();
+        List<MinimalHypertableMetric> metrics = await context.Metrics.ToListAsync(TestContext.Current.CancellationToken);
         Assert.Single(metrics);
         Assert.Equal(100.5, metrics[0].Value);
     }
@@ -926,12 +925,12 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
             VALUES
                 ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {"device_1"}, {20.5}, {45.0}),
                 ({new DateTime(2025, 1, 1, 11, 0, 0, DateTimeKind.Utc)}, {"device_1"}, {21.0}, {46.0}),
-                ({new DateTime(2025, 1, 2, 10, 0, 0, DateTimeKind.Utc)}, {"device_2"}, {19.5}, {50.0})");
+                ({new DateTime(2025, 1, 2, 10, 0, 0, DateTimeKind.Utc)}, {"device_2"}, {19.5}, {50.0})", TestContext.Current.CancellationToken);
 
-        List<IoTDataRecord> data = await context.IoTData.ToListAsync();
+        List<IoTDataRecord> data = await context.IoTData.ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(3, data.Count);
 
-        List<IoTDataRecord> device1Data = await context.IoTData.Where(d => d.DeviceId == "device_1").ToListAsync();
+        List<IoTDataRecord> device1Data = await context.IoTData.Where(d => d.DeviceId == "device_1").ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, device1Data.Count);
 
         int chunkCount = await GetChunkCountAsync(context, "IoTData");
@@ -985,14 +984,14 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
 
         string sql = $@"INSERT INTO ""PerformanceTest"" (""Timestamp"", ""SensorId"", ""Value"")
             VALUES {string.Join(", ", valueRows)}";
-        await context.Database.ExecuteSqlRawAsync(sql);
+        await context.Database.ExecuteSqlRawAsync(sql, [], TestContext.Current.CancellationToken);
 
-        int count = await context.PerformanceTest.CountAsync();
+        int count = await context.PerformanceTest.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(100, count);
 
         List<PerformanceTestData> sensor0Data = await context.PerformanceTest
             .Where(d => d.SensorId == 0)
-            .ToListAsync();
+            .ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(10, sensor0Data.Count);
 
         int chunkCount = await GetChunkCountAsync(context, "PerformanceTest");

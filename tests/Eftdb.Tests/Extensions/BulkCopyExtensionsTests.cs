@@ -16,10 +16,9 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     private PostgreSqlContainer? _container;
     private string? _connectionString;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder()
-            .WithImage("timescale/timescaledb:latest-pg16")
+        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")
@@ -29,8 +28,10 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         _connectionString = _container.GetConnectionString();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
+
         if (_container != null)
         {
             await _container.DisposeAsync();
@@ -72,7 +73,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using DefaultConfigContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         List<DefaultConfigEntity> data =
         [
@@ -85,10 +86,10 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!);
 
         // Assert
-        int count = await context.Set<DefaultConfigEntity>().CountAsync();
+        int count = await context.Set<DefaultConfigEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(3, count);
 
-        List<DefaultConfigEntity> inserted = await context.Set<DefaultConfigEntity>().OrderBy(e => e.Id).ToListAsync();
+        List<DefaultConfigEntity> inserted = await context.Set<DefaultConfigEntity>().OrderBy(e => e.Id).ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal("Test1", inserted[0].Name);
         Assert.Equal("Test2", inserted[1].Name);
         Assert.Equal("Test3", inserted[2].Name);
@@ -129,7 +130,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using CustomTableContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         List<CustomTableEntity> data =
         [
@@ -144,7 +145,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!, config);
 
         // Assert
-        int count = await context.Set<CustomTableEntity>().CountAsync();
+        int count = await context.Set<CustomTableEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, count);
     }
 
@@ -183,7 +184,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using WorkerConfigContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         List<WorkerConfigEntity> data = [];
         for (int i = 1; i <= 100; i++)
@@ -200,7 +201,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!, config);
 
         // Assert
-        int count = await context.Set<WorkerConfigEntity>().CountAsync();
+        int count = await context.Set<WorkerConfigEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(100, count);
     }
 
@@ -241,7 +242,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using MappingContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         List<MappingEntity> data =
         [
@@ -259,10 +260,10 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!, config);
 
         // Assert
-        int count = await context.Set<MappingEntity>().CountAsync();
+        int count = await context.Set<MappingEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, count);
 
-        List<MappingEntity> inserted = await context.Set<MappingEntity>().OrderBy(e => e.Identifier).ToListAsync();
+        List<MappingEntity> inserted = await context.Set<MappingEntity>().OrderBy(e => e.Identifier).ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(100.50m, inserted[0].Amount);
         Assert.Equal(200.75m, inserted[1].Amount);
     }
@@ -312,7 +313,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using DataTypeContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         Guid testGuid = Guid.NewGuid();
         DateTime testDateTime = DateTime.UtcNow;
@@ -340,7 +341,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!);
 
         // Assert
-        DataTypeEntity? inserted = await context.Set<DataTypeEntity>().FirstOrDefaultAsync();
+        DataTypeEntity? inserted = await context.Set<DataTypeEntity>().FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(inserted);
         Assert.Equal(42, inserted.IntValue);
         Assert.Equal(9223372036854775807L, inserted.LongValue);
@@ -391,7 +392,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using HypertableContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         DateTime baseTime = DateTime.UtcNow;
         List<HypertableEntity> data =
@@ -410,14 +411,14 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!, config);
 
         // Assert
-        int count = await context.Set<HypertableEntity>().CountAsync();
+        int count = await context.Set<HypertableEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(3, count);
 
         // Verify data integrity
         List<HypertableEntity> inserted = await context.Set<HypertableEntity>()
             .OrderBy(e => e.Timestamp)
             .ThenBy(e => e.SensorId)
-            .ToListAsync();
+            .ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(22.5, inserted[0].Temperature);
         Assert.Equal(45.0, inserted[0].Humidity);
     }
@@ -457,7 +458,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using EmptyCollectionContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         List<EmptyCollectionEntity> data = [];
 
@@ -465,7 +466,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!);
 
         // Assert
-        int count = await context.Set<EmptyCollectionEntity>().CountAsync();
+        int count = await context.Set<EmptyCollectionEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(0, count);
     }
 
@@ -504,7 +505,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using SingleItemContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         List<SingleItemEntity> data =
         [
@@ -515,10 +516,10 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!);
 
         // Assert
-        int count = await context.Set<SingleItemEntity>().CountAsync();
+        int count = await context.Set<SingleItemEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, count);
 
-        SingleItemEntity? inserted = await context.Set<SingleItemEntity>().FirstOrDefaultAsync();
+        SingleItemEntity? inserted = await context.Set<SingleItemEntity>().FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(inserted);
         Assert.Equal("OnlyOne", inserted.Value);
     }
@@ -559,7 +560,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using LargeDatasetContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         List<LargeDatasetEntity> data = [];
         DateTime baseTime = DateTime.UtcNow;
@@ -582,7 +583,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!, config);
 
         // Assert
-        int count = await context.Set<LargeDatasetEntity>().CountAsync();
+        int count = await context.Set<LargeDatasetEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(10000, count);
     }
 
@@ -624,7 +625,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using NullableTypeContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         List<NullableTypeEntity> data =
         [
@@ -636,10 +637,10 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!);
 
         // Assert
-        int count = await context.Set<NullableTypeEntity>().CountAsync();
+        int count = await context.Set<NullableTypeEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, count);
 
-        List<NullableTypeEntity> inserted = await context.Set<NullableTypeEntity>().OrderBy(e => e.Id).ToListAsync();
+        List<NullableTypeEntity> inserted = await context.Set<NullableTypeEntity>().OrderBy(e => e.Id).ToListAsync(TestContext.Current.CancellationToken);
 
         // First record with values
         Assert.Equal(42, inserted[0].NullableInt);
@@ -691,7 +692,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using DateTimeOnlyContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         DateOnly testDate = new(2024, 3, 15);
         TimeOnly testTime = new(14, 30, 45);
@@ -705,7 +706,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!);
 
         // Assert
-        DateTimeOnlyEntity? inserted = await context.Set<DateTimeOnlyEntity>().FirstOrDefaultAsync();
+        DateTimeOnlyEntity? inserted = await context.Set<DateTimeOnlyEntity>().FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(inserted);
         Assert.Equal(testDate, inserted.DateValue);
         Assert.Equal(testTime, inserted.TimeValue);
@@ -745,7 +746,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using TimeSpanContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         TimeSpan testDuration = new(2, 30, 45); // 2 hours, 30 minutes, 45 seconds
 
@@ -758,7 +759,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!);
 
         // Assert
-        TimeSpanEntity? inserted = await context.Set<TimeSpanEntity>().FirstOrDefaultAsync();
+        TimeSpanEntity? inserted = await context.Set<TimeSpanEntity>().FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(inserted);
         Assert.Equal(testDuration, inserted.Duration);
     }
@@ -798,7 +799,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using GuidContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         Guid testGuid = Guid.NewGuid();
 
@@ -811,7 +812,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!);
 
         // Assert
-        GuidEntity? inserted = await context.Set<GuidEntity>().FirstOrDefaultAsync();
+        GuidEntity? inserted = await context.Set<GuidEntity>().FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(inserted);
         Assert.Equal(testGuid, inserted.Id);
         Assert.Equal("GuidTest", inserted.Name);
@@ -852,7 +853,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using MultiWorkerSmallContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         // Only 3 items but 10 workers - should handle gracefully
         List<MultiWorkerSmallEntity> data =
@@ -870,7 +871,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!, config);
 
         // Assert
-        int count = await context.Set<MultiWorkerSmallEntity>().CountAsync();
+        int count = await context.Set<MultiWorkerSmallEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(3, count);
     }
 
@@ -909,7 +910,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using ByteArrayContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         byte[] testBytes = [0xFF, 0xAA, 0x55, 0x00, 0x11, 0x22, 0x33, 0x44];
 
@@ -922,7 +923,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!);
 
         // Assert
-        ByteArrayEntity? inserted = await context.Set<ByteArrayEntity>().FirstOrDefaultAsync();
+        ByteArrayEntity? inserted = await context.Set<ByteArrayEntity>().FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(inserted);
         Assert.Equal(testBytes, inserted.BinaryData);
     }
@@ -963,7 +964,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
     {
         // Arrange
         using ColumnOrderContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         DateTime testTime = DateTime.UtcNow;
 
@@ -983,7 +984,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         await data.BulkCopyAsync(_connectionString!, config);
 
         // Assert
-        ColumnOrderEntity? inserted = await context.Set<ColumnOrderEntity>().FirstOrDefaultAsync();
+        ColumnOrderEntity? inserted = await context.Set<ColumnOrderEntity>().FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(inserted);
         Assert.Equal(100, inserted.Column1);
         Assert.Equal("Test", inserted.Column3);

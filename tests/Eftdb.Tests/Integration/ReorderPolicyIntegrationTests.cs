@@ -15,10 +15,9 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     private PostgreSqlContainer? _container;
     private string? _connectionString;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder()
-            .WithImage("timescale/timescaledb:latest-pg16")
+        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")
@@ -28,7 +27,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
         _connectionString = _container.GetConnectionString();
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_container != null)
         {
@@ -239,7 +238,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Create_ReorderPolicy_WithMinimalConfig()
     {
         await using MinimalConfigContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         bool hasPolicy = await HasReorderPolicyAsync(context, "metrics_minimal_config");
         Assert.True(hasPolicy);
@@ -292,7 +291,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Create_ReorderPolicy_WithAllOptions()
     {
         await using AllOptionsContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         bool hasPolicy = await HasReorderPolicyAsync(context, "metrics_all_options");
         Assert.True(hasPolicy);
@@ -350,7 +349,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Create_ReorderPolicy_WithCustomScheduleInterval()
     {
         await using CustomScheduleContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         int jobId = await GetReorderPolicyJobIdAsync(context, "metrics_custom_schedule");
         TimeSpan scheduleInterval = await GetScheduleIntervalAsync(context, jobId);
@@ -421,7 +420,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Alter_ReorderPolicy_ScheduleInterval()
     {
         await using InitialScheduleIntervalContext initialContext = new(_connectionString!);
-        await initialContext.Database.EnsureCreatedAsync();
+        await initialContext.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         int jobId = await GetReorderPolicyJobIdAsync(initialContext, "metrics_schedule_interval");
         TimeSpan initialSchedule = await GetScheduleIntervalAsync(initialContext, jobId);
@@ -440,7 +439,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
 
         foreach (MigrationCommand command in commands)
         {
-            await modifiedContext.Database.ExecuteSqlRawAsync(command.CommandText);
+            await modifiedContext.Database.ExecuteSqlRawAsync(command.CommandText, TestContext.Current.CancellationToken);
         }
 
         TimeSpan newSchedule = await GetScheduleIntervalAsync(modifiedContext, jobId);
@@ -510,7 +509,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Alter_ReorderPolicy_MaxRuntime()
     {
         await using InitialMaxRuntimeContext initialContext = new(_connectionString!);
-        await initialContext.Database.EnsureCreatedAsync();
+        await initialContext.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         int jobId = await GetReorderPolicyJobIdAsync(initialContext, "metrics_max_runtime");
 
@@ -527,7 +526,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
 
         foreach (MigrationCommand command in commands)
         {
-            await modifiedContext.Database.ExecuteSqlRawAsync(command.CommandText);
+            await modifiedContext.Database.ExecuteSqlRawAsync(command.CommandText, TestContext.Current.CancellationToken);
         }
 
         TimeSpan maxRuntime = await GetMaxRuntimeAsync(modifiedContext, jobId);
@@ -597,7 +596,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Alter_ReorderPolicy_MaxRetries()
     {
         await using InitialMaxRetriesContext initialContext = new(_connectionString!);
-        await initialContext.Database.EnsureCreatedAsync();
+        await initialContext.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         int jobId = await GetReorderPolicyJobIdAsync(initialContext, "metrics_max_retries");
 
@@ -614,7 +613,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
 
         foreach (MigrationCommand command in commands)
         {
-            await modifiedContext.Database.ExecuteSqlRawAsync(command.CommandText);
+            await modifiedContext.Database.ExecuteSqlRawAsync(command.CommandText, TestContext.Current.CancellationToken);
         }
 
         int maxRetries = await GetMaxRetriesAsync(modifiedContext, jobId);
@@ -688,7 +687,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Alter_ReorderPolicy_MultipleParameters()
     {
         await using InitialMultipleParamsContext initialContext = new(_connectionString!);
-        await initialContext.Database.EnsureCreatedAsync();
+        await initialContext.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         int jobId = await GetReorderPolicyJobIdAsync(initialContext, "metrics_multiple_params");
 
@@ -705,7 +704,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
 
         foreach (MigrationCommand command in commands)
         {
-            await modifiedContext.Database.ExecuteSqlRawAsync(command.CommandText);
+            await modifiedContext.Database.ExecuteSqlRawAsync(command.CommandText, TestContext.Current.CancellationToken);
         }
 
         TimeSpan scheduleInterval = await GetScheduleIntervalAsync(modifiedContext, jobId);
@@ -774,7 +773,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Drop_ReorderPolicy()
     {
         await using DropPolicyInitialContext initialContext = new(_connectionString!);
-        await initialContext.Database.EnsureCreatedAsync();
+        await initialContext.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         IRelationalModel sourceRelationalModel = initialContext.GetService<IDesignTimeModel>().Model.GetRelationalModel();
 
@@ -793,7 +792,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
 
         foreach (MigrationCommand command in commands)
         {
-            await removedContext.Database.ExecuteSqlRawAsync(command.CommandText);
+            await removedContext.Database.ExecuteSqlRawAsync(command.CommandText, TestContext.Current.CancellationToken);
         }
 
         hasPolicy = await HasReorderPolicyAsync(removedContext, "metrics_drop_policy");
@@ -836,7 +835,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Create_ReorderPolicy_OnExistingHypertable()
     {
         await using ExistingHypertableContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         bool hasPolicy = await HasReorderPolicyAsync(context, "metrics_existing_hypertable");
         Assert.True(hasPolicy);
@@ -886,10 +885,10 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Query_TimescaleDB_Jobs_View()
     {
         await using JobsViewContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         await using NpgsqlConnection connection = (NpgsqlConnection)context.Database.GetDbConnection();
-        await connection.OpenAsync();
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
         await using NpgsqlCommand command = connection.CreateCommand();
         command.CommandText = @"
             SELECT application_name, hypertable_name, schedule_interval, max_runtime, max_retries, retry_period
@@ -898,8 +897,8 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
               AND hypertable_name = 'metrics_jobs_view';
         ";
 
-        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
-        Assert.True(await reader.ReadAsync());
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(TestContext.Current.CancellationToken);
+        Assert.True(await reader.ReadAsync(TestContext.Current.CancellationToken));
 
         string applicationName = reader.GetString(0);
         string hypertableName = reader.GetString(1);
@@ -955,7 +954,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Handle_UnlimitedRetries()
     {
         await using UnlimitedRetriesContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         int jobId = await GetReorderPolicyJobIdAsync(context, "metrics_unlimited_retries");
         int maxRetries = await GetMaxRetriesAsync(context, jobId);
@@ -1002,7 +1001,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
     public async Task Should_Handle_ZeroMaxRuntime()
     {
         await using ZeroMaxRuntimeContext context = new(_connectionString!);
-        await context.Database.EnsureCreatedAsync();
+        await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
         int jobId = await GetReorderPolicyJobIdAsync(context, "metrics_zero_max_runtime");
         TimeSpan maxRuntime = await GetMaxRuntimeAsync(context, jobId);
