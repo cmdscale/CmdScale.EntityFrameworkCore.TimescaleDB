@@ -93,7 +93,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 {
                     foreach (string statement in statements)
                     {
-                        builder.AppendLine(statement);
+                        builder.AppendLines(statement, skipFinalNewline: false);
                     }
                 }
                 if (suppressTransaction)
