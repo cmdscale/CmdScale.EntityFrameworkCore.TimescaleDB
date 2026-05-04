@@ -54,7 +54,7 @@ public class ApiRequestLog
 }
 ```
 
-> :warning: **Note:** Due to a known bug in TimescaleDB ([#9446](https://github.com/timescale/timescaledb/issues/9446)), `alter_job` fails when used with `DropCreatedBefore` policies. The library works around this by skipping the `alter_job` call for `DropCreatedBefore` policies. As a result, job scheduling parameters (`ScheduleInterval`, `MaxRuntime`, `MaxRetries`, `RetryPeriod`) are accepted by the API but have no effect at the database level when `DropCreatedBefore` is used.
+> :warning: **Note:** Customizing job scheduling parameters (`ScheduleInterval`, `MaxRuntime`, `MaxRetries`, `RetryPeriod`) on a `DropCreatedBefore` policy requires **TimescaleDB 2.26.3 or later**. Earlier versions contain a bug in `alter_job` that prevents these settings from being applied for `drop_created_before` policies. Policies using `DropAfter` are not affected and work on all supported TimescaleDB versions.
 
 ## Complete Example
 

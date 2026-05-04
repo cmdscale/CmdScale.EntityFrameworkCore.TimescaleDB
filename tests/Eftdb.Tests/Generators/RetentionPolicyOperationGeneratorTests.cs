@@ -47,10 +47,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        #region Generate_Add_DropCreatedBefore_creates_add_policy_without_alter_job
+        #region Generate_Add_DropCreatedBefore_with_job_settings_creates_add_and_alter_job_sql
 
         [Fact]
-        public void Generate_Add_DropCreatedBefore_creates_add_policy_without_alter_job()
+        public void Generate_Add_DropCreatedBefore_with_job_settings_creates_add_and_alter_job_sql()
         {
             // Arrange
             AddRetentionPolicyOperation operation = new()
@@ -62,10 +62,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 MaxRetries = 5
             };
 
-            // DropCreatedBefore policies must not emit alter_job due to TimescaleDB bug #9446.
-            // Job settings are intentionally ignored.
             string expected = @".Sql(@""
                 SELECT add_retention_policy('public.""""TestTable""""', drop_created_before => INTERVAL '30 days');
+                SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day', max_retries => 5)
+                FROM timescaledb_information.jobs
+                WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
             "")";
 
             // Act
@@ -138,10 +139,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        #region Generate_Add_DropCreatedBefore_with_job_settings_still_omits_alter_job
+        #region Generate_Add_DropCreatedBefore_with_all_job_settings_creates_add_and_alter_job_sql
 
         [Fact]
-        public void Generate_Add_DropCreatedBefore_with_job_settings_still_omits_alter_job()
+        public void Generate_Add_DropCreatedBefore_with_all_job_settings_creates_add_and_alter_job_sql()
         {
             // Arrange
             AddRetentionPolicyOperation operation = new()
@@ -155,10 +156,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 RetryPeriod = "10 minutes"
             };
 
-            // Even with all job settings specified, alter_job is omitted for DropCreatedBefore
-            // due to TimescaleDB bug #9446 workaround.
             string expected = @".Sql(@""
                 SELECT add_retention_policy('public.""""TestTable""""', drop_created_before => INTERVAL '30 days');
+                SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days', max_runtime => INTERVAL '1 hour', max_retries => 5, retry_period => INTERVAL '10 minutes')
+                FROM timescaledb_information.jobs
+                WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
             "")";
 
             // Act
@@ -240,10 +242,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        #region Generate_Alter_changed_to_DropCreatedBefore_creates_remove_and_add_without_alter_job
+        #region Generate_Alter_changed_to_DropCreatedBefore_creates_remove_add_and_alter_job_sql
 
         [Fact]
-        public void Generate_Alter_changed_to_DropCreatedBefore_creates_remove_and_add_without_alter_job()
+        public void Generate_Alter_changed_to_DropCreatedBefore_creates_remove_add_and_alter_job_sql()
         {
             // Arrange
             AlterRetentionPolicyOperation operation = new()
@@ -258,11 +260,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "1 day"
             };
 
-            // During Alter recreation, alter_job is still emitted to reapply existing job settings.
-            // The DropCreatedBefore workaround only applies to the Add path.
+            // During recreation, alter_job is emitted to reapply the final-state job settings
             string expected = @".Sql(@""
                 SELECT remove_retention_policy('public.""""TestTable""""', if_exists => true);
                 SELECT add_retention_policy('public.""""TestTable""""', drop_created_before => INTERVAL '30 days');
+                SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day')
+                FROM timescaledb_information.jobs
+                WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
             "")";
 
             // Act
@@ -400,10 +404,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        #region Generate_Alter_DropCreatedBefore_job_settings_change_skips_alter_job
+        #region Generate_Alter_DropCreatedBefore_only_job_settings_change_emits_alter_job
 
         [Fact]
-        public void Generate_Alter_DropCreatedBefore_job_settings_change_skips_alter_job()
+        public void Generate_Alter_DropCreatedBefore_only_job_settings_change_emits_alter_job()
         {
             // Arrange
             AlterRetentionPolicyOperation operation = new()
@@ -420,12 +424,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "1 day"
             };
 
-            // No recreation needed, but alter_job is skipped for DropCreatedBefore due to TimescaleDB bug #9446.
-            RetentionPolicyOperationGenerator generator = new(true);
-            List<string> result = generator.Generate(operation);
+            string expected = @".Sql(@""
+                SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days')
+                FROM timescaledb_information.jobs
+                WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
+            "")";
+
+            // Act
+            string result = GetGeneratedCode(operation);
 
             // Assert
-            Assert.Empty(result);
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
         }
 
         #endregion
