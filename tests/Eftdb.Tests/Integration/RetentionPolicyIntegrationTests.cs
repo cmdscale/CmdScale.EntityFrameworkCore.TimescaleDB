@@ -599,8 +599,6 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
         }
     }
 
-    //[Fact(Skip = "TimescaleDB bug #9446: alter_job fails when config contains drop_created_before instead of drop_after. " +
-    //      "The generator's Alter recreation path emits alter_job to reapply job settings, which hits this bug.")]
     [Fact]
     public async Task Should_Alter_RetentionPolicy_DropAfter_To_DropCreatedBefore()
     {
@@ -772,6 +770,235 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
 
         int jobId = await GetRetentionPolicyJobIdAsync(context, "retention_ensure_created");
         Assert.True(jobId > 0);
+    }
+
+    #endregion
+
+    #region Should_Alter_RetentionPolicy_DropAfter_To_DropCreatedBefore_PreservesJobSettings
+
+    private class PreserveJobSettingsMetric
+    {
+        public int Id { get; set; }
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class InitialPreserveJobSettingsContext(string connectionString) : DbContext
+    {
+        public DbSet<PreserveJobSettingsMetric> Metrics { get; set; } = null!;
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<PreserveJobSettingsMetric>(entity =>
+            {
+                entity.ToTable("retention_preserve_job_settings");
+                entity.HasKey(e => new { e.Time, e.Id });
+                entity.IsHypertable(e => e.Time);
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    scheduleInterval: "6 hours",
+                    maxRetries: 5
+                );
+            });
+        }
+    }
+
+    private class ModifiedPreserveJobSettingsContext(string connectionString) : DbContext
+    {
+        public DbSet<PreserveJobSettingsMetric> Metrics { get; set; } = null!;
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<PreserveJobSettingsMetric>(entity =>
+            {
+                entity.ToTable("retention_preserve_job_settings");
+                entity.HasKey(e => new { e.Time, e.Id });
+                entity.IsHypertable(e => e.Time);
+                entity.WithRetentionPolicy(
+                    dropCreatedBefore: "30 days",   // <-- Changed from dropAfter: "7 days"
+                    scheduleInterval: "6 hours",
+                    maxRetries: 5
+                );
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Alter_RetentionPolicy_DropAfter_To_DropCreatedBefore_PreservesJobSettings()
+    {
+        await using InitialPreserveJobSettingsContext initialContext = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(initialContext);
+
+        await using ModifiedPreserveJobSettingsContext modifiedContext = new(_connectionString!);
+        await AlterDatabaseViaMigrationAsync(initialContext, modifiedContext);
+
+        // The recreation path must reapply non-default job settings on the new policy
+        // (this is exactly the flow the pre-2.26.3 alter_job bug used to break).
+        int jobId = await GetRetentionPolicyJobIdAsync(modifiedContext, "retention_preserve_job_settings");
+        Assert.True(jobId > 0);
+
+        TimeSpan scheduleInterval = await GetScheduleIntervalAsync(modifiedContext, jobId);
+        Assert.Equal(TimeSpan.FromHours(6), scheduleInterval);
+
+        int maxRetries = await GetJobMaxRetriesAsync(modifiedContext, jobId);
+        Assert.Equal(5, maxRetries);
+
+        string? config = await GetRetentionPolicyConfigAsync(modifiedContext, "retention_preserve_job_settings");
+        Assert.NotNull(config);
+        Assert.Contains("drop_created_before", config);
+        Assert.DoesNotContain("drop_after", config);
+    }
+
+    #endregion
+
+    #region Should_Alter_DropCreatedBefore_RetentionPolicy_ScheduleInterval
+
+    private class AlterDcbScheduleMetric
+    {
+        public int Id { get; set; }
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class InitialAlterDcbScheduleContext(string connectionString) : DbContext
+    {
+        public DbSet<AlterDcbScheduleMetric> Metrics { get; set; } = null!;
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<AlterDcbScheduleMetric>(entity =>
+            {
+                entity.ToTable("retention_alter_dcb_schedule");
+                entity.HasKey(e => new { e.Time, e.Id });
+                entity.IsHypertable(e => e.Time);
+                entity.WithRetentionPolicy(
+                    dropCreatedBefore: "30 days",
+                    scheduleInterval: "1 day"
+                );
+            });
+        }
+    }
+
+    private class ModifiedAlterDcbScheduleContext(string connectionString) : DbContext
+    {
+        public DbSet<AlterDcbScheduleMetric> Metrics { get; set; } = null!;
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<AlterDcbScheduleMetric>(entity =>
+            {
+                entity.ToTable("retention_alter_dcb_schedule");
+                entity.HasKey(e => new { e.Time, e.Id });
+                entity.IsHypertable(e => e.Time);
+                entity.WithRetentionPolicy(
+                    dropCreatedBefore: "30 days",
+                    scheduleInterval: "12 hours"   // <-- Changed from "1 day"
+                );
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Alter_DropCreatedBefore_RetentionPolicy_ScheduleInterval()
+    {
+        await using InitialAlterDcbScheduleContext initialContext = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(initialContext);
+
+        int jobId = await GetRetentionPolicyJobIdAsync(initialContext, "retention_alter_dcb_schedule");
+        TimeSpan initialSchedule = await GetScheduleIntervalAsync(initialContext, jobId);
+        Assert.Equal(TimeSpan.FromDays(1), initialSchedule);
+
+        await using ModifiedAlterDcbScheduleContext modifiedContext = new(_connectionString!);
+        await AlterDatabaseViaMigrationAsync(initialContext, modifiedContext);
+
+        // Pre-2.26.3 this alter_job call would fail because the policy config carries
+        // drop_created_before instead of drop_after.
+        TimeSpan newSchedule = await GetScheduleIntervalAsync(modifiedContext, jobId);
+        Assert.Equal(TimeSpan.FromHours(12), newSchedule);
+    }
+
+    #endregion
+
+    #region Should_Alter_RetentionPolicy_InitialStart
+
+    private class AlterInitialStartMetric
+    {
+        public int Id { get; set; }
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class InitialAlterInitialStartContext(string connectionString) : DbContext
+    {
+        public DbSet<AlterInitialStartMetric> Metrics { get; set; } = null!;
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<AlterInitialStartMetric>(entity =>
+            {
+                entity.ToTable("retention_alter_initial_start");
+                entity.HasKey(e => new { e.Time, e.Id });
+                entity.IsHypertable(e => e.Time);
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    initialStart: new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                );
+            });
+        }
+    }
+
+    private class ModifiedAlterInitialStartContext(string connectionString) : DbContext
+    {
+        public DbSet<AlterInitialStartMetric> Metrics { get; set; } = null!;
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<AlterInitialStartMetric>(entity =>
+            {
+                entity.ToTable("retention_alter_initial_start");
+                entity.HasKey(e => new { e.Time, e.Id });
+                entity.IsHypertable(e => e.Time);
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    initialStart: new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc)   // <-- Changed from 2025-01-01
+                );
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Alter_RetentionPolicy_InitialStart()
+    {
+        await using InitialAlterInitialStartContext initialContext = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(initialContext);
+
+        await using ModifiedAlterInitialStartContext modifiedContext = new(_connectionString!);
+        await AlterDatabaseViaMigrationAsync(initialContext, modifiedContext);
+
+        int jobId = await GetRetentionPolicyJobIdAsync(modifiedContext, "retention_alter_initial_start");
+        Assert.True(jobId > 0);
+
+        DateTime? initialStart = await GetJobInitialStartAsync(modifiedContext, jobId);
+        Assert.NotNull(initialStart);
+        Assert.Equal(new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc), initialStart.Value.ToUniversalTime());
     }
 
     #endregion

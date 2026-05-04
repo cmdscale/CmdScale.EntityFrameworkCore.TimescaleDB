@@ -2,6 +2,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -481,6 +482,73 @@ public class RetentionPolicyScaffoldingExtractorTests : MigrationTestBase, IAsyn
         RetentionPolicyScaffoldingExtractor.RetentionPolicyInfo info =
             (RetentionPolicyScaffoldingExtractor.RetentionPolicyInfo)result[("analytics", "scaff_retention_custom_schema")];
         Assert.Equal("7 days", info.DropAfter);
+    }
+
+    #endregion
+
+    #region Should_RoundTrip_RetentionPolicy_With_All_Job_Settings_And_InitialStart
+
+    private class RoundTripMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class RoundTripContext(string connectionString) : DbContext
+    {
+        public DbSet<RoundTripMetric> Metrics => Set<RoundTripMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RoundTripMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaff_retention_roundtrip");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithRetentionPolicy(
+                          dropAfter: "14 days",
+                          scheduleInterval: "12 hours",
+                          maxRuntime: "01:00:00",
+                          maxRetries: 3,
+                          retryPeriod: "00:15:00",
+                          initialStart: new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_RoundTrip_RetentionPolicy_With_All_Job_Settings_And_InitialStart()
+    {
+        await using RoundTripContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        RetentionPolicyScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        Assert.True(result.ContainsKey(("public", "scaff_retention_roundtrip")));
+        RetentionPolicyScaffoldingExtractor.RetentionPolicyInfo info =
+            (RetentionPolicyScaffoldingExtractor.RetentionPolicyInfo)result[("public", "scaff_retention_roundtrip")];
+
+        DatabaseTable table = new() { Name = "scaff_retention_roundtrip", Schema = "public" };
+        RetentionPolicyAnnotationApplier applier = new();
+        applier.ApplyAnnotations(table, info);
+
+        Assert.Equal(true, table[RetentionPolicyAnnotations.HasRetentionPolicy]);
+        Assert.Equal("14 days", table[RetentionPolicyAnnotations.DropAfter]);
+        Assert.Null(table[RetentionPolicyAnnotations.DropCreatedBefore]);
+        // PostgreSQL normalizes sub-day intervals to HH:MM:SS form on the round-trip.
+        Assert.Equal("12:00:00", table[RetentionPolicyAnnotations.ScheduleInterval]);
+        Assert.Equal("01:00:00", table[RetentionPolicyAnnotations.MaxRuntime]);
+        Assert.Equal(3, table[RetentionPolicyAnnotations.MaxRetries]);
+        Assert.Equal("00:15:00", table[RetentionPolicyAnnotations.RetryPeriod]);
+
+        DateTime expectedInitialStart = new(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        DateTime actualInitialStart = Assert.IsType<DateTime>(table[RetentionPolicyAnnotations.InitialStart]);
+        Assert.Equal(expectedInitialStart, actualInitialStart.ToUniversalTime());
     }
 
     #endregion
