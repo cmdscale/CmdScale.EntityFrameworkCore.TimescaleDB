@@ -5,6 +5,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using System.Text.Json;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Extractors;
 
@@ -1326,6 +1327,173 @@ public class HypertableModelExtractorTests
         Assert.NotNull(operations[0].AdditionalDimensions);
         Dimension dimension = Assert.Single(operations[0].AdditionalDimensions!);
         Assert.Equal("device_identifier", dimension.ColumnName);
+    }
+
+    #endregion
+
+    #region Should_Extract_Hypertable_When_TimeColumnName_Annotation_Holds_Column_Name_Under_SnakeCase
+
+    private class ScaffoldedTimeColumnMetric
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldedTimeColumnContext : DbContext
+    {
+        public DbSet<ScaffoldedTimeColumnMetric> Metrics => Set<ScaffoldedTimeColumnMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseSnakeCaseNamingConvention()
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldedTimeColumnMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics");
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                entity.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Hypertable_When_TimeColumnName_Annotation_Holds_Column_Name_Under_SnakeCase()
+    {
+        // Arrange
+        using ScaffoldedTimeColumnContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        Assert.Single(operations);
+        Assert.Equal("time", operations[0].TimeColumnName);
+    }
+
+    #endregion
+
+    #region Should_Extract_ChunkSkipColumns_When_Annotation_Holds_Column_Names_Under_SnakeCase
+
+    private class ScaffoldedChunkSkipMetric
+    {
+        public DateTime Time { get; set; }
+        public string DeviceId { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldedChunkSkipContext : DbContext
+    {
+        public DbSet<ScaffoldedChunkSkipMetric> Metrics => Set<ScaffoldedChunkSkipMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseSnakeCaseNamingConvention()
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldedChunkSkipMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics");
+
+                // Annotations carry resolved column names (snake_case), mimicking scaffolder output.
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                entity.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                entity.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, "device_id,location");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_ChunkSkipColumns_When_Annotation_Holds_Column_Names_Under_SnakeCase()
+    {
+        // Arrange
+        using ScaffoldedChunkSkipContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        Assert.Single(operations);
+        Assert.NotNull(operations[0].ChunkSkipColumns);
+        Assert.Equal(2, operations[0].ChunkSkipColumns!.Count);
+        Assert.Contains("device_id", operations[0].ChunkSkipColumns!);
+        Assert.Contains("location", operations[0].ChunkSkipColumns!);
+    }
+
+    #endregion
+
+    #region Should_Extract_AdditionalDimensions_When_Json_Holds_Column_Names_Under_SnakeCase
+
+    private class ScaffoldedDimensionMetric
+    {
+        public DateTime Time { get; set; }
+        public string DeviceId { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldedDimensionContext : DbContext
+    {
+        public DbSet<ScaffoldedDimensionMetric> Metrics => Set<ScaffoldedDimensionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseSnakeCaseNamingConvention()
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldedDimensionMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics");
+
+                // Dimensions JSON carries resolved column names (snake_case), as the scaffolder produces.
+                List<Dimension> dimensions = [
+                    Dimension.CreateHash("device_id", 4),
+                    Dimension.CreateRange("location", "1000")
+                ];
+
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                entity.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                entity.HasAnnotation(HypertableAnnotations.AdditionalDimensions, JsonSerializer.Serialize(dimensions));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_AdditionalDimensions_When_Json_Holds_Column_Names_Under_SnakeCase()
+    {
+        // Arrange
+        using ScaffoldedDimensionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        Assert.Single(operations);
+        Assert.NotNull(operations[0].AdditionalDimensions);
+        Assert.Equal(2, operations[0].AdditionalDimensions!.Count);
+
+        Dimension hashDim = operations[0].AdditionalDimensions![0];
+        Assert.Equal("device_id", hashDim.ColumnName);
+        Assert.Equal(EDimensionType.Hash, hashDim.Type);
+        Assert.Equal(4, hashDim.NumberOfPartitions);
+
+        Dimension rangeDim = operations[0].AdditionalDimensions![1];
+        Assert.Equal("location", rangeDim.ColumnName);
+        Assert.Equal(EDimensionType.Range, rangeDim.Type);
+        Assert.Equal("1000", rangeDim.Interval);
     }
 
     #endregion

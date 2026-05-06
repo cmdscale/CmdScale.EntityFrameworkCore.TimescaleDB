@@ -65,7 +65,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     x.Target.WithNoData != x.Source.WithNoData ||
                     !AreAggregateFunctionsEqual(x.Target.AggregateFunctions, x.Source.AggregateFunctions) ||
                     !AreGroupByColumnsEqual(x.Target.GroupByColumns, x.Source.GroupByColumns) ||
-                    x.Target.WhereClause != x.Source.WhereClause
+                    x.Target.WhereClause != x.Source.WhereClause ||
+                    x.Target.ViewDefinition != x.Source.ViewDefinition
                 );
 
             foreach (var aggregate in structurallyChangedAggregates)

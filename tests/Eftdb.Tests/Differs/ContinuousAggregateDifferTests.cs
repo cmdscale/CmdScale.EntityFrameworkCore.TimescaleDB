@@ -2088,4 +2088,207 @@ public class ContinuousAggregateDifferTests
     }
 
     #endregion
+
+    #region Should_Drop_And_Recreate_When_ViewDefinition_Changes
+
+    private class MetricEntity24
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricAggregate24
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class RawDefinitionContextA24 : DbContext
+    {
+        public DbSet<MetricEntity24> Metrics => Set<MetricEntity24>();
+        public DbSet<MetricAggregate24> HourlyMetrics => Set<MetricAggregate24>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity24>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate24>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MetricEntity24));
+                entity.HasAnnotation(
+                    ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('1 hour', \"Timestamp\") AS bucket FROM \"Metrics\" GROUP BY bucket;");
+            });
+        }
+    }
+
+    private class RawDefinitionContextB24 : DbContext
+    {
+        public DbSet<MetricEntity24> Metrics => Set<MetricEntity24>();
+        public DbSet<MetricAggregate24> HourlyMetrics => Set<MetricAggregate24>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity24>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate24>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MetricEntity24));
+                entity.HasAnnotation(
+                    ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('1 day', \"Timestamp\") AS bucket FROM \"Metrics\" GROUP BY bucket;");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_ViewDefinition_Changes()
+    {
+        // Arrange - regression for bug #5: differ now compares ViewDefinition as a structural change
+        using RawDefinitionContextA24 sourceContext = new();
+        using RawDefinitionContextB24 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert - drop must come before create
+        DropContinuousAggregateOperation? dropOp = operations.OfType<DropContinuousAggregateOperation>().FirstOrDefault();
+        CreateContinuousAggregateOperation? createOp = operations.OfType<CreateContinuousAggregateOperation>().FirstOrDefault();
+        Assert.NotNull(dropOp);
+        Assert.NotNull(createOp);
+        Assert.Equal("hourly_metrics", dropOp.MaterializedViewName);
+        Assert.Equal("hourly_metrics", createOp.MaterializedViewName);
+        Assert.Contains("1 day", createOp.ViewDefinition);
+
+        int dropIndex = operations.ToList().FindIndex(o => o is DropContinuousAggregateOperation);
+        int createIndex = operations.ToList().FindIndex(o => o is CreateContinuousAggregateOperation);
+        Assert.True(dropIndex < createIndex, "Drop operation must precede the create operation.");
+    }
+
+    #endregion
+
+    #region Should_Emit_No_Operation_When_ViewDefinition_Identical
+
+    private class MetricEntity25
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricAggregate25
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class IdenticalRawDefinitionContextA25 : DbContext
+    {
+        public DbSet<MetricEntity25> Metrics => Set<MetricEntity25>();
+        public DbSet<MetricAggregate25> HourlyMetrics => Set<MetricAggregate25>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity25>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate25>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MetricEntity25));
+                entity.HasAnnotation(
+                    ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('1 hour', \"Timestamp\") AS bucket FROM \"Metrics\" GROUP BY bucket;");
+            });
+        }
+    }
+
+    private class IdenticalRawDefinitionContextB25 : DbContext
+    {
+        public DbSet<MetricEntity25> Metrics => Set<MetricEntity25>();
+        public DbSet<MetricAggregate25> HourlyMetrics => Set<MetricAggregate25>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity25>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate25>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MetricEntity25));
+                entity.HasAnnotation(
+                    ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('1 hour', \"Timestamp\") AS bucket FROM \"Metrics\" GROUP BY bucket;");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Emit_No_Operation_When_ViewDefinition_Identical()
+    {
+        // Arrange - counter-test for bug #5: identical ViewDefinition must not trigger drop+recreate
+        using IdenticalRawDefinitionContextA25 sourceContext = new();
+        using IdenticalRawDefinitionContextB25 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.DoesNotContain(operations, op => op is DropContinuousAggregateOperation);
+        Assert.DoesNotContain(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
 }

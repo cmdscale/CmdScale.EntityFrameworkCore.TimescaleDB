@@ -40,6 +40,25 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 withOptions.Add($"timescaledb.chunk_interval = '{operation.ChunkInterval}'");
             }
 
+            // Raw-SQL path required for scaffolding round-trips
+            if (!string.IsNullOrWhiteSpace(operation.ViewDefinition))
+            {
+                StringBuilder rawSqlBuilder = new();
+                rawSqlBuilder.Append($"CREATE MATERIALIZED VIEW {qualifiedIdentifier}");
+                rawSqlBuilder.AppendLine();
+                rawSqlBuilder.Append($"WITH ({string.Join(", ", withOptions)}) AS");
+                rawSqlBuilder.AppendLine();
+                rawSqlBuilder.Append(operation.ViewDefinition!.Trim().TrimEnd(';').Replace("\"", quoteString));
+                if (operation.WithNoData)
+                {
+                    rawSqlBuilder.AppendLine();
+                    rawSqlBuilder.Append("WITH NO DATA");
+                }
+                rawSqlBuilder.Append(';');
+                statements.Add(rawSqlBuilder.ToString());
+                return statements;
+            }
+
             // Build the SELECT list
             List<string> selectList = [];
 

@@ -15,7 +15,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             new NpgsqlDesignTimeServices().ConfigureDesignTimeServices(services);
 
             services.AddSingleton<ICSharpMigrationOperationGenerator, TimescaleCSharpMigrationOperationGenerator>()
-                    .AddSingleton<IDatabaseModelFactory, TimescaleDatabaseModelFactory>();
+                    .AddSingleton<IDatabaseModelFactory, TimescaleDatabaseModelFactory>()
+                    .AddSingleton<IProviderConfigurationCodeGenerator, TimescaleDbCodeGenerator>();
         }
     }
 }

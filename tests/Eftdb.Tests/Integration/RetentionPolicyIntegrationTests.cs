@@ -838,8 +838,6 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
         await using ModifiedPreserveJobSettingsContext modifiedContext = new(_connectionString!);
         await AlterDatabaseViaMigrationAsync(initialContext, modifiedContext);
 
-        // The recreation path must reapply non-default job settings on the new policy
-        // (this is exactly the flow the pre-2.26.3 alter_job bug used to break).
         int jobId = await GetRetentionPolicyJobIdAsync(modifiedContext, "retention_preserve_job_settings");
         Assert.True(jobId > 0);
 

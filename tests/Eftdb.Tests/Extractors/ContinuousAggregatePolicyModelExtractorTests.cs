@@ -531,4 +531,401 @@ public class ContinuousAggregatePolicyModelExtractorTests
     }
 
     #endregion
+
+    #region Should_Use_View_Schema_For_Policy_When_ToView_Specifies_Custom_Schema
+
+    private class ViewSchemaPolicySourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ViewSchemaPolicyAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class ViewSchemaPolicyContext : DbContext
+    {
+        public DbSet<ViewSchemaPolicySourceMetric> Metrics => Set<ViewSchemaPolicySourceMetric>();
+        public DbSet<ViewSchemaPolicyAggregate> Aggregates => Set<ViewSchemaPolicyAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ViewSchemaPolicySourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                // Parent in a different schema than the CA's view schema
+                entity.ToTable("Metrics", "telemetry");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ViewSchemaPolicyAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                // CA mapped via .ToView with explicit custom schema
+                entity.ToView("agg_view", "custom_schema");
+
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(ViewSchemaPolicySourceMetric));
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset, "1 month");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.EndOffset, "1 hour");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval, "1 hour");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Use_View_Schema_For_Policy_When_ToView_Specifies_Custom_Schema()
+    {
+        // Arrange
+        using ViewSchemaPolicyContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<AddContinuousAggregatePolicyOperation> operations =
+            [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
+
+        // Assert
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
+        Assert.Equal("custom_schema", op.Schema);
+        Assert.Equal("agg_view", op.MaterializedViewName);
+    }
+
+    #endregion
+
+    #region Should_Resolve_Parent_For_Policy_When_ParentName_Annotation_Holds_TableName_Not_ClrName
+
+    private class TableNameParentLookupPolicyMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public int StatusCode { get; set; }
+    }
+
+    private class TableNameParentLookupPolicyAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class TableNameParentLookupPolicyContext : DbContext
+    {
+        // Note: CLR name "TableNameParentLookupPolicyMetric" but the table is "ApiRequestLogs".
+        public DbSet<TableNameParentLookupPolicyMetric> Logs => Set<TableNameParentLookupPolicyMetric>();
+        public DbSet<TableNameParentLookupPolicyAggregate> HourlyLogs => Set<TableNameParentLookupPolicyAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<TableNameParentLookupPolicyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("ApiRequestLogs", "telemetry");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<TableNameParentLookupPolicyAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_api_logs", "telemetry");
+
+                // Scaffolder writes the table name into ParentName, not the CLR / short name.
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_api_logs");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "ApiRequestLogs");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset, "1 month");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.EndOffset, "1 hour");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval, "1 hour");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_Parent_For_Policy_When_ParentName_Annotation_Holds_TableName_Not_ClrName()
+    {
+        // Arrange
+        using TableNameParentLookupPolicyContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<AddContinuousAggregatePolicyOperation> operations =
+            [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
+
+        // Assert
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
+        Assert.Equal("hourly_api_logs", op.MaterializedViewName);
+        Assert.Equal("telemetry", op.Schema);
+    }
+
+    #endregion
+
+    #region Should_Emit_Policy_When_ParentName_Annotation_Is_Missing
+
+    private class NoParentNameMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NoParentNameAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class NoParentNamePolicyContext : DbContext
+    {
+        public DbSet<NoParentNameMetric> Metrics => Set<NoParentNameMetric>();
+        public DbSet<NoParentNameAggregate> Aggregates => Set<NoParentNameAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoParentNameMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<NoParentNameAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("agg_view", "custom_schema");
+
+                // HasRefreshPolicy set, but ParentName annotation deliberately omitted
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset, "1 month");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.EndOffset, "1 hour");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval, "1 hour");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Emit_Policy_When_ParentName_Annotation_Is_Missing()
+    {
+        // Arrange
+        using NoParentNamePolicyContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<AddContinuousAggregatePolicyOperation> operations =
+            [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
+
+        // Assert: policy is still produced; schema falls through to the view's own schema
+        // because the parent-lookup branch is short-circuited by the IsNullOrWhiteSpace guard.
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
+        Assert.Equal("agg_view", op.MaterializedViewName);
+        Assert.Equal("custom_schema", op.Schema);
+    }
+
+    #endregion
+
+    #region Should_Emit_Policy_When_ParentName_Does_Not_Match_Any_Entity
+
+    private class UnmatchedParentMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class UnmatchedParentAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class UnmatchedParentPolicyContext : DbContext
+    {
+        public DbSet<UnmatchedParentMetric> Metrics => Set<UnmatchedParentMetric>();
+        public DbSet<UnmatchedParentAggregate> Aggregates => Set<UnmatchedParentAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UnmatchedParentMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<UnmatchedParentAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("agg_view", "custom_schema");
+
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
+                // ParentName matches nothing in the model — covers the path where all three
+                // disjuncts in the FirstOrDefault predicate (CLR name / ShortName / table name)
+                // return false for every entity.
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "DoesNotExist");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset, "1 month");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.EndOffset, "1 hour");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval, "1 hour");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Emit_Policy_When_ParentName_Does_Not_Match_Any_Entity()
+    {
+        // Arrange
+        using UnmatchedParentPolicyContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<AddContinuousAggregatePolicyOperation> operations =
+            [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
+
+        // Assert: parent lookup yields null, schema falls through to the view's own schema.
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
+        Assert.Equal("custom_schema", op.Schema);
+    }
+
+    #endregion
+
+    #region Should_Emit_Policy_With_Null_Offsets_And_ScheduleInterval
+
+    private class OptionalOffsetsMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OptionalOffsetsAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class OptionalOffsetsPolicyContext : DbContext
+    {
+        public DbSet<OptionalOffsetsMetric> Metrics => Set<OptionalOffsetsMetric>();
+        public DbSet<OptionalOffsetsAggregate> Aggregates => Set<OptionalOffsetsAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OptionalOffsetsMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<OptionalOffsetsAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("agg_view", "custom_schema");
+
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(OptionalOffsetsMetric));
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Emit_Policy_With_Null_Offsets_And_ScheduleInterval()
+    {
+        // Arrange
+        using OptionalOffsetsPolicyContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<AddContinuousAggregatePolicyOperation> operations =
+            [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
+
+        // Assert: optional fields stay null when their annotations are absent.
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
+        Assert.Null(op.StartOffset);
+        Assert.Null(op.EndOffset);
+        Assert.Null(op.ScheduleInterval);
+    }
+
+    #endregion
+
+    #region Should_Use_DefaultSchema_When_No_Schema_Sources_Available
+
+    private class NoSchemaMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NoSchemaAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class NoSchemaPolicyContext : DbContext
+    {
+        public DbSet<NoSchemaMetric> Metrics => Set<NoSchemaMetric>();
+        public DbSet<NoSchemaAggregate> Aggregates => Set<NoSchemaAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            // Parent has no explicit schema.
+            modelBuilder.Entity<NoSchemaMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<NoSchemaAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                // No .ToView / .ToTable — view schema and entity schema both null.
+                // Combined with parent having no schema, the resolution chain falls
+                // all the way through to DefaultValues.DefaultSchema.
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(NoSchemaMetric));
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset, "1 month");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.EndOffset, "1 hour");
+                entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval, "1 hour");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Use_DefaultSchema_When_No_Schema_Sources_Available()
+    {
+        // Arrange
+        using NoSchemaPolicyContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<AddContinuousAggregatePolicyOperation> operations =
+            [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
+
+        // Assert: with no view schema, no entity schema, and no parent schema,
+        // resolution falls through to DefaultValues.DefaultSchema ("public").
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
+        Assert.Equal("public", op.Schema);
+    }
+
+    #endregion
 }

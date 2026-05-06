@@ -1263,5 +1263,125 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         #endregion
+
+        #region CreateContinuousAggregateOperation Tests - Raw ViewDefinition
+
+        [Fact]
+        public void Runtime_Create_WithViewDefinition_GeneratesRawCreateMaterializedView()
+        {
+            // Arrange - scaffolded round-trip path: raw view body, no structured fields needed
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "hourly_metrics",
+                Schema = "public",
+                ParentName = "metrics",
+                ViewDefinition = "SELECT time_bucket('1 hour', \"time\") AS bucket FROM \"src\"\n GROUP BY bucket;",
+                MaterializedOnly = true,
+                CreateGroupIndexes = false,
+                WithNoData = false
+            };
+
+            // Act
+            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
+            List<string> statements = generator.Generate(operation);
+
+            // Assert
+            string sql = Assert.Single(statements);
+            Assert.Contains("CREATE MATERIALIZED VIEW \"public\".\"hourly_metrics\"", sql);
+            Assert.Contains("timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = true", sql);
+            // Raw body present (with leading semicolon stripped) and a final terminating semicolon appended
+            Assert.Contains("SELECT time_bucket('1 hour', \"time\") AS bucket FROM \"src\"", sql);
+            Assert.Contains("GROUP BY bucket", sql);
+            Assert.EndsWith(";", sql);
+            // Raw body's own trailing ';' is stripped, so only one ';' at the end
+            Assert.False(sql.EndsWith(";;"));
+            // No structured SELECT synthesis appears
+            Assert.DoesNotContain("AS time_bucket,", sql);
+        }
+
+        [Fact]
+        public void Runtime_Create_WithViewDefinition_AndWithNoData_AppendsWithNoDataBeforeSemicolon()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "hourly_metrics",
+                Schema = "public",
+                ParentName = "metrics",
+                ViewDefinition = "SELECT time_bucket('1 hour', \"time\") AS bucket FROM \"src\" GROUP BY bucket",
+                WithNoData = true
+            };
+
+            // Act
+            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
+            List<string> statements = generator.Generate(operation);
+
+            // Assert
+            string sql = Assert.Single(statements);
+            Assert.Contains("WITH NO DATA", sql);
+            // WITH NO DATA must come immediately before the trailing ';'
+            Assert.EndsWith("WITH NO DATA;", sql);
+        }
+
+        [Fact]
+        public void DesignTime_Create_WithViewDefinition_DoublesEmbeddedQuotes()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "hourly_metrics",
+                Schema = "public",
+                ParentName = "metrics",
+                ViewDefinition = "SELECT time_bucket('1 hour', \"time\") AS bucket FROM \"src\" GROUP BY bucket;"
+            };
+
+            // Act - design-time mode escapes embedded `"` to `""` for the C# verbatim string literal
+            ContinuousAggregateOperationGenerator generator = new(isDesignTime: true);
+            List<string> statements = generator.Generate(operation);
+
+            // Assert
+            string sql = Assert.Single(statements);
+            Assert.Contains("CREATE MATERIALIZED VIEW \"\"public\"\".\"\"hourly_metrics\"\"", sql);
+            Assert.Contains("\"\"time\"\"", sql);
+            Assert.Contains("\"\"src\"\"", sql);
+            // No raw single `"` should appear in the body — all should be doubled
+            Assert.DoesNotContain("\"time\"", sql.Replace("\"\"time\"\"", ""));
+        }
+
+        [Fact]
+        public void Runtime_Create_WithViewDefinition_IgnoresStructuredFields()
+        {
+            // Arrange - even when structured fields are populated with nonsense values,
+            // the raw ViewDefinition must take precedence and they must not appear in output.
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "hourly_metrics",
+                Schema = "public",
+                ParentName = "metrics",
+                ViewDefinition = "SELECT raw_only AS bucket FROM \"src\" GROUP BY bucket;",
+                TimeBucketWidth = "BOGUS_WIDTH",
+                TimeBucketSourceColumn = "bogus_column",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["bogus_alias:Avg:bogus_source"],
+                GroupByColumns = ["bogus_groupby"],
+                WhereClause = "bogus_where = 1"
+            };
+
+            // Act
+            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
+            List<string> statements = generator.Generate(operation);
+
+            // Assert - raw body is present, structured fields are not
+            string sql = Assert.Single(statements);
+            Assert.Contains("SELECT raw_only AS bucket FROM \"src\" GROUP BY bucket", sql);
+            Assert.DoesNotContain("BOGUS_WIDTH", sql);
+            Assert.DoesNotContain("bogus_column", sql);
+            Assert.DoesNotContain("bogus_alias", sql);
+            Assert.DoesNotContain("bogus_source", sql);
+            Assert.DoesNotContain("bogus_groupby", sql);
+            Assert.DoesNotContain("bogus_where", sql);
+        }
+
+        #endregion
     }
 }

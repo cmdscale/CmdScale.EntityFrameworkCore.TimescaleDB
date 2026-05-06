@@ -45,11 +45,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 if (!string.IsNullOrWhiteSpace(parentModelName))
                 {
                     parentEntityType = relationalModel.Model.GetEntityTypes()
-                        .FirstOrDefault(e => e.ClrType?.Name == parentModelName || e.ShortName() == parentModelName);
+                        .FirstOrDefault(e =>
+                            e.ClrType?.Name == parentModelName
+                            || e.ShortName() == parentModelName
+                            || e.GetTableName() == parentModelName);
                 }
 
-                // Use parent table's schema for the continuous aggregate (matching ContinuousAggregateModelExtractor behavior)
-                string schema = parentEntityType?.GetSchema() ?? entityType.GetSchema() ?? DefaultValues.DefaultSchema;
+                string schema = entityType.GetViewSchema()
+                    ?? entityType.GetSchema()
+                    ?? parentEntityType?.GetSchema()
+                    ?? DefaultValues.DefaultSchema;
 
                 // Extract policy configuration from annotations
                 string? startOffset = entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset)?.Value as string;

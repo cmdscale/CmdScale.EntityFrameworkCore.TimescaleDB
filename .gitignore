@@ -432,6 +432,7 @@ samples/Eftdb.Samples.Shared/Migrations/
 
 # Ignore all scaffolded models and the DbContext from the DbFirst project
 samples/Eftdb.Samples.DatabaseFirst/**/*.cs
+!samples/Eftdb.Samples.DatabaseFirst/Program.cs
 
 # AI - personal overrides only
 .claude/settings.local.json

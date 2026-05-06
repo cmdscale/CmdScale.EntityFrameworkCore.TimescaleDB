@@ -2222,4 +2222,389 @@ public class ContinuousAggregateModelExtractorTests
     }
 
     #endregion
+
+    #region Should_Extract_ContinuousAggregate_When_TimeBucketSourceColumn_Annotation_Holds_Column_Name_Under_SnakeCase
+
+    private class ScaffoldedTimeBucketSourceMetric
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldedTimeBucketHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class ScaffoldedTimeBucketContext : DbContext
+    {
+        public DbSet<ScaffoldedTimeBucketSourceMetric> Metrics => Set<ScaffoldedTimeBucketSourceMetric>();
+        public DbSet<ScaffoldedTimeBucketHourlyMetric> HourlyMetrics => Set<ScaffoldedTimeBucketHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseSnakeCaseNamingConvention()
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldedTimeBucketSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics");
+                entity.IsHypertable(x => x.Time);
+            });
+
+            modelBuilder.Entity<ScaffoldedTimeBucketHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_metrics");
+
+                // Scaffolder emits the resolved database column name (snake_case "time"),
+                // not the CLR property name. Bug #44 dropped the aggregate when the
+                // extractor only matched CLR property names.
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(ScaffoldedTimeBucketSourceMetric));
+                entity.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, "time");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_ContinuousAggregate_When_TimeBucketSourceColumn_Annotation_Holds_Column_Name_Under_SnakeCase()
+    {
+        // Arrange
+        using ScaffoldedTimeBucketContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Single(operations);
+        Assert.Equal("time", operations[0].TimeBucketSourceColumn);
+    }
+
+    #endregion
+
+    #region Should_Extract_AggregateFunction_When_SourceColumnName_Annotation_Holds_Column_Name_Under_SnakeCase
+
+    private class ScaffoldedAggregateFunctionSourceMetric
+    {
+        public DateTime Time { get; set; }
+        public double SensorValue { get; set; }
+    }
+
+    private class ScaffoldedAggregateFunctionHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ScaffoldedAggregateFunctionContext : DbContext
+    {
+        public DbSet<ScaffoldedAggregateFunctionSourceMetric> Metrics => Set<ScaffoldedAggregateFunctionSourceMetric>();
+        public DbSet<ScaffoldedAggregateFunctionHourlyMetric> HourlyMetrics => Set<ScaffoldedAggregateFunctionHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseSnakeCaseNamingConvention()
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldedAggregateFunctionSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics");
+                entity.IsHypertable(x => x.Time);
+            });
+
+            modelBuilder.Entity<ScaffoldedAggregateFunctionHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_metrics");
+
+                // Scaffolder writes the source-column part of "alias:fn:source" in
+                // resolved-column-name form (snake_case "sensor_value").
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(ScaffoldedAggregateFunctionSourceMetric));
+                entity.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, "time");
+
+                List<string> aggregateFunctions = ["AvgValue:Avg:sensor_value"];
+                entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, aggregateFunctions);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_AggregateFunction_When_SourceColumnName_Annotation_Holds_Column_Name_Under_SnakeCase()
+    {
+        // Arrange
+        using ScaffoldedAggregateFunctionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Single(operations);
+        Assert.Single(operations[0].AggregateFunctions);
+        // Alias resolves via the aggregate entity's snake_case convention; source resolves via reverse lookup.
+        Assert.Equal("avg_value:Avg:sensor_value", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Extract_ContinuousAggregate_When_ViewDefinition_Is_Set_Without_StructuredFields
+
+    private class RawDefinitionSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class RawDefinitionAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class RawDefinitionContext : DbContext
+    {
+        public DbSet<RawDefinitionSourceMetric> Metrics => Set<RawDefinitionSourceMetric>();
+        public DbSet<RawDefinitionAggregate> HourlyMetrics => Set<RawDefinitionAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RawDefinitionSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<RawDefinitionAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(RawDefinitionSourceMetric));
+                entity.HasAnnotation(
+                    ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('1 hour', \"Timestamp\") AS bucket FROM \"Metrics\" GROUP BY bucket;");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_ContinuousAggregate_When_ViewDefinition_Is_Set_Without_StructuredFields()
+    {
+        // Arrange
+        using RawDefinitionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert - exactly one operation emitted with raw ViewDefinition populated, structured fields empty
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.ViewDefinition);
+        Assert.Contains("time_bucket('1 hour'", operation.ViewDefinition);
+        Assert.Equal(string.Empty, operation.TimeBucketWidth);
+        Assert.Equal(string.Empty, operation.TimeBucketSourceColumn);
+        Assert.Equal("hourly_metrics", operation.MaterializedViewName);
+    }
+
+    #endregion
+
+    #region Should_Skip_ContinuousAggregate_When_Neither_ViewDefinition_Nor_TimeBucketWidth_Is_Set
+
+    private class NoStructuredOrRawSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NoStructuredOrRawAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class NoStructuredOrRawContext : DbContext
+    {
+        public DbSet<NoStructuredOrRawSourceMetric> Metrics => Set<NoStructuredOrRawSourceMetric>();
+        public DbSet<NoStructuredOrRawAggregate> HourlyMetrics => Set<NoStructuredOrRawAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoStructuredOrRawSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<NoStructuredOrRawAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(NoStructuredOrRawSourceMetric));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_ContinuousAggregate_When_Neither_ViewDefinition_Nor_TimeBucketWidth_Is_Set()
+    {
+        // Arrange
+        using NoStructuredOrRawContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Resolve_Parent_When_ParentName_Annotation_Holds_TableName_Not_ClrName
+
+    private class ApiRequestLog
+    {
+        public DateTime Timestamp { get; set; }
+        public int StatusCode { get; set; }
+    }
+
+    private class ApiRequestLogHourlyAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class TableNameParentLookupContext : DbContext
+    {
+        // Note: CLR class is "ApiRequestLog" but the table is "ApiRequestLogs".
+        public DbSet<ApiRequestLog> Logs => Set<ApiRequestLog>();
+        public DbSet<ApiRequestLogHourlyAggregate> HourlyLogs => Set<ApiRequestLogHourlyAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ApiRequestLog>(entity =>
+            {
+                entity.HasNoKey();
+                // Distinct table name so ParentName == "ApiRequestLogs" matches table only, not CLR / short name
+                entity.ToTable("ApiRequestLogs");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ApiRequestLogHourlyAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("hourly_api_logs");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_api_logs");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "ApiRequestLogs");
+                entity.HasAnnotation(
+                    ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('1 hour', \"Timestamp\") AS bucket FROM \"ApiRequestLogs\" GROUP BY bucket;");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_Parent_When_ParentName_Annotation_Holds_TableName_Not_ClrName()
+    {
+        // Arrange
+        using TableNameParentLookupContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Equal("ApiRequestLogs", operation.ParentName);
+        Assert.Equal("hourly_api_logs", operation.MaterializedViewName);
+    }
+
+    #endregion
+
+    #region Should_Use_View_Schema_When_ToView_Specifies_Custom_Schema
+
+    private class ViewSchemaSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ViewSchemaAggregate
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class ViewSchemaContext : DbContext
+    {
+        public DbSet<ViewSchemaSourceMetric> Metrics => Set<ViewSchemaSourceMetric>();
+        public DbSet<ViewSchemaAggregate> HourlyMetrics => Set<ViewSchemaAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ViewSchemaSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                // Parent in different schema than the CA's view schema
+                entity.ToTable("Metrics", "telemetry");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ViewSchemaAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                // CA mapped via .ToView with explicit custom schema
+                entity.ToView("agg_view", "custom_schema");
+
+                entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(ViewSchemaSourceMetric));
+                entity.HasAnnotation(
+                    ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('1 hour', \"Timestamp\") AS bucket FROM \"telemetry\".\"Metrics\" GROUP BY bucket;");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Use_View_Schema_When_ToView_Specifies_Custom_Schema()
+    {
+        // Arrange
+        using ViewSchemaContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert - schema resolution prefers GetViewSchema() over the parent's schema and the default
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Equal("custom_schema", operation.Schema);
+    }
+
+    #endregion
 }

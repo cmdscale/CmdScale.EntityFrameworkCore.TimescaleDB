@@ -27,9 +27,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 table[ContinuousAggregateAnnotations.ChunkInterval] = info.ChunkInterval;
             }
 
-            // Store the view definition for reference (custom annotation)
-            // This will help users understand the structure when scaffolding
-            table["TimescaleDB:ViewDefinition"] = info.ViewDefinition;
+            // Capture the catalog's view body so the runtime extractor + generator can
+            // round-trip CREATE MATERIALIZED VIEW without needing structured time_bucket /
+            // aggregate / group_by annotations (which the scaffolder cannot reliably
+            // recover from the catalog).
+            table[ContinuousAggregateAnnotations.ViewDefinition] = info.ViewDefinition;
         }
     }
 }

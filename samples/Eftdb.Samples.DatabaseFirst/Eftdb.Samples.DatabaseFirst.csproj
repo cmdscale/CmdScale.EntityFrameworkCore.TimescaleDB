@@ -6,6 +6,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
+		<OutputType>Exe</OutputType>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AssemblyName>CmdScale.EntityFrameworkCore.TimescaleDB.Samples.DatabaseFirst</AssemblyName>
