@@ -59,9 +59,9 @@ Create and manage **TimescaleDB continuous aggregates** — automatically refres
 
 Call TimescaleDB SQL functions directly from LINQ via `EF.Functions.*` extensions. Each entry below translates to its TimescaleDB equivalent at query time:
 
-| `EF.Functions.*` | TimescaleDB | Purpose                                           |
-| ---------------- | ----------- | ------------------------------------------------- |
-| `TimeBucket`     | `time_bucket()` | Group rows into fixed-width time intervals.   |
+| `EF.Functions.*` | TimescaleDB     | Purpose                                     |
+| ---------------- | --------------- | ------------------------------------------- |
+| `TimeBucket`     | `time_bucket()` | Group rows into fixed-width time intervals. |
 
 > More TimescaleDB function support coming soon.
 
@@ -348,7 +348,6 @@ Whether you're fixing bugs, adding new features, improving documentation, or sha
    ```
 
 3. **Make Your Changes**
-
    - Follow the existing code style and patterns.
    - Write meaningful tests for any new logic. Check out the [Wiki](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/wiki) to gain knowledge about writing tests.
 
@@ -379,40 +378,12 @@ Before submitting AI-assisted contributions, make sure to:
 
 - **Review all generated code** for correctness, readability, and security.
 - **Verify that tests pass** and add new tests where appropriate and effective.
-- **Follow the project's coding style and conventions** — don't let your AI assistant overuse comments; code should be self-explanatory, and comments should explain *why*, not *what*.
+- **Follow the project's coding style and conventions** — don't let your AI assistant overuse comments; code should be self-explanatory, and comments should explain _why_, not _what_.
 
 This repository ships with a [Claude Code](https://claude.ai/code) setup in the `.claude/` directory, including specialized agents, coding rules, reusable skills, and architecture reference docs. Personal settings go in `.claude/settings.local.json` (gitignored).
-
 
 ### Questions or Ideas?
 
 If you have questions, ideas, or need help getting started, feel free to [open an issue](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/issues). We’re happy to help and discuss!
 
 Thank you for contributing! 💜
-
----
-
-## 📄 License
-
-```txt
-MIT License
-Copyright (c) 2025 CmdScale GmbH
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
