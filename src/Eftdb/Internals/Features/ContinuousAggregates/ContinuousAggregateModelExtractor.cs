@@ -31,9 +31,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     continue;
                 }
 
-                // Find the parent entity type to get its table name
+                // Find the parent entity type
                 IEntityType? parentEntityType = relationalModel.Model.GetEntityTypes()
-                    .FirstOrDefault(e => e.ClrType?.Name == parentModelName || e.ShortName() == parentModelName);
+                    .FirstOrDefault(e =>
+                        e.ClrType?.Name == parentModelName
+                        || e.ShortName() == parentModelName
+                        || e.GetTableName() == parentModelName);
                 if (parentEntityType == null)
                 {
                     continue;
@@ -46,14 +49,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 }
 
                 // Get time bucket configuration
-                string? timeBucketWidth = entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth)?.Value as string;
-                if (string.IsNullOrWhiteSpace(timeBucketWidth))
-                {
-                    continue;
-                }
+                string? viewDefinition = entityType.FindAnnotation(ContinuousAggregateAnnotations.ViewDefinition)?.Value as string;
+                bool useRawDefinition = !string.IsNullOrWhiteSpace(viewDefinition);
 
+                // Get time bucket configuration
+                string? timeBucketWidth = entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth)?.Value as string;
                 string? timeBucketSourceColumnModelName = entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn)?.Value as string;
-                if (string.IsNullOrWhiteSpace(timeBucketSourceColumnModelName))
+                if (!useRawDefinition && (string.IsNullOrWhiteSpace(timeBucketWidth) || string.IsNullOrWhiteSpace(timeBucketSourceColumnModelName)))
                 {
                     continue;
                 }
@@ -62,11 +64,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 StoreObjectIdentifier parentStoreIdentifier = StoreObjectIdentifier.Table(parentTableName, parentEntityType.GetSchema());
 
                 string? viewName = entityType.GetViewName() ?? materializedViewName;
-                StoreObjectIdentifier aggregateStoreIdentifier = StoreObjectIdentifier.View(viewName, entityType.GetSchema());
+                StoreObjectIdentifier aggregateStoreIdentifier = StoreObjectIdentifier.View(viewName, entityType.GetViewSchema() ?? entityType.GetSchema());
 
-                // Resolve time bucket source column to database column name
-                string? timeBucketSourceColumn = parentEntityType.FindProperty(timeBucketSourceColumnModelName)?.GetColumnName(parentStoreIdentifier);
-                if (string.IsNullOrWhiteSpace(timeBucketSourceColumn))
+                // Resolve time bucket source column to database column name. Skipped on
+                // the raw-definition path because the structured field is unused.
+                string? timeBucketSourceColumn = useRawDefinition
+                    ? null
+                    : ColumnNameResolver.Resolve(parentEntityType, timeBucketSourceColumnModelName!, parentStoreIdentifier);
+                if (!useRawDefinition && string.IsNullOrWhiteSpace(timeBucketSourceColumn))
                 {
                     continue;
                 }
@@ -98,7 +103,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                         string sourceColumnModelName = parts[2];
 
                         // Resolve source column name from parent entity
-                        string? sourceColumnDbName = parentEntityType.FindProperty(sourceColumnModelName)?.GetColumnName(parentStoreIdentifier);
+                        string? sourceColumnDbName = ColumnNameResolver.Resolve(parentEntityType, sourceColumnModelName, parentStoreIdentifier);
                         if (string.IsNullOrWhiteSpace(sourceColumnDbName))
                         {
                             // Skip if source column not found
@@ -141,8 +146,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     }
                 }
 
-                // Use parent table's schema for the continuous aggregate
-                string schema = parentEntityType.GetSchema() ?? entityType.GetSchema() ?? DefaultValues.DefaultSchema;
+                // Schema resolution: prefer the CA's own view schema (set by .ToView(...)
+                // or by the scaffolder), fall back to the parent's schema, finally default.
+                string schema = entityType.GetViewSchema()
+                    ?? entityType.GetSchema()
+                    ?? parentEntityType.GetSchema()
+                    ?? DefaultValues.DefaultSchema;
 
                 yield return new CreateContinuousAggregateOperation
                 {
@@ -153,12 +162,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     WithNoData = withNoData,
                     CreateGroupIndexes = createGroupIndexes,
                     MaterializedOnly = materializedOnly,
-                    TimeBucketWidth = timeBucketWidth,
-                    TimeBucketSourceColumn = timeBucketSourceColumn,
+                    TimeBucketWidth = timeBucketWidth ?? string.Empty,
+                    TimeBucketSourceColumn = timeBucketSourceColumn ?? string.Empty,
                     TimeBucketGroupBy = timeBucketGroupBy,
                     AggregateFunctions = aggregateFunctions,
                     GroupByColumns = groupByColumns,
-                    WhereClause = whereClause
+                    WhereClause = whereClause,
+                    ViewDefinition = useRawDefinition ? viewDefinition : null
                 };
             }
         }

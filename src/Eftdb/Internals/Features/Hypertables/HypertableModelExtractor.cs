@@ -35,7 +35,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     continue;
                 }
 
-                string? timeColumnName = entityType.FindProperty(timeColumnModelName)?.GetColumnName(storeIdentifier);
+                string? timeColumnName = ColumnNameResolver.Resolve(entityType, timeColumnModelName, storeIdentifier);
                 if (string.IsNullOrWhiteSpace(timeColumnName))
                 {
                     continue;
@@ -47,7 +47,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                 if (!string.IsNullOrWhiteSpace(chunkSkipColumnsString))
                 {
                     chunkSkipColumns = chunkSkipColumnsString.Split(',', StringSplitOptions.TrimEntries)
-                        .Select(modelPropName => entityType.FindProperty(modelPropName)?.GetColumnName(storeIdentifier))
+                        .Select(name => ColumnNameResolver.Resolve(entityType, name, storeIdentifier))
                         .Where(name => name != null)
                         .ToList()!;
                 }
@@ -97,7 +97,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                         additionalDimensions = [];
                         foreach (Dimension dim in modelDimensions)
                         {
-                            string? conventionalColumnName = entityType.FindProperty(dim.ColumnName)?.GetColumnName(storeIdentifier);
+                            string? conventionalColumnName = ColumnNameResolver.Resolve(entityType, dim.ColumnName, storeIdentifier);
                             if (conventionalColumnName != null)
                             {
                                 Dimension newDimension = JsonSerializer.Deserialize<Dimension>(JsonSerializer.Serialize(dim))!;

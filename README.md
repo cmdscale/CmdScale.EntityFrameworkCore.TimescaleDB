@@ -1,6 +1,5 @@
 ﻿# CmdScale.EntityFrameworkCore.TimescaleDB
 
-![CmdScale Project](https://github.com/cmdscale/.github/raw/main/profile/assets/CmdShield.svg)
 [![Test Workflow](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml/badge.svg)](https://github.com/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/actions/workflows/run-tests.yml)
 [![NuGet downloads](https://img.shields.io/nuget/dt/CmdScale.EntityFrameworkCore.TimescaleDB?logo=nuget&label=Downloads)](https://www.nuget.org/packages/CmdScale.EntityFrameworkCore.TimescaleDB)
 [![codecov](https://codecov.io/gh/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB/graph/badge.svg?token=YP3YCJLQ41)](https://codecov.io/gh/cmdscale/CmdScale.EntityFrameworkCore.TimescaleDB)
@@ -42,6 +41,10 @@ Seamlessly define and manage **TimescaleDB hypertables** using standard EF Core 
 
 Take full control over how your hypertable data is organized on disk with **TimescaleDB's** reorder policies. By defining a reorder policy, you can automatically re-sort chunks of data by a specified index, significantly improving the performance of queries that scan large time ranges or specific index values.
 
+### Retention Policies
+
+Automatically drop old chunks from hypertables and continuous aggregates so storage stays bounded as your time-series data grows.
+
 ### Continuous Aggregates
 
 Create and manage **TimescaleDB continuous aggregates** — automatically refreshed materialized views that pre-compute aggregate data for faster queries. Define time-bucketed aggregations using a type-safe Fluent API or Data Annotations.
@@ -51,6 +54,16 @@ Create and manage **TimescaleDB continuous aggregates** — automatically refres
 - **Group By Columns**: Add additional grouping dimensions beyond time.
 - **Filtering**: Apply WHERE clauses to filter source data.
 - **Refresh Policies**: Configure automatic refresh with customizable time windows, schedule intervals, and batching options.
+
+### Query Functions
+
+Call TimescaleDB SQL functions directly from LINQ via `EF.Functions.*` extensions. Each entry below translates to its TimescaleDB equivalent at query time:
+
+| `EF.Functions.*` | TimescaleDB | Purpose                                           |
+| ---------------- | ----------- | ------------------------------------------------- |
+| `TimeBucket`     | `time_bucket()` | Group rows into fixed-width time intervals.   |
+
+> More TimescaleDB function support coming soon.
 
 ---
 

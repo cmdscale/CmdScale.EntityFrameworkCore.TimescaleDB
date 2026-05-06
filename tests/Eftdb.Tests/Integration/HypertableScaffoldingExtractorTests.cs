@@ -774,6 +774,152 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
 
     #endregion
 
+    #region Should_Extract_ChunkTimeInterval_In_Microseconds_For_OneDay
+
+    private class OneDayChunkIntervalMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OneDayChunkIntervalContext(string connectionString) : DbContext
+    {
+        public DbSet<OneDayChunkIntervalMetric> Metrics => Set<OneDayChunkIntervalMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OneDayChunkIntervalMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("one_day_chunk_metrics");
+                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("86400000000");
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_ChunkTimeInterval_In_Microseconds_For_OneDay()
+    {
+        // Arrange
+        await using OneDayChunkIntervalContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        // Act
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "one_day_chunk_metrics")];
+        Assert.Equal("86400000000", info.ChunkTimeInterval);
+    }
+
+    #endregion
+
+    #region Should_Extract_ChunkTimeInterval_In_Microseconds_For_SevenDays
+
+    private class SevenDaysChunkIntervalMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SevenDaysChunkIntervalContext(string connectionString) : DbContext
+    {
+        public DbSet<SevenDaysChunkIntervalMetric> Metrics => Set<SevenDaysChunkIntervalMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SevenDaysChunkIntervalMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("seven_days_chunk_metrics");
+                // 7 days = 604,800 seconds * 1,000,000 us/s = 604,800,000,000 us
+                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("604800000000");
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_ChunkTimeInterval_In_Microseconds_For_SevenDays()
+    {
+        // Arrange
+        await using SevenDaysChunkIntervalContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        // Act
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "seven_days_chunk_metrics")];
+        Assert.Equal("604800000000", info.ChunkTimeInterval);
+    }
+
+    #endregion
+
+    #region Should_Extract_AdditionalDimension_TimeRange_In_Microseconds
+
+    private class TimeRangeDimensionMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public DateTime SecondaryTimestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class TimeRangeDimensionContext(string connectionString) : DbContext
+    {
+        public DbSet<TimeRangeDimensionMetric> Metrics => Set<TimeRangeDimensionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<TimeRangeDimensionMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("time_range_dim_metrics");
+                // 30 days expressed in microseconds (30 * 86,400 * 1,000,000 = 2,592,000,000,000)
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasDimension(Dimension.CreateRange("SecondaryTimestamp", "2592000000000"));
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_AdditionalDimension_TimeRange_In_Microseconds()
+    {
+        // Arrange
+        await using TimeRangeDimensionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        // Act
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "time_range_dim_metrics")];
+        Dimension dimension = Assert.Single(info.AdditionalDimensions);
+        Assert.Equal("SecondaryTimestamp", dimension.ColumnName);
+        Assert.Equal(EDimensionType.Range, dimension.Type);
+        // 30 days in microseconds
+        Assert.Equal("2592000000000", dimension.Interval);
+    }
+
+    #endregion
+
     #region Should_Extract_Multiple_Hypertables
 
     private class MultipleHypertablesMetric

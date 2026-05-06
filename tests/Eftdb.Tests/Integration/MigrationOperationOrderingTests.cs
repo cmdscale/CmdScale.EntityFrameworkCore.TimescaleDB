@@ -14,12 +14,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Issue #15 Background:</strong> The original bug was that TimescaleMigrationsModelDiffer used List.Sort()
-/// which is an unstable sort and destroyed the correct dependency order from base.GetDifferences().
-/// The fix was to use OrderBy() which is a stable sort that preserves the relative order
-/// of elements with equal priority values.
-/// </para>
-/// <para>
 /// <strong>Why Unstable Sorts Don't Reliably Fail Tests:</strong>
 /// List.Sort() is an unstable sort, meaning it does not guarantee preservation of relative order
 /// for elements with equal sort keys. However, it doesn't randomly shuffle elements - it uses an
@@ -27,19 +21,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration;
 /// 1. The specific input data
 /// 2. The number of elements
 /// 3. The distribution of priorities
-/// </para>
-/// <para>
-/// In practice, for small lists (like in these tests), List.Sort() often appears stable even though
-/// it's not guaranteed to be. The bug was intermittent in production because:
-/// - EF Core orders CreateTable before CreateIndex (stable order from base differ)
-/// - All standard EF Core operations have priority 0
-/// - List.Sort() might preserve their order... or might not
-/// - The issue manifested unpredictably, especially with larger/more complex models
-/// </para>
-/// <para>
-/// <strong>These tests verify correct behavior but cannot reliably detect the unstable sort bug.</strong>
-/// They serve as regression tests to ensure OrderBy() is used and the correct ordering is maintained.
-/// Manual code review is needed to verify the stable sort is in place.
 /// </para>
 /// </remarks>
 public class MigrationOperationOrderingTests : MigrationTestBase

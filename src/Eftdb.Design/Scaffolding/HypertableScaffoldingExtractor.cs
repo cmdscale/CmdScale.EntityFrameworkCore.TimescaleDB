@@ -77,7 +77,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     column_name,
                     dimension_number,
                     num_partitions,
-                    EXTRACT(EPOCH FROM time_interval) * 1000 AS time_interval_microseconds,
+                    EXTRACT(EPOCH FROM time_interval) * 1000000 AS time_interval_microseconds,
                     integer_interval
                 FROM timescaledb_information.dimensions
                 ORDER BY hypertable_schema, hypertable_name, dimension_number;";
