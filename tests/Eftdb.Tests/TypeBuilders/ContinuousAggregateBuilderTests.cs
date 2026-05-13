@@ -1580,4 +1580,289 @@ public class ContinuousAggregateBuilderTests
     }
 
     #endregion
+
+    #region IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn
+
+    private class IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_MetricEntity
+    {
+        public DateTimeOffset Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_HourlyMetricAggregate
+    {
+        public DateTimeOffset TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_Context : DbContext
+    {
+        public DbSet<IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_MetricEntity> Metrics => Set<IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_MetricEntity>();
+        public DbSet<IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_HourlyMetricAggregate> HourlyMetrics => Set<IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_HourlyMetricAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("dto_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_HourlyMetricAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_HourlyMetricAggregate, IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_MetricEntity>(
+                    "dto_hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp)
+                .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn()
+    {
+        using IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(IsContinuousAggregate_Should_Accept_DateTimeOffset_TimeColumn_HourlyMetricAggregate))!;
+
+        Assert.Equal("dto_hourly_metrics", entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName)?.Value);
+        Assert.Equal("Timestamp", entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn)?.Value);
+    }
+
+    #endregion
+
+    #region IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn
+
+    private class IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_MetricEntity
+    {
+        public DateOnly Day { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_DailyMetricAggregate
+    {
+        public DateOnly TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_Context : DbContext
+    {
+        public DbSet<IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_MetricEntity> Metrics => Set<IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_MetricEntity>();
+        public DbSet<IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_DailyMetricAggregate> DailyMetrics => Set<IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_DailyMetricAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("dateonly_metrics");
+                entity.IsHypertable(x => x.Day);
+            });
+
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_DailyMetricAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_DailyMetricAggregate, IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_MetricEntity>(
+                    "dateonly_daily_metrics",
+                    "1 day",
+                    x => x.Day)
+                .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn()
+    {
+        using IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(IsContinuousAggregate_Should_Accept_DateOnly_TimeColumn_DailyMetricAggregate))!;
+
+        Assert.Equal("dateonly_daily_metrics", entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName)?.Value);
+        Assert.Equal("Day", entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn)?.Value);
+    }
+
+    #endregion
+
+    #region IsContinuousAggregate_Should_Accept_Long_TimeColumn
+
+    private class IsContinuousAggregate_Should_Accept_Long_TimeColumn_MetricEntity
+    {
+        public long EpochMicros { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_Long_TimeColumn_BucketedMetricAggregate
+    {
+        public long TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_Long_TimeColumn_Context : DbContext
+    {
+        public DbSet<IsContinuousAggregate_Should_Accept_Long_TimeColumn_MetricEntity> Metrics => Set<IsContinuousAggregate_Should_Accept_Long_TimeColumn_MetricEntity>();
+        public DbSet<IsContinuousAggregate_Should_Accept_Long_TimeColumn_BucketedMetricAggregate> Buckets => Set<IsContinuousAggregate_Should_Accept_Long_TimeColumn_BucketedMetricAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_Long_TimeColumn_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("long_metrics");
+                entity.IsHypertable(x => x.EpochMicros);
+            });
+
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_Long_TimeColumn_BucketedMetricAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<IsContinuousAggregate_Should_Accept_Long_TimeColumn_BucketedMetricAggregate, IsContinuousAggregate_Should_Accept_Long_TimeColumn_MetricEntity>(
+                    "long_bucketed_metrics",
+                    "3600000000",
+                    x => x.EpochMicros)
+                .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsContinuousAggregate_Should_Accept_Long_TimeColumn()
+    {
+        using IsContinuousAggregate_Should_Accept_Long_TimeColumn_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(IsContinuousAggregate_Should_Accept_Long_TimeColumn_BucketedMetricAggregate))!;
+
+        Assert.Equal("long_bucketed_metrics", entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName)?.Value);
+        Assert.Equal("EpochMicros", entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn)?.Value);
+    }
+
+    #endregion
+
+    #region IsContinuousAggregate_Should_Accept_Int_TimeColumn
+
+    private class IsContinuousAggregate_Should_Accept_Int_TimeColumn_MetricEntity
+    {
+        public int Ticks { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_Int_TimeColumn_BucketedMetricAggregate
+    {
+        public int TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_Int_TimeColumn_Context : DbContext
+    {
+        public DbSet<IsContinuousAggregate_Should_Accept_Int_TimeColumn_MetricEntity> Metrics => Set<IsContinuousAggregate_Should_Accept_Int_TimeColumn_MetricEntity>();
+        public DbSet<IsContinuousAggregate_Should_Accept_Int_TimeColumn_BucketedMetricAggregate> Buckets => Set<IsContinuousAggregate_Should_Accept_Int_TimeColumn_BucketedMetricAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_Int_TimeColumn_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("int_metrics");
+                entity.IsHypertable(x => x.Ticks);
+            });
+
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_Int_TimeColumn_BucketedMetricAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<IsContinuousAggregate_Should_Accept_Int_TimeColumn_BucketedMetricAggregate, IsContinuousAggregate_Should_Accept_Int_TimeColumn_MetricEntity>(
+                    "int_bucketed_metrics",
+                    "3600",
+                    x => x.Ticks)
+                .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsContinuousAggregate_Should_Accept_Int_TimeColumn()
+    {
+        using IsContinuousAggregate_Should_Accept_Int_TimeColumn_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(IsContinuousAggregate_Should_Accept_Int_TimeColumn_BucketedMetricAggregate))!;
+
+        Assert.Equal("int_bucketed_metrics", entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName)?.Value);
+        Assert.Equal("Ticks", entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn)?.Value);
+    }
+
+    #endregion
+
+    #region IsContinuousAggregate_Should_Accept_Short_TimeColumn
+
+    private class IsContinuousAggregate_Should_Accept_Short_TimeColumn_MetricEntity
+    {
+        public short SlotIndex { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_Short_TimeColumn_BucketedMetricAggregate
+    {
+        public short TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_Short_TimeColumn_Context : DbContext
+    {
+        public DbSet<IsContinuousAggregate_Should_Accept_Short_TimeColumn_MetricEntity> Metrics => Set<IsContinuousAggregate_Should_Accept_Short_TimeColumn_MetricEntity>();
+        public DbSet<IsContinuousAggregate_Should_Accept_Short_TimeColumn_BucketedMetricAggregate> Buckets => Set<IsContinuousAggregate_Should_Accept_Short_TimeColumn_BucketedMetricAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_Short_TimeColumn_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("short_metrics");
+                entity.IsHypertable(x => x.SlotIndex);
+            });
+
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_Short_TimeColumn_BucketedMetricAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<IsContinuousAggregate_Should_Accept_Short_TimeColumn_BucketedMetricAggregate, IsContinuousAggregate_Should_Accept_Short_TimeColumn_MetricEntity>(
+                    "short_bucketed_metrics",
+                    "10",
+                    x => x.SlotIndex)
+                .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsContinuousAggregate_Should_Accept_Short_TimeColumn()
+    {
+        using IsContinuousAggregate_Should_Accept_Short_TimeColumn_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(IsContinuousAggregate_Should_Accept_Short_TimeColumn_BucketedMetricAggregate))!;
+
+        Assert.Equal("short_bucketed_metrics", entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName)?.Value);
+        Assert.Equal("SlotIndex", entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn)?.Value);
+    }
+
+    #endregion
 }
