@@ -1012,4 +1012,204 @@ public class HypertableTypeBuilderTests
     }
 
     #endregion
+
+    #region IsHypertable_Should_Accept_DateTimeOffset_TimeColumn
+
+    private class DateTimeOffsetTimeColumnEntity
+    {
+        public DateTimeOffset EventTime { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class DateTimeOffsetTimeColumnContext : DbContext
+    {
+        public DbSet<DateTimeOffsetTimeColumnEntity> Metrics => Set<DateTimeOffsetTimeColumnEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DateTimeOffsetTimeColumnEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_datetimeoffset_time");
+                entity.IsHypertable(x => x.EventTime);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsHypertable_Should_Accept_DateTimeOffset_TimeColumn()
+    {
+        using DateTimeOffsetTimeColumnContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(DateTimeOffsetTimeColumnEntity))!;
+
+        Assert.Equal("EventTime", entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region IsHypertable_Should_Accept_DateOnly_TimeColumn
+
+    private class DateOnlyTimeColumnEntity
+    {
+        public DateOnly EventDate { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class DateOnlyTimeColumnContext : DbContext
+    {
+        public DbSet<DateOnlyTimeColumnEntity> Metrics => Set<DateOnlyTimeColumnEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DateOnlyTimeColumnEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_dateonly_time");
+                entity.IsHypertable(x => x.EventDate);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsHypertable_Should_Accept_DateOnly_TimeColumn()
+    {
+        using DateOnlyTimeColumnContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(DateOnlyTimeColumnEntity))!;
+
+        Assert.Equal("EventDate", entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region IsHypertable_Should_Accept_Long_TimeColumn
+
+    private class LongTimeColumnEntity
+    {
+        public long EventTimestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class LongTimeColumnContext : DbContext
+    {
+        public DbSet<LongTimeColumnEntity> Metrics => Set<LongTimeColumnEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<LongTimeColumnEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_long_time");
+                entity.IsHypertable(x => x.EventTimestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsHypertable_Should_Accept_Long_TimeColumn()
+    {
+        using LongTimeColumnContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(LongTimeColumnEntity))!;
+
+        Assert.Equal("EventTimestamp", entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region IsHypertable_Should_Accept_Int_TimeColumn
+
+    private class IntTimeColumnEntity
+    {
+        public int EventTimestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IntTimeColumnContext : DbContext
+    {
+        public DbSet<IntTimeColumnEntity> Metrics => Set<IntTimeColumnEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IntTimeColumnEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_int_time");
+                entity.IsHypertable(x => x.EventTimestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsHypertable_Should_Accept_Int_TimeColumn()
+    {
+        using IntTimeColumnContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(IntTimeColumnEntity))!;
+
+        Assert.Equal("EventTimestamp", entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region IsHypertable_Should_Accept_Short_TimeColumn
+
+    private class ShortTimeColumnEntity
+    {
+        public short EventTimestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ShortTimeColumnContext : DbContext
+    {
+        public DbSet<ShortTimeColumnEntity> Metrics => Set<ShortTimeColumnEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ShortTimeColumnEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_short_time");
+                entity.IsHypertable(x => x.EventTimestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsHypertable_Should_Accept_Short_TimeColumn()
+    {
+        using ShortTimeColumnContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ShortTimeColumnEntity))!;
+
+        Assert.Equal("EventTimestamp", entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
 }

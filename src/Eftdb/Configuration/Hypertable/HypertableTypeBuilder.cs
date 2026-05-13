@@ -16,13 +16,48 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         /// </summary>
         /// <remarks>
         /// This is the essential first step to enable TimescaleDB features for an entity.
-        /// It corresponds to the `create_hypertable` function in PostgreSQL.
+        /// It corresponds to the <c>create_hypertable</c> function in PostgreSQL.
         /// </remarks>
         /// <typeparam name="TEntity">The entity type being configured.</typeparam>
         /// <param name="entityTypeBuilder">The builder for the entity type.</param>
-        /// <param name="timePropertyExpression">A lambda expression representing the time column (e.g., `x => x.Timestamp`).</param>
+        /// <param name="timePropertyExpression">A lambda expression representing the time column (e.g., <c>x =&gt; x.Timestamp</c>).</param>
         public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Expression<Func<TEntity, DateTime>> timePropertyExpression) where TEntity : class
+            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+
+        /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
+        public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Expression<Func<TEntity, DateTimeOffset>> timePropertyExpression) where TEntity : class
+            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+
+        /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
+        public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Expression<Func<TEntity, DateOnly>> timePropertyExpression) where TEntity : class
+            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+
+        /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
+        public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Expression<Func<TEntity, long>> timePropertyExpression) where TEntity : class
+            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+
+        /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
+        public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Expression<Func<TEntity, int>> timePropertyExpression) where TEntity : class
+            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+
+        /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
+        public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Expression<Func<TEntity, short>> timePropertyExpression) where TEntity : class
+            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+
+        private static EntityTypeBuilder<TEntity> IsHypertableCore<TEntity>(
+            EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, object>> timePropertyExpression) where TEntity : class
         {
             string propertyName = GetPropertyName(timePropertyExpression);
@@ -32,6 +67,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
 
             return entityTypeBuilder;
         }
+
+        // Lifts a typed time-column expression to Expression<Func<TEntity, object>> by inserting a Convert
+        // node, so the shared core method can extract the property name uniformly via GetPropertyName.
+        private static Expression<Func<TEntity, object>> Box<TEntity, TProperty>(
+            Expression<Func<TEntity, TProperty>> expression)
+            where TProperty : struct
+            => Expression.Lambda<Func<TEntity, object>>(
+                Expression.Convert(expression.Body, typeof(object)),
+                expression.Parameters);
 
         /// <summary>
         /// Adds an additional partitioning dimension to the hypertable.
