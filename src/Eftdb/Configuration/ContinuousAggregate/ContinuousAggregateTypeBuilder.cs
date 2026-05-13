@@ -30,6 +30,77 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             string? chunkInterval = null)
             where TEntity : class
             where TSourceEntity : class
+            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+
+        /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
+        public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string materializedViewName,
+            string timeBucketWidth,
+            Expression<Func<TSourceEntity, DateTimeOffset>> propertyExpression,
+            bool timeBucketGroupBy = true,
+            string? chunkInterval = null)
+            where TEntity : class
+            where TSourceEntity : class
+            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+
+        /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
+        public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string materializedViewName,
+            string timeBucketWidth,
+            Expression<Func<TSourceEntity, DateOnly>> propertyExpression,
+            bool timeBucketGroupBy = true,
+            string? chunkInterval = null)
+            where TEntity : class
+            where TSourceEntity : class
+            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+
+        /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
+        public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string materializedViewName,
+            string timeBucketWidth,
+            Expression<Func<TSourceEntity, long>> propertyExpression,
+            bool timeBucketGroupBy = true,
+            string? chunkInterval = null)
+            where TEntity : class
+            where TSourceEntity : class
+            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+
+        /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
+        public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string materializedViewName,
+            string timeBucketWidth,
+            Expression<Func<TSourceEntity, int>> propertyExpression,
+            bool timeBucketGroupBy = true,
+            string? chunkInterval = null)
+            where TEntity : class
+            where TSourceEntity : class
+            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+
+        /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
+        public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string materializedViewName,
+            string timeBucketWidth,
+            Expression<Func<TSourceEntity, short>> propertyExpression,
+            bool timeBucketGroupBy = true,
+            string? chunkInterval = null)
+            where TEntity : class
+            where TSourceEntity : class
+            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+
+        private static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregateCore<TEntity, TSourceEntity>(
+            EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string materializedViewName,
+            string timeBucketWidth,
+            Expression<Func<TSourceEntity, object>> propertyExpression,
+            bool timeBucketGroupBy,
+            string? chunkInterval)
+            where TEntity : class
+            where TSourceEntity : class
         {
             // Configure the entity to map to a view instead of a table
             // This prevents EF Core from trying to create a table for the continuous aggregate
@@ -52,5 +123,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
 
             return new ContinuousAggregateBuilder<TEntity, TSourceEntity>(entityTypeBuilder);
         }
+
+        // Lifts a typed time-column expression to Expression<Func<TSourceEntity, object>> by inserting
+        // a Convert node, so the shared core method can extract the property name uniformly.
+        private static Expression<Func<TSourceEntity, object>> Box<TSourceEntity, TProperty>(
+            Expression<Func<TSourceEntity, TProperty>> expression)
+            where TProperty : struct
+            => Expression.Lambda<Func<TSourceEntity, object>>(
+                Expression.Convert(expression.Body, typeof(object)),
+                expression.Parameters);
     }
 }
