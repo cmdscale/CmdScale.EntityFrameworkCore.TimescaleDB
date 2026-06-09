@@ -2,6 +2,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
@@ -256,6 +257,154 @@ public class OperationOrderingTests
         // The two policy drops are ordered relative to each other: retention (-60) before CA policy (-50).
         Assert.True(dropRetentionIndex < removeCaPolicyIndex,
             $"DropRetentionPolicy ({dropRetentionIndex}) should precede RemoveContinuousAggregatePolicy ({removeCaPolicyIndex})");
+    }
+
+    #endregion
+
+    #region Should_Treat_Index_Rename_As_Rename_Through_Orchestrator
+
+    private class IndexRenameMetricD
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IndexRenameSourceContextD : DbContext
+    {
+        public DbSet<IndexRenameMetricD> Metrics => Set<IndexRenameMetricD>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IndexRenameMetricD>(entity =>
+            {
+                entity.ToTable("idx_rename_metrics_d");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.HasIndex(x => x.Timestamp).HasDatabaseName("idx_rename_old_d");
+                entity.WithReorderPolicy("idx_rename_old_d");
+            });
+    }
+
+    private class IndexRenameTargetContextD : DbContext
+    {
+        public DbSet<IndexRenameMetricD> Metrics => Set<IndexRenameMetricD>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IndexRenameMetricD>(entity =>
+            {
+                entity.ToTable("idx_rename_metrics_d");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.HasIndex(x => x.Timestamp).HasDatabaseName("idx_rename_new_d");
+                entity.WithReorderPolicy("idx_rename_new_d");
+            });
+    }
+
+    [Fact]
+    public void Should_Treat_Index_Rename_As_Rename_Through_Orchestrator()
+    {
+        // Arrange
+        using IndexRenameSourceContextD sourceContext = new();
+        using IndexRenameTargetContextD targetContext = new();
+
+        // Act
+        List<MigrationOperation> operations = [.. GenerateMigrationOperations(sourceContext, targetContext)];
+
+        // Assert
+        Assert.Contains(operations.OfType<RenameIndexOperation>(), o => o.NewName == "idx_rename_new_d");
+        Assert.Empty(operations.OfType<AlterReorderPolicyOperation>());
+        Assert.Empty(operations.OfType<AddReorderPolicyOperation>());
+        Assert.Empty(operations.OfType<DropReorderPolicyOperation>());
+    }
+
+    #endregion
+
+    #region Should_Order_AlterHypertable_After_CreateHypertable_Through_Orchestrator
+
+    private class AlterHtMetricE
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AlterHtNewMetricE
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AlterHtSourceContextE : DbContext
+    {
+        public DbSet<AlterHtMetricE> Metrics => Set<AlterHtMetricE>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<AlterHtMetricE>(entity =>
+            {
+                entity.ToTable("alter_ht_metrics_e");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+    }
+
+    private class AlterHtTargetContextE : DbContext
+    {
+        public DbSet<AlterHtMetricE> Metrics => Set<AlterHtMetricE>();
+        public DbSet<AlterHtNewMetricE> NewMetrics => Set<AlterHtNewMetricE>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<AlterHtMetricE>(entity =>
+            {
+                entity.ToTable("alter_ht_metrics_e");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithChunkTimeInterval("1 day");
+            });
+
+            modelBuilder.Entity<AlterHtNewMetricE>(entity =>
+            {
+                entity.ToTable("alter_ht_new_metrics_e");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Order_AlterHypertable_After_CreateHypertable_Through_Orchestrator()
+    {
+        // Arrange
+        using AlterHtSourceContextE sourceContext = new();
+        using AlterHtTargetContextE targetContext = new();
+
+        // Act
+        List<MigrationOperation> operations = [.. GenerateMigrationOperations(sourceContext, targetContext)];
+
+        // Assert
+        AlterHypertableOperation alterOp = Assert.Single(operations.OfType<AlterHypertableOperation>());
+        Assert.Equal("alter_ht_metrics_e", alterOp.TableName);
+        Assert.Equal("7 days", alterOp.OldChunkTimeInterval);
+        Assert.Equal("1 day", alterOp.ChunkTimeInterval);
+
+        int createHypertableIndex = operations.FindIndex(op => op is CreateHypertableOperation);
+        int alterHypertableIndex = operations.FindIndex(op => op is AlterHypertableOperation);
+        Assert.True(createHypertableIndex >= 0, "Expected a CreateHypertableOperation for the new hypertable.");
+        Assert.True(createHypertableIndex < alterHypertableIndex, "CreateHypertable (10) must be ordered before AlterHypertable (15).");
     }
 
     #endregion

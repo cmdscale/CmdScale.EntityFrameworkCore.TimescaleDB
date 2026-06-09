@@ -190,6 +190,87 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
 
         #endregion
 
+        #region CreateHypertable_FullyPopulated_EmitsMigrateDataAndAllCompressionLists
+
+        [Fact]
+        public void CreateHypertable_FullyPopulated_EmitsMigrateDataAndAllCompressionLists()
+        {
+            // Arrange
+            CreateHypertableOperation op = new()
+            {
+                TableName = "sensor_data",
+                TimeColumnName = "ts",
+                Schema = "metrics",
+                ChunkTimeInterval = "1 day",
+                EnableCompression = true,
+                MigrateData = true,
+                ChunkSkipColumns = ["a", "b"],
+                AdditionalDimensions = [Dimension.CreateHash("device_id", 4)],
+                CompressionSegmentBy = ["device_id"],
+                CompressionOrderBy = ["ts DESC"],
+            };
+
+            // Act
+            string result = Generate(op);
+
+            // Assert
+            Assert.Contains("migrateData: true", result);
+            Assert.Contains("enableCompression: true", result);
+            Assert.Contains("chunkSkipColumns: [\"a\", \"b\"]", result);
+            Assert.Contains("compressionSegmentBy: [\"device_id\"]", result);
+            Assert.Contains("compressionOrderBy: [\"ts DESC\"]", result);
+            Assert.Contains("additionalDimensions:", result);
+        }
+
+        #endregion
+
+        #region AlterHypertable_FullyPopulated_EmitsAllNewAndOldLists
+
+        [Fact]
+        public void AlterHypertable_FullyPopulated_EmitsAllNewAndOldLists()
+        {
+            // Arrange
+            AlterHypertableOperation op = new()
+            {
+                TableName = "sensor_data",
+                Schema = "metrics",
+                ChunkTimeInterval = "2 days",
+                EnableCompression = true,
+                ChunkSkipColumns = ["a", "b"],
+                AdditionalDimensions = [Dimension.CreateHash("device_id", 4)],
+                CompressionSegmentBy = ["device_id"],
+                CompressionOrderBy = ["ts DESC"],
+                OldChunkTimeInterval = "1 day",
+                OldEnableCompression = true,
+                OldChunkSkipColumns = ["a"],
+                OldAdditionalDimensions = [Dimension.CreateRange("region", "10")],
+                OldCompressionSegmentBy = ["region"],
+                OldCompressionOrderBy = ["ts"],
+            };
+
+            // Act
+            string result = Generate(op);
+
+            // Assert
+            Assert.Contains("schema: \"metrics\"", result);
+            Assert.Contains("chunkTimeInterval: \"2 days\"", result);
+            Assert.Contains("enableCompression: true", result);
+            Assert.Contains("chunkSkipColumns: [\"a\", \"b\"]", result);
+            Assert.Contains("compressionSegmentBy: [\"device_id\"]", result);
+            Assert.Contains("compressionOrderBy: [\"ts DESC\"]", result);
+            Assert.Contains("additionalDimensions:", result);
+
+            // Assert
+            Assert.Contains("oldChunkTimeInterval: \"1 day\"", result);
+            Assert.Contains("oldEnableCompression: true", result);
+            Assert.Contains("oldChunkSkipColumns: [\"a\"]", result);
+            Assert.Contains("oldCompressionSegmentBy: [\"region\"]", result);
+            Assert.Contains("oldCompressionOrderBy: [\"ts\"]", result);
+            Assert.Contains("oldAdditionalDimensions:", result);
+        }
+
+        #endregion
+
         #region AlterHypertable_OmitsOldArgsWhenDefault
 
         [Fact]

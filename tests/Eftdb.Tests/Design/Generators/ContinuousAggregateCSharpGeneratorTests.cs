@@ -133,6 +133,84 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
 
         #endregion
 
+        #region CreateContinuousAggregate_FullyPopulated_EmitsAllOptionalArgs
+
+        [Fact]
+        public void CreateContinuousAggregate_FullyPopulated_EmitsAllOptionalArgs()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation op = new()
+            {
+                MaterializedViewName = "hourly",
+                ParentName = "sensor_data",
+                Schema = "metrics",
+                ChunkInterval = "7 days",
+                WithNoData = true,
+                CreateGroupIndexes = true,
+                MaterializedOnly = true,
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "ts",
+                TimeBucketGroupBy = false,
+                AggregateFunctions = ["avg_t:Avg:temp"],
+                GroupByColumns = ["device_id"],
+                WhereClause = "temp > 0",
+                ViewDefinition = "SELECT 1",
+            };
+
+            // Act
+            string result = Generate(op);
+
+            // Assert
+            Assert.Contains("chunkInterval: \"7 days\"", result);
+            Assert.Contains("withNoData: true", result);
+            Assert.Contains("createGroupIndexes: true", result);
+            Assert.Contains("materializedOnly: true", result);
+            Assert.Contains("timeBucketWidth: \"1 hour\"", result);
+            Assert.Contains("timeBucketSourceColumn: \"ts\"", result);
+            Assert.Contains("timeBucketGroupBy: false", result);
+            Assert.Contains("aggregateFunctions:", result);
+            Assert.Contains("groupByColumns: [\"device_id\"]", result);
+            Assert.Contains("whereClause: \"temp > 0\"", result);
+            Assert.Contains("viewDefinition: \"SELECT 1\"", result);
+        }
+
+        #endregion
+
+        #region AlterContinuousAggregate_FullyPopulated_EmitsAllNewAndOldArgs
+
+        [Fact]
+        public void AlterContinuousAggregate_FullyPopulated_EmitsAllNewAndOldArgs()
+        {
+            // Arrange
+            AlterContinuousAggregateOperation op = new()
+            {
+                MaterializedViewName = "hourly",
+                Schema = "metrics",
+                ChunkInterval = "7 days",
+                CreateGroupIndexes = true,
+                MaterializedOnly = true,
+                OldChunkInterval = "1 day",
+                OldCreateGroupIndexes = true,
+                OldMaterializedOnly = true,
+            };
+
+            // Act
+            string result = Generate(op);
+
+            // Assert
+            Assert.Contains("schema: \"metrics\"", result);
+            Assert.Contains("chunkInterval: \"7 days\"", result);
+            Assert.Contains("createGroupIndexes: true", result);
+            Assert.Contains("materializedOnly: true", result);
+
+            // Assert
+            Assert.Contains("oldChunkInterval: \"1 day\"", result);
+            Assert.Contains("oldCreateGroupIndexes: true", result);
+            Assert.Contains("oldMaterializedOnly: true", result);
+        }
+
+        #endregion
+
         #region AlterContinuousAggregate_EmitsOldArgsOnlyWhenNonDefault
 
         [Fact]

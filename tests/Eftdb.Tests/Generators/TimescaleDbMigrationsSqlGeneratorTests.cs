@@ -183,6 +183,53 @@ public class TimescaleDbMigrationsSqlGeneratorTests
 
     #endregion
 
+    #region Should_Generate_Command_For_AlterContinuousAggregate
+
+    [Fact]
+    public void Should_Generate_Command_For_AlterContinuousAggregate()
+    {
+        // Arrange
+        AlterContinuousAggregateOperation operation = new()
+        {
+            Schema = "public",
+            MaterializedViewName = "daily_avg",
+            ChunkInterval = "7 days",
+            OldChunkInterval = "1 day"
+        };
+        List<MigrationOperation> operations = [operation];
+
+        // Act
+        string sql = GenerateSql(operations);
+
+        // Assert
+        Assert.Contains("ALTER MATERIALIZED VIEW", sql);
+        Assert.Contains("timescaledb.chunk_interval", sql);
+    }
+
+    #endregion
+
+    #region Should_Generate_Command_For_DropContinuousAggregate
+
+    [Fact]
+    public void Should_Generate_Command_For_DropContinuousAggregate()
+    {
+        // Arrange
+        DropContinuousAggregateOperation operation = new()
+        {
+            Schema = "public",
+            MaterializedViewName = "daily_avg"
+        };
+        List<MigrationOperation> operations = [operation];
+
+        // Act
+        string sql = GenerateSql(operations);
+
+        // Assert
+        Assert.Contains("DROP MATERIALIZED VIEW IF EXISTS", sql);
+    }
+
+    #endregion
+
     #region Should_Not_Suppress_Transaction_For_CreateHypertable
 
     [Fact]
