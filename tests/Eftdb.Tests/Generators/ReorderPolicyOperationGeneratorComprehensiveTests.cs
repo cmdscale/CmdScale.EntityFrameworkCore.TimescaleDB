@@ -1,35 +1,26 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 {
     /// <summary>
-    /// Comprehensive tests for ReorderPolicyOperationGenerator validating design-time and runtime
+    /// Comprehensive tests for ReorderPolicySqlGenerator validating
     /// SQL generation according to TimescaleDB requirements.
     /// </summary>
     public class ReorderPolicyOperationGeneratorComprehensiveTests
     {
         /// <summary>
-        /// Helper to run the generator and capture design-time C# code output.
+        /// Helper to run the generator and capture the SQL output.
         /// </summary>
-        private static string GetDesignTimeCode(dynamic operation)
-        {
-            IndentedStringBuilder builder = new();
-            ReorderPolicyOperationGenerator generator = new(isDesignTime: true);
-            List<string> statements = generator.Generate(operation);
-            SqlBuilderHelper.BuildQueryString(statements, builder);
-            return builder.ToString();
-        }
+        private static string GetDesignTimeCode(dynamic operation) => GetRuntimeSql(operation);
 
         /// <summary>
         /// Helper to run the generator and capture runtime SQL output.
         /// </summary>
         private static List<string> GetRuntimeSqlStatements(dynamic operation)
         {
-            ReorderPolicyOperationGenerator generator = new(isDesignTime: false);
-            return generator.Generate(operation);
+            return ReorderPolicySqlGenerator.Generate(operation);
         }
 
         /// <summary>
@@ -54,9 +45,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 IndexName = "metrics_time_idx"
             };
 
-            string expected = @".Sql(@""
-                SELECT add_reorder_policy('public.""""metrics""""', 'metrics_time_idx');
-            "")";
+            string expected = @"
+                SELECT add_reorder_policy('public.""metrics""', 'metrics_time_idx');
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -82,12 +73,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 RetryPeriod = "2 minutes"
             };
 
-            string expected = $@".Sql(@""
-                SELECT add_reorder_policy('analytics.""""sensor_data""""', 'sensor_data_time_device_idx', initial_start => '{initialStart:yyyy-MM-ddTHH:mm:ss.fffffffZ}');
+            string expected = $@"
+                SELECT add_reorder_policy('analytics.""sensor_data""', 'sensor_data_time_device_idx', initial_start => '{initialStart:yyyy-MM-ddTHH:mm:ss.fffffffZ}');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '6 hours', max_runtime => INTERVAL '30 minutes', max_retries => 5, retry_period => INTERVAL '2 minutes')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_schema = 'analytics' AND hypertable_name = 'sensor_data';
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -237,11 +228,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "1 day"
             };
 
-            string expected = @".Sql(@""
+            string expected = @"
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '12 hours')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_schema = 'public' AND hypertable_name = 'metrics';
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -262,11 +253,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldMaxRuntime = "30 minutes"
             };
 
-            string expected = @".Sql(@""
+            string expected = @"
                 SELECT alter_job(job_id, max_runtime => INTERVAL '1 hour')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_schema = 'public' AND hypertable_name = 'data';
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -287,11 +278,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldMaxRetries = -1
             };
 
-            string expected = @".Sql(@""
+            string expected = @"
                 SELECT alter_job(job_id, max_retries => 3)
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_schema = 'public' AND hypertable_name = 'test';
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -312,11 +303,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldRetryPeriod = "5 minutes"
             };
 
-            string expected = @".Sql(@""
+            string expected = @"
                 SELECT alter_job(job_id, retry_period => INTERVAL '10 minutes')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_schema = 'public' AND hypertable_name = 'test';
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -428,9 +419,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 Schema = "public"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_reorder_policy('public.""""old_table""""', if_exists => true);
-            "")";
+            string expected = @"
+                SELECT remove_reorder_policy('public.""old_table""', if_exists => true);
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -449,9 +440,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 Schema = "analytics"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_reorder_policy('analytics.""""analytics_data""""', if_exists => true);
-            "")";
+            string expected = @"
+                SELECT remove_reorder_policy('analytics.""analytics_data""', if_exists => true);
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);

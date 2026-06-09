@@ -12,24 +12,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
     public class ContinuousAggregateOperationGeneratorTests
     {
         /// <summary>
-        /// Helper to run the generator and capture design-time C# code output.
+        /// Helper to run the generator and capture the SQL output.
         /// </summary>
-        private static string GetDesignTimeCode(dynamic operation)
-        {
-            IndentedStringBuilder builder = new();
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: true);
-            List<string> statements = generator.Generate(operation);
-            SqlBuilderHelper.BuildQueryString(statements, builder);
-            return builder.ToString();
-        }
+        private static string GetDesignTimeCode(dynamic operation) => GetRuntimeSql(operation);
 
-        /// <summary>
-        /// Helper to run the generator and capture runtime SQL output.
-        /// </summary>
         private static string GetRuntimeSql(dynamic operation)
         {
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
-            List<string> statements = generator.Generate(operation);
+            List<string> statements = ContinuousAggregateSqlGenerator.Generate(operation);
             return string.Join("\n", statements);
         }
 
@@ -54,13 +43,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-            string expected = @".Sql(@""
-                CREATE MATERIALIZED VIEW """"public"""".""""hourly_metrics""""
+            string expected = @"
+                CREATE MATERIALIZED VIEW ""public"".""hourly_metrics""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
-                SELECT time_bucket('1 hour', """"timestamp"""") AS time_bucket, AVG(""""value"""") AS """"avg_value""""
-                FROM """"public"""".""""metrics""""
+                SELECT time_bucket('1 hour', ""timestamp"") AS time_bucket, AVG(""value"") AS ""avg_value""
+                FROM ""public"".""metrics""
                 GROUP BY time_bucket;
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -95,14 +84,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = true
             };
 
-            string expected = @".Sql(@""
-                CREATE MATERIALIZED VIEW """"analytics"""".""""daily_stats""""
+            string expected = @"
+                CREATE MATERIALIZED VIEW ""analytics"".""daily_stats""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = true, timescaledb.materialized_only = true) AS
-                SELECT time_bucket('1 day', """"time"""") AS time_bucket, AVG(""""temperature"""") AS """"avg_temp"""", MAX(""""temperature"""") AS """"max_temp"""", MIN(""""temperature"""") AS """"min_temp"""", COUNT(""""id"""") AS """"total_readings"""", SUM(""""voltage"""") AS """"sum_voltage""""
-                FROM """"analytics"""".""""sensor_data""""
+                SELECT time_bucket('1 day', ""time"") AS time_bucket, AVG(""temperature"") AS ""avg_temp"", MAX(""temperature"") AS ""max_temp"", MIN(""temperature"") AS ""min_temp"", COUNT(""id"") AS ""total_readings"", SUM(""voltage"") AS ""sum_voltage""
+                FROM ""analytics"".""sensor_data""
                 GROUP BY time_bucket
                 WITH NO DATA;
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -134,13 +123,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-            string expected = @".Sql(@""
-                CREATE MATERIALIZED VIEW """"public"""".""""price_aggregates""""
+            string expected = @"
+                CREATE MATERIALIZED VIEW ""public"".""price_aggregates""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
-                SELECT time_bucket('5 minutes', """"timestamp"""") AS time_bucket, first(""""price"""", """"timestamp"""") AS """"first_price"""", last(""""price"""", """"timestamp"""") AS """"last_price""""
-                FROM """"public"""".""""trades""""
+                SELECT time_bucket('5 minutes', ""timestamp"") AS time_bucket, first(""price"", ""timestamp"") AS ""first_price"", last(""price"", ""timestamp"") AS ""last_price""
+                FROM ""public"".""trades""
                 GROUP BY time_bucket;
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -168,13 +157,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-            string expected = @".Sql(@""
-                CREATE MATERIALIZED VIEW """"public"""".""""sales_by_region""""
+            string expected = @"
+                CREATE MATERIALIZED VIEW ""public"".""sales_by_region""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
-                SELECT time_bucket('1 hour', """"sale_time"""") AS time_bucket, """"region"""", """"store_id"""", SUM(""""amount"""") AS """"total_amount""""
-                FROM """"public"""".""""sales""""
-                GROUP BY time_bucket, """"region"""", """"store_id"""";
-            "")";
+                SELECT time_bucket('1 hour', ""sale_time"") AS time_bucket, ""region"", ""store_id"", SUM(""amount"") AS ""total_amount""
+                FROM ""public"".""sales""
+                GROUP BY time_bucket, ""region"", ""store_id"";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -203,14 +192,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-            string expected = @".Sql(@""
-                CREATE MATERIALIZED VIEW """"public"""".""""high_value_trades""""
+            string expected = @"
+                CREATE MATERIALIZED VIEW ""public"".""high_value_trades""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
-                SELECT time_bucket('1 hour', """"timestamp"""") AS time_bucket, AVG(""""price"""") AS """"avg_price""""
-                FROM """"public"""".""""trades""""
-                WHERE """"price"""" > 100 AND """"volume"""" > 1000
+                SELECT time_bucket('1 hour', ""timestamp"") AS time_bucket, AVG(""price"") AS ""avg_price""
+                FROM ""public"".""trades""
+                WHERE ""price"" > 100 AND ""volume"" > 1000
                 GROUP BY time_bucket;
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -239,13 +228,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-            string expected = @".Sql(@""
-                CREATE MATERIALIZED VIEW """"public"""".""""monthly_summary""""
+            string expected = @"
+                CREATE MATERIALIZED VIEW ""public"".""monthly_summary""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false, timescaledb.chunk_interval = '7 days') AS
-                SELECT time_bucket('1 month', """"event_time"""") AS time_bucket, COUNT(""""id"""") AS """"event_count""""
-                FROM """"public"""".""""events""""
+                SELECT time_bucket('1 month', ""event_time"") AS time_bucket, COUNT(""id"") AS ""event_count""
+                FROM ""public"".""events""
                 GROUP BY time_bucket;
-            "")";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -389,9 +378,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldChunkInterval = "7 days"
             };
 
-            string expected = @".Sql(@""
-                ALTER MATERIALIZED VIEW """"public"""".""""hourly_stats"""" SET (timescaledb.chunk_interval = '30 days');
-            "")";
+            string expected = @"
+                ALTER MATERIALIZED VIEW ""public"".""hourly_stats"" SET (timescaledb.chunk_interval = '30 days');
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -432,9 +421,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldCreateGroupIndexes = false
             };
 
-            string expected = @".Sql(@""
-                ALTER MATERIALIZED VIEW """"public"""".""""metrics_view"""" SET (timescaledb.create_group_indexes = true);
-            "")";
+            string expected = @"
+                ALTER MATERIALIZED VIEW ""public"".""metrics_view"" SET (timescaledb.create_group_indexes = true);
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -455,9 +444,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldMaterializedOnly = true
             };
 
-            string expected = @".Sql(@""
-                ALTER MATERIALIZED VIEW """"public"""".""""stats_view"""" SET (timescaledb.materialized_only = false);
-            "")";
+            string expected = @"
+                ALTER MATERIALIZED VIEW ""public"".""stats_view"" SET (timescaledb.materialized_only = false);
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -528,9 +517,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 Schema = "public"
             };
 
-            string expected = @".Sql(@""
-                DROP MATERIALIZED VIEW IF EXISTS """"public"""".""""old_aggregate"""";
-            "")";
+            string expected = @"
+                DROP MATERIALIZED VIEW IF EXISTS ""public"".""old_aggregate"";
+            ";
 
             // Act
             string result = GetDesignTimeCode(operation);
@@ -875,11 +864,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
 
             // Act & Assert
             NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-                generator.Generate(operation));
+                ContinuousAggregateSqlGenerator.Generate(operation));
             Assert.Contains("Percentile95", ex.Message);
             Assert.Contains("not supported", ex.Message);
         }
@@ -903,11 +891,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
 
             // Act & Assert
             NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-                generator.Generate(operation));
+                ContinuousAggregateSqlGenerator.Generate(operation));
             Assert.Contains("InvalidFunction", ex.Message);
         }
 
@@ -1049,42 +1036,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        #region Design-Time vs Runtime Quote Handling
-
-        [Fact]
-        public void DesignTime_UsesDoubleQuotesForEscaping()
-        {
-            // Arrange
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: true);
-
-            CreateContinuousAggregateOperation operation = new()
-            {
-                MaterializedViewName = "test_view",
-                Schema = "public",
-                ParentName = "test_table",
-                TimeBucketWidth = "1 hour",
-                TimeBucketSourceColumn = "time",
-                TimeBucketGroupBy = true,
-                AggregateFunctions = ["cnt:Count:id"],
-                GroupByColumns = [],
-                CreateGroupIndexes = false,
-                MaterializedOnly = false,
-                WithNoData = false
-            };
-
-            List<string> statements = generator.Generate(operation);
-            string result = string.Join("\n", statements);
-
-            // Assert - Design-time should use double quotes for escaping
-            Assert.Contains("\"\"public\"\"", result);
-            Assert.Contains("\"\"test_view\"\"", result);
-        }
+        #region Quote Handling
 
         [Fact]
         public void Runtime_UsesSingleQuotesForEscaping()
         {
             // Arrange
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
 
             CreateContinuousAggregateOperation operation = new()
             {
@@ -1101,7 +1058,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-            List<string> statements = generator.Generate(operation);
+            List<string> statements = ContinuousAggregateSqlGenerator.Generate(operation);
             string result = string.Join("\n", statements);
 
             // Assert - Runtime should use single quotes (standard SQL quoting)
@@ -1109,33 +1066,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Contains("\"test_view\"", result);
             // Should not have escaped quotes
             Assert.DoesNotContain("\"\"public\"\"", result);
-        }
-
-        [Fact]
-        public void DesignTime_WhereClause_ConvertsSingleToDoubleQuotes()
-        {
-            // Arrange
-            CreateContinuousAggregateOperation operation = new()
-            {
-                MaterializedViewName = "quote_test",
-                Schema = "public",
-                ParentName = "data",
-                TimeBucketWidth = "1 hour",
-                TimeBucketSourceColumn = "time",
-                TimeBucketGroupBy = true,
-                AggregateFunctions = ["avg:Avg:value"],
-                GroupByColumns = [],
-                WhereClause = "\"status\" = 'active'",
-                CreateGroupIndexes = false,
-                MaterializedOnly = false,
-                WithNoData = false
-            };
-
-            // Act
-            string result = GetDesignTimeCode(operation);
-
-            // Assert - Design time should double the quotes in WHERE clause
-            Assert.Contains("\"\"status\"\" = 'active'", result);
         }
 
         #endregion
@@ -1282,8 +1212,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             // Act
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
-            List<string> statements = generator.Generate(operation);
+            List<string> statements = ContinuousAggregateSqlGenerator.Generate(operation);
 
             // Assert
             string sql = Assert.Single(statements);
@@ -1313,39 +1242,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             // Act
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
-            List<string> statements = generator.Generate(operation);
+            List<string> statements = ContinuousAggregateSqlGenerator.Generate(operation);
 
             // Assert
             string sql = Assert.Single(statements);
             Assert.Contains("WITH NO DATA", sql);
             // WITH NO DATA must come immediately before the trailing ';'
             Assert.EndsWith("WITH NO DATA;", sql);
-        }
-
-        [Fact]
-        public void DesignTime_Create_WithViewDefinition_DoublesEmbeddedQuotes()
-        {
-            // Arrange
-            CreateContinuousAggregateOperation operation = new()
-            {
-                MaterializedViewName = "hourly_metrics",
-                Schema = "public",
-                ParentName = "metrics",
-                ViewDefinition = "SELECT time_bucket('1 hour', \"time\") AS bucket FROM \"src\" GROUP BY bucket;"
-            };
-
-            // Act - design-time mode escapes embedded `"` to `""` for the C# verbatim string literal
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: true);
-            List<string> statements = generator.Generate(operation);
-
-            // Assert
-            string sql = Assert.Single(statements);
-            Assert.Contains("CREATE MATERIALIZED VIEW \"\"public\"\".\"\"hourly_metrics\"\"", sql);
-            Assert.Contains("\"\"time\"\"", sql);
-            Assert.Contains("\"\"src\"\"", sql);
-            // No raw single `"` should appear in the body — all should be doubled
-            Assert.DoesNotContain("\"time\"", sql.Replace("\"\"time\"\"", ""));
         }
 
         [Fact]
@@ -1368,8 +1271,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             // Act
-            ContinuousAggregateOperationGenerator generator = new(isDesignTime: false);
-            List<string> statements = generator.Generate(operation);
+            List<string> statements = ContinuousAggregateSqlGenerator.Generate(operation);
 
             // Assert - raw body is present, structured fields are not
             string sql = Assert.Single(statements);

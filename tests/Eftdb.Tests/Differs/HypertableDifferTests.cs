@@ -1411,7 +1411,7 @@ public class HypertableDifferTests
 
         AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
 
-        // Assert: A diff SHOULD be generated because SequenceEqual checks order
+        // Assert
         Assert.NotNull(alterOp);
         Assert.Equal("TenantId", alterOp.OldCompressionSegmentBy![0]);
         Assert.Equal("DeviceId", alterOp.OldCompressionSegmentBy![1]);

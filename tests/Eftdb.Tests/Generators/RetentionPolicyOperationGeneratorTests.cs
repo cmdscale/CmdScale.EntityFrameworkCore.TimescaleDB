@@ -1,22 +1,18 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 {
     public class RetentionPolicyOperationGeneratorTests
     {
         /// <summary>
-        /// A helper to run the generator and capture its string output.
+        /// A helper to run the generator and capture its SQL output.
         /// </summary>
         private static string GetGeneratedCode(dynamic operation)
         {
-            IndentedStringBuilder builder = new();
-            RetentionPolicyOperationGenerator generator = new(true);
-            List<string> statements = generator.Generate(operation);
-            SqlBuilderHelper.BuildQueryString(statements, builder);
-            return builder.ToString();
+            List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
+            return string.Join("\n", statements);
         }
 
         // --- Tests for AddRetentionPolicyOperation ---
@@ -34,9 +30,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 DropAfter = "7 days"
             };
 
-            string expected = @".Sql(@""
-                SELECT add_retention_policy('public.""""TestTable""""', drop_after => INTERVAL '7 days');
-            "")";
+            string expected = @"
+                SELECT add_retention_policy('public.""TestTable""', drop_after => INTERVAL '7 days');
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -62,12 +58,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 MaxRetries = 5
             };
 
-            string expected = @".Sql(@""
-                SELECT add_retention_policy('public.""""TestTable""""', drop_created_before => INTERVAL '30 days');
+            string expected = @"
+                SELECT add_retention_policy('public.""TestTable""', drop_created_before => INTERVAL '30 days');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day', max_retries => 5)
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -93,9 +89,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 InitialStart = testDate
             };
 
-            string expected = @".Sql(@""
-                SELECT add_retention_policy('public.""""TestTable""""', drop_after => INTERVAL '7 days', initial_start => '2025-10-20T12:30:00.0000000Z');
-            "")";
+            string expected = @"
+                SELECT add_retention_policy('public.""TestTable""', drop_after => INTERVAL '7 days', initial_start => '2025-10-20T12:30:00.0000000Z');
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -123,12 +119,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 RetryPeriod = "10 minutes"
             };
 
-            string expected = @".Sql(@""
-                SELECT add_retention_policy('public.""""TestTable""""', drop_after => INTERVAL '7 days');
+            string expected = @"
+                SELECT add_retention_policy('public.""TestTable""', drop_after => INTERVAL '7 days');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days', max_runtime => INTERVAL '1 hour', max_retries => 5, retry_period => INTERVAL '10 minutes')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -156,12 +152,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 RetryPeriod = "10 minutes"
             };
 
-            string expected = @".Sql(@""
-                SELECT add_retention_policy('public.""""TestTable""""', drop_created_before => INTERVAL '30 days');
+            string expected = @"
+                SELECT add_retention_policy('public.""TestTable""', drop_created_before => INTERVAL '30 days');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days', max_runtime => INTERVAL '1 hour', max_retries => 5, retry_period => INTERVAL '10 minutes')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -194,11 +190,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "1 day"
             };
 
-            string expected = @".Sql(@""
+            string expected = @"
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'metrics' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -225,13 +221,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "1 day"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_retention_policy('public.""""TestTable""""', if_exists => true);
-                SELECT add_retention_policy('public.""""TestTable""""', drop_after => INTERVAL '14 days');
+            string expected = @"
+                SELECT remove_retention_policy('public.""TestTable""', if_exists => true);
+                SELECT add_retention_policy('public.""TestTable""', drop_after => INTERVAL '14 days');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -261,13 +257,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             // During recreation, alter_job is emitted to reapply the final-state job settings
-            string expected = @".Sql(@""
-                SELECT remove_retention_policy('public.""""TestTable""""', if_exists => true);
-                SELECT add_retention_policy('public.""""TestTable""""', drop_created_before => INTERVAL '30 days');
+            string expected = @"
+                SELECT remove_retention_policy('public.""TestTable""', if_exists => true);
+                SELECT add_retention_policy('public.""TestTable""', drop_created_before => INTERVAL '30 days');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -298,13 +294,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "1 day"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_retention_policy('public.""""TestTable""""', if_exists => true);
-                SELECT add_retention_policy('public.""""TestTable""""', drop_after => INTERVAL '7 days', initial_start => '2025-06-15T12:00:00.0000000Z');
+            string expected = @"
+                SELECT remove_retention_policy('public.""TestTable""', if_exists => true);
+                SELECT add_retention_policy('public.""TestTable""', drop_after => INTERVAL '7 days', initial_start => '2025-06-15T12:00:00.0000000Z');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -329,9 +325,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TableName = "TestTable"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_retention_policy('public.""""TestTable""""', if_exists => true);
-            "")";
+            string expected = @"
+                SELECT remove_retention_policy('public.""TestTable""', if_exists => true);
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -354,9 +350,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TableName = "EventLogs"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_retention_policy('analytics.""""EventLogs""""', if_exists => true);
-            "")";
+            string expected = @"
+                SELECT remove_retention_policy('analytics.""EventLogs""', if_exists => true);
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -387,13 +383,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldRetryPeriod = "10 minutes"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_retention_policy('public.""""TestTable""""', if_exists => true);
-                SELECT add_retention_policy('public.""""TestTable""""', drop_after => INTERVAL '14 days');
+            string expected = @"
+                SELECT remove_retention_policy('public.""TestTable""', if_exists => true);
+                SELECT add_retention_policy('public.""TestTable""', drop_after => INTERVAL '14 days');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days', max_retries => 5, retry_period => INTERVAL '10 minutes')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -424,11 +420,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "1 day"
             };
 
-            string expected = @".Sql(@""
+            string expected = @"
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -465,11 +461,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldRetryPeriod = "1 day"
             };
 
-            string expected = @".Sql(@""
+            string expected = @"
                 SELECT alter_job(job_id, max_runtime => INTERVAL '2 hours')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -506,11 +502,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldRetryPeriod = "1 day"
             };
 
-            string expected = @".Sql(@""
+            string expected = @"
                 SELECT alter_job(job_id, retry_period => INTERVAL '30 minutes')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -521,12 +517,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        // --- Tests for runtime quoting (isDesignTime=false) ---
+        // --- Tests for runtime quoting ---
 
         private static List<string> GetRuntimeStatements(dynamic operation)
         {
-            RetentionPolicyOperationGenerator generator = new(isDesignTime: false);
-            return generator.Generate(operation);
+            return RetentionPolicySqlGenerator.Generate(operation);
         }
 
         #region Generate_Add_DropAfter_with_runtime_quoting_uses_single_quotes
@@ -576,6 +571,54 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         // --- Tests for alter no-change path ---
 
+        #region Generate_Add_DropAfter_uses_drop_after_interval_argument
+
+        [Fact]
+        public void Generate_Add_DropAfter_uses_drop_after_interval_argument()
+        {
+            // Arrange
+            AddRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropAfter = "7 days"
+            };
+
+            // Act
+            List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
+
+            // Assert — DropAfter maps to the drop_after => INTERVAL argument
+            Assert.Single(statements);
+            Assert.Contains("drop_after => INTERVAL '7 days'", statements[0]);
+            Assert.DoesNotContain("drop_created_before", statements[0]);
+        }
+
+        #endregion
+
+        #region Generate_Add_DropCreatedBefore_uses_drop_created_before_interval_argument
+
+        [Fact]
+        public void Generate_Add_DropCreatedBefore_uses_drop_created_before_interval_argument()
+        {
+            // Arrange
+            AddRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropCreatedBefore = "30 days"
+            };
+
+            // Act
+            List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
+
+            // Assert — DropCreatedBefore maps to the drop_created_before => INTERVAL argument
+            Assert.Single(statements);
+            Assert.Contains("drop_created_before => INTERVAL '30 days'", statements[0]);
+            Assert.DoesNotContain("drop_after", statements[0]);
+        }
+
+        #endregion
+
         #region Generate_Alter_when_no_changes_returns_empty_list
 
         [Fact]
@@ -603,8 +646,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             // Act
-            RetentionPolicyOperationGenerator generator = new(true);
-            List<string> result = generator.Generate(operation);
+            List<string> result = RetentionPolicySqlGenerator.Generate(operation);
 
             // Assert
             Assert.Empty(result);

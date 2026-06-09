@@ -1,22 +1,18 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 {
     public class ReorderPolicyOperationGeneratorTests
     {
         /// <summary>
-        /// A helper to run the generator and capture its string output.
+        /// A helper to run the generator and capture its SQL output.
         /// </summary>
         private static string GetGeneratedCode(dynamic operation)
         {
-            IndentedStringBuilder builder = new();
-            ReorderPolicyOperationGenerator generator = new(true);
-            List<string> statements = generator.Generate(operation);
-            SqlBuilderHelper.BuildQueryString(statements, builder);
-            return builder.ToString();
+            List<string> statements = ReorderPolicySqlGenerator.Generate(operation);
+            return string.Join("\n", statements);
         }
 
         [Fact]
@@ -30,9 +26,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 IndexName = "IX_TestTable_Time"
             };
 
-            string expected = @".Sql(@""
-                SELECT add_reorder_policy('public.""""TestTable""""', 'IX_TestTable_Time');
-            "")";
+            string expected = @"
+                SELECT add_reorder_policy('public.""TestTable""', 'IX_TestTable_Time');
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -58,12 +54,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 RetryPeriod = "10 minutes"
             };
 
-            string expected = @".Sql(@""
-                SELECT add_reorder_policy('custom.""""TestTable""""', 'IX_TestTable_Time', initial_start => '2025-10-20T12:30:00.0000000Z');
+            string expected = @"
+                SELECT add_reorder_policy('custom.""TestTable""', 'IX_TestTable_Time', initial_start => '2025-10-20T12:30:00.0000000Z');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days', max_runtime => INTERVAL '1 hour', max_retries => 5, retry_period => INTERVAL '10 minutes')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_schema = 'custom' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -84,9 +80,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TableName = "TestTable"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_reorder_policy('public.""""TestTable""""', if_exists => true);
-            "")";
+            string expected = @"
+                SELECT remove_reorder_policy('public.""TestTable""', if_exists => true);
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -115,11 +111,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "1 day"
             };
 
-            string expected = @".Sql(@""
+            string expected = @"
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_schema = 'metrics' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -142,13 +138,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "2 days"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_reorder_policy('logs.""""TestTable""""', if_exists => true);
-                SELECT add_reorder_policy('logs.""""TestTable""""', 'IX_New_Name');
+            string expected = @"
+                SELECT remove_reorder_policy('logs.""TestTable""', if_exists => true);
+                SELECT add_reorder_policy('logs.""TestTable""', 'IX_New_Name');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_schema = 'logs' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);
@@ -175,13 +171,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldRetryPeriod = "10 minutes"
             };
 
-            string expected = @".Sql(@""
-                SELECT remove_reorder_policy('public.""""TestTable""""', if_exists => true);
-                SELECT add_reorder_policy('public.""""TestTable""""', 'IX_New_Name');
+            string expected = @"
+                SELECT remove_reorder_policy('public.""TestTable""', if_exists => true);
+                SELECT add_reorder_policy('public.""TestTable""', 'IX_New_Name');
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '2 days', max_retries => 5, retry_period => INTERVAL '10 minutes')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_reorder' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
-            "")";
+            ";
 
             // Act
             string result = GetGeneratedCode(operation);

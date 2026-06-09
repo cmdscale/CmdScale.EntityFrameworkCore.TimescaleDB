@@ -1,34 +1,23 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators;
 
 public class ContinuousAggregatePolicyOperationGeneratorTests
 {
     /// <summary>
-    /// Helper to run the generator and capture its string output for design-time (migration code generation).
+    /// Helper to run the generator and capture the SQL output.
     /// </summary>
-    private static string GetGeneratedCode(dynamic operation)
-    {
-        IndentedStringBuilder builder = new();
-        ContinuousAggregatePolicyOperationGenerator generator = new(true);
-        List<string> statements = generator.Generate(operation);
-        SqlBuilderHelper.BuildQueryString(statements, builder);
-        return builder.ToString();
-    }
+    private static string GetGeneratedCode(dynamic operation) => GetRuntimeSql(operation);
 
     /// <summary>
     /// Helper to run the generator for runtime SQL execution.
     /// </summary>
     private static string GetRuntimeSql(dynamic operation)
     {
-        IndentedStringBuilder builder = new();
-        ContinuousAggregatePolicyOperationGenerator generator = new(false);
-        List<string> statements = generator.Generate(operation);
-        SqlBuilderHelper.BuildQueryString(statements, builder);
-        return builder.ToString();
+        List<string> statements = ContinuousAggregatePolicySqlGenerator.Generate(operation);
+        return string.Join("\n", statements);
     }
 
     [Fact]
@@ -51,9 +40,9 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
             RefreshNewestFirst = false
         };
 
-        string expected = @".Sql(@""
-            SELECT add_continuous_aggregate_policy('public.""""hourly_metrics""""', start_offset => INTERVAL '1 month', end_offset => INTERVAL '1 hour', schedule_interval => INTERVAL '1 hour', if_not_exists => true, include_tiered_data => true, buckets_per_batch => 5, max_batches_per_execution => 10, refresh_newest_first => false, initial_start => '2025-12-15T03:00:00.0000000Z');
-        "")";
+        string expected = @"
+            SELECT add_continuous_aggregate_policy('public.""hourly_metrics""', start_offset => INTERVAL '1 month', end_offset => INTERVAL '1 hour', schedule_interval => INTERVAL '1 hour', if_not_exists => true, include_tiered_data => true, buckets_per_batch => 5, max_batches_per_execution => 10, refresh_newest_first => false, initial_start => '2025-12-15T03:00:00.0000000Z');
+        ";
 
         // Act
         string result = GetGeneratedCode(operation);
@@ -74,9 +63,9 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
             EndOffset = "1 hour"
         };
 
-        string expected = @".Sql(@""
-            SELECT add_continuous_aggregate_policy('public.""""hourly_metrics""""', start_offset => INTERVAL '1 month', end_offset => INTERVAL '1 hour');
-        "")";
+        string expected = @"
+            SELECT add_continuous_aggregate_policy('public.""hourly_metrics""', start_offset => INTERVAL '1 month', end_offset => INTERVAL '1 hour');
+        ";
 
         // Act
         string result = GetGeneratedCode(operation);
@@ -98,9 +87,9 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
             ScheduleInterval = "1 hour"
         };
 
-        string expected = @".Sql(@""
-            SELECT add_continuous_aggregate_policy('public.""""hourly_metrics""""', start_offset => NULL, end_offset => NULL, schedule_interval => INTERVAL '1 hour');
-        "")";
+        string expected = @"
+            SELECT add_continuous_aggregate_policy('public.""hourly_metrics""', start_offset => NULL, end_offset => NULL, schedule_interval => INTERVAL '1 hour');
+        ";
 
         // Act
         string result = GetGeneratedCode(operation);
@@ -122,9 +111,9 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
             ScheduleInterval = "1 hour"
         };
 
-        string expected = @".Sql(@""
-            SELECT add_continuous_aggregate_policy('public.""""sensor_data_hourly""""', start_offset => 100000, end_offset => 1000, schedule_interval => INTERVAL '1 hour');
-        "")";
+        string expected = @"
+            SELECT add_continuous_aggregate_policy('public.""sensor_data_hourly""', start_offset => 100000, end_offset => 1000, schedule_interval => INTERVAL '1 hour');
+        ";
 
         // Act
         string result = GetGeneratedCode(operation);
@@ -144,9 +133,9 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
             IfExists = false
         };
 
-        string expected = @".Sql(@""
-            SELECT remove_continuous_aggregate_policy('public.""""hourly_metrics""""');
-        "")";
+        string expected = @"
+            SELECT remove_continuous_aggregate_policy('public.""hourly_metrics""');
+        ";
 
         // Act
         string result = GetGeneratedCode(operation);
@@ -166,9 +155,9 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
             IfExists = true
         };
 
-        string expected = @".Sql(@""
-            SELECT remove_continuous_aggregate_policy('public.""""hourly_metrics""""', if_exists => true);
-        "")";
+        string expected = @"
+            SELECT remove_continuous_aggregate_policy('public.""hourly_metrics""', if_exists => true);
+        ";
 
         // Act
         string result = GetGeneratedCode(operation);
@@ -189,35 +178,12 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
             EndOffset = "1 hour"
         };
 
-        string expected = @".Sql(@""
+        string expected = @"
             SELECT add_continuous_aggregate_policy('public.""hourly_metrics""', start_offset => INTERVAL '1 month', end_offset => INTERVAL '1 hour');
-        "")";
+        ";
 
         // Act
         string result = GetRuntimeSql(operation);
-
-        // Assert
-        Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
-    }
-
-    [Fact]
-    public void Use_Correct_Quotes_For_DesignTime()
-    {
-        // Arrange
-        AddContinuousAggregatePolicyOperation operation = new()
-        {
-            Schema = "public",
-            MaterializedViewName = "hourly_metrics",
-            StartOffset = "1 month",
-            EndOffset = "1 hour"
-        };
-
-        string expected = @".Sql(@""
-            SELECT add_continuous_aggregate_policy('public.""""hourly_metrics""""', start_offset => INTERVAL '1 month', end_offset => INTERVAL '1 hour');
-        "")";
-
-        // Act
-        string result = GetGeneratedCode(operation);
 
         // Assert
         Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
@@ -235,9 +201,9 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
             EndOffset = "1 hour"
         };
 
-        string expected = @".Sql(@""
-            SELECT add_continuous_aggregate_policy('analytics.""""hourly_metrics""""', start_offset => INTERVAL '1 month', end_offset => INTERVAL '1 hour');
-        "")";
+        string expected = @"
+            SELECT add_continuous_aggregate_policy('analytics.""hourly_metrics""', start_offset => INTERVAL '1 month', end_offset => INTERVAL '1 hour');
+        ";
 
         // Act
         string result = GetGeneratedCode(operation);

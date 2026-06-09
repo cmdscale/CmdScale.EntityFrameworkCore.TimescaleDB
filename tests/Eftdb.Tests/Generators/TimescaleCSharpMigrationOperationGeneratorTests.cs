@@ -33,17 +33,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             // Act
-            // Note: We call the protected method via the public interface indirectly
-            // by using reflection or by testing via the public Generate method
             generator.Generate("migrationBuilder", [operation], builder);
 
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("create_hypertable", result);
-            Assert.Contains(";", result);
-            Assert.DoesNotContain("migrationBuilder;", result); // This would be invalid C#
+            Assert.Contains(".CreateHypertable(", result);
+            Assert.Contains("tableName:", result);
+            Assert.Contains("timeColumnName:", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
         }
 
         [Fact]
@@ -68,7 +67,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             string result = builder.ToString();
-            Assert.Contains("migrate_data => true", result);
+            Assert.Contains(".CreateHypertable(", result);
+            Assert.Contains("migrateData:", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -80,7 +80,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
             IndentedStringBuilder builder = new();
 
-            // An alter operation with no actual changes should still generate valid C#
             AlterHypertableOperation operation = new()
             {
                 TableName = "sensor_data",
@@ -93,15 +92,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
 
-            // The result should either be empty (no operation generated) or contain valid C#
-            // It should NEVER contain just "migrationBuilder;" without a method call
             if (!string.IsNullOrWhiteSpace(result))
             {
                 Assert.DoesNotContain("migrationBuilder;", result.Replace(" ", "").Replace("\n", "").Replace("\r", ""));
-                // If there's content, it should have a proper method call
                 if (result.Contains("migrationBuilder"))
                 {
-                    Assert.Contains(".Sql(@\"", result);
+                    Assert.Contains(".AlterHypertable(", result);
+                    Assert.DoesNotContain(".Sql(", result);
                 }
             }
         }
@@ -127,8 +124,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("add_reorder_policy", result);
+            Assert.Contains(".AddReorderPolicy(", result);
+            Assert.Contains("tableName:", result);
+            Assert.Contains("indexName:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -152,8 +151,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("remove_reorder_policy", result);
+            Assert.Contains(".DropReorderPolicy(", result);
+            Assert.Contains("tableName:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -173,7 +173,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TimeBucketWidth = "1 hour",
                 TimeBucketSourceColumn = "timestamp",
                 TimeBucketGroupBy = true,
-                AggregateFunctions = ["COUNT(*)"]
+                AggregateFunctions = ["total_count:Count:id"]
             };
 
             // Act
@@ -182,8 +182,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("CREATE MATERIALIZED VIEW", result);
+            Assert.Contains(".CreateContinuousAggregate(", result);
+            Assert.Contains("materializedViewName:", result);
+            Assert.Contains("parentName:", result);
+            Assert.Contains("timeBucketWidth:", result);
+            Assert.Contains("aggregateFunctions:", result);
+            // Aggregate functions emit as typed entries showing the enum, not magic strings.
+            Assert.Contains("ContinuousAggregateFunction(", result);
+            Assert.Contains("EAggregateFunction.Count", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -207,8 +214,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("DROP MATERIALIZED VIEW", result);
+            Assert.Contains(".DropContinuousAggregate(", result);
+            Assert.Contains("materializedViewName:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -236,10 +244,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            // When index changes, policy is dropped and recreated
-            Assert.Contains("remove_reorder_policy", result);
-            Assert.Contains("add_reorder_policy", result);
+            Assert.Contains(".AlterReorderPolicy(", result);
+            Assert.Contains("indexName:", result);
+            Assert.Contains("oldIndexName:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -269,13 +277,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            // When only schedule changes, uses alter_job
-            Assert.Contains("alter_job", result);
-            Assert.Contains("schedule_interval", result);
-            // Should not drop and recreate
-            Assert.DoesNotContain("remove_reorder_policy", result);
-            Assert.DoesNotContain("add_reorder_policy", result);
+            Assert.Contains(".AlterReorderPolicy(", result);
+            Assert.Contains("scheduleInterval:", result);
+            Assert.Contains("oldScheduleInterval:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -311,18 +316,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             string result = builder.ToString();
-
-            // The result should either be empty (no operation generated) or contain valid C#
-            // It should NEVER contain just "migrationBuilder;" without a method call
-            if (!string.IsNullOrWhiteSpace(result))
-            {
-                Assert.DoesNotContain("migrationBuilder;", result.Replace(" ", "").Replace("\n", "").Replace("\r", ""));
-                // If there's content, it should have a proper method call
-                if (result.Contains("migrationBuilder"))
-                {
-                    Assert.Contains(".Sql(@\"", result);
-                }
-            }
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AlterReorderPolicy(", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result.Replace(" ", "").Replace("\n", "").Replace("\r", ""));
         }
 
         [Fact]
@@ -351,10 +348,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("ALTER MATERIALIZED VIEW", result);
-            Assert.Contains("SET", result);
-            Assert.Contains("timescaledb.chunk_interval", result);
+            Assert.Contains(".AlterContinuousAggregate(", result);
+            Assert.Contains("chunkInterval:", result);
+            Assert.Contains("oldChunkInterval:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -384,10 +381,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("ALTER MATERIALIZED VIEW", result);
-            Assert.Contains("SET", result);
-            Assert.Contains("timescaledb.materialized_only", result);
+            Assert.Contains(".AlterContinuousAggregate(", result);
+            Assert.Contains("materializedOnly:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -417,10 +413,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("ALTER MATERIALIZED VIEW", result);
-            Assert.Contains("SET", result);
-            Assert.Contains("timescaledb.create_group_indexes", result);
+            Assert.Contains(".AlterContinuousAggregate(", result);
+            Assert.Contains("oldCreateGroupIndexes:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -450,18 +445,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             string result = builder.ToString();
-
-            // The result should either be empty (no operation generated) or contain valid C#
-            // It should NEVER contain just "migrationBuilder;" without a method call
-            if (!string.IsNullOrWhiteSpace(result))
-            {
-                Assert.DoesNotContain("migrationBuilder;", result.Replace(" ", "").Replace("\n", "").Replace("\r", ""));
-                // If there's content, it should have a proper method call
-                if (result.Contains("migrationBuilder"))
-                {
-                    Assert.Contains(".Sql(@\"", result);
-                }
-            }
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AlterContinuousAggregate(", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result.Replace(" ", "").Replace("\n", "").Replace("\r", ""));
         }
 
         #endregion
@@ -497,8 +484,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("add_continuous_aggregate_policy", result);
+            Assert.Contains(".AddContinuousAggregatePolicy(", result);
+            Assert.Contains("materializedViewName:", result);
+            Assert.Contains("startOffset:", result);
+            Assert.Contains("bucketsPerBatch:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -524,8 +514,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("add_continuous_aggregate_policy", result);
+            Assert.Contains(".AddContinuousAggregatePolicy(", result);
+            Assert.Contains("materializedViewName:", result);
+            Assert.Contains("startOffset:", result);
+            Assert.Contains("endOffset:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -551,10 +544,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("add_continuous_aggregate_policy", result);
-            Assert.Contains("start_offset => NULL", result);
-            Assert.Contains("end_offset => NULL", result);
+            Assert.Contains(".AddContinuousAggregatePolicy(", result);
+            Assert.Contains("materializedViewName:", result);
+            Assert.DoesNotContain("startOffset:", result);
+            Assert.DoesNotContain("endOffset:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -580,10 +574,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("add_continuous_aggregate_policy", result);
-            Assert.Contains("start_offset => 1000", result);
-            Assert.Contains("end_offset => 100", result);
+            Assert.Contains(".AddContinuousAggregatePolicy(", result);
+            Assert.Contains("startOffset:", result);
+            Assert.Contains("endOffset:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -607,8 +601,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("remove_continuous_aggregate_policy", result);
+            Assert.Contains(".RemoveContinuousAggregatePolicy(", result);
+            Assert.Contains("materializedViewName:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -633,9 +628,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("remove_continuous_aggregate_policy", result);
-            Assert.Contains("if_exists => true", result);
+            Assert.Contains(".RemoveContinuousAggregatePolicy(", result);
+            Assert.Contains("ifExists:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -664,8 +659,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string result = builder.ToString();
             Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".Sql(@\"", result);
-            Assert.Contains("add_retention_policy", result);
+            Assert.Contains(".AddRetentionPolicy(", result);
+            Assert.Contains("tableName:", result);
+            Assert.Contains("dropAfter:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -689,8 +686,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             string result = builder.ToString();
-            Assert.Contains("add_retention_policy", result);
-            Assert.DoesNotContain("alter_job", result);
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AddRetentionPolicy(", result);
+            Assert.Contains("dropCreatedBefore:", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
         }
 
         [Fact]
@@ -714,8 +714,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             string result = builder.ToString();
-            Assert.Contains("remove_retention_policy", result);
-            Assert.Contains("add_retention_policy", result);
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AlterRetentionPolicy(", result);
+            Assert.Contains("dropAfter:", result);
+            Assert.Contains("oldDropAfter:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -742,8 +745,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             string result = builder.ToString();
-            Assert.Contains("alter_job", result);
-            Assert.DoesNotContain("remove_retention_policy", result);
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AlterRetentionPolicy(", result);
+            Assert.Contains("scheduleInterval:", result);
+            Assert.Contains("oldScheduleInterval:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
@@ -766,8 +772,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             string result = builder.ToString();
-            Assert.Contains("remove_retention_policy", result);
-            Assert.Contains("if_exists", result);
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".DropRetentionPolicy(", result);
+            Assert.Contains("tableName:", result);
+            Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
 
