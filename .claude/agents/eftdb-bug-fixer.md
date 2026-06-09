@@ -1,6 +1,6 @@
 ---
 name: eftdb-bug-fixer
-description: Use this agent when bugs are discovered in existing runtime or design-time code within the CmdScale.EntityFrameworkCore.TimescaleDB library. This includes:\n\n<example>\nContext: User discovers a bug in the HypertableDiffer.\nuser: "The HypertableDiffer is not detecting changes to chunk time interval"\nassistant: "I'll use the eftdb-bug-fixer agent to analyze and fix the HypertableDiffer issue."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>\n\n<example>\nContext: SQL generation is incorrect for reorder policies.\nuser: "The ReorderPolicyOperationGenerator is generating invalid SQL with wrong schema qualification"\nassistant: "I'll launch the eftdb-bug-fixer agent to fix the SQL generation bug in ReorderPolicyOperationGenerator."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>\n\n<example>\nContext: Scaffolding extractor query is failing.\nuser: "The ContinuousAggregateScaffoldingExtractor is throwing NullReferenceException when extracting aggregate functions"\nassistant: "Let me use the eftdb-bug-fixer agent to debug and fix the scaffolding extractor."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>\n\n<example>\nContext: Another agent reports a bug during its work.\nuser: "The eftdb-scaffold-support agent reported a mismatch between runtime annotations and scaffolding expectations"\nassistant: "I'll use the eftdb-bug-fixer agent to resolve the annotation mismatch issue reported by the scaffolding agent."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>
+description: Use this agent when bugs are discovered in existing runtime or design-time code within the CmdScale.EntityFrameworkCore.TimescaleDB library. This includes:\n\n<example>\nContext: User discovers a bug in the HypertableDiffer.\nuser: "The HypertableDiffer is not detecting changes to chunk time interval"\nassistant: "I'll use the eftdb-bug-fixer agent to analyze and fix the HypertableDiffer issue."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>\n\n<example>\nContext: SQL generation is incorrect for reorder policies.\nuser: "The ReorderPolicySqlGenerator is generating invalid SQL with wrong schema qualification"\nassistant: "I'll launch the eftdb-bug-fixer agent to fix the SQL generation bug in ReorderPolicySqlGenerator."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>\n\n<example>\nContext: Scaffolding extractor query is failing.\nuser: "The ContinuousAggregateScaffoldingExtractor is throwing NullReferenceException when extracting aggregate functions"\nassistant: "Let me use the eftdb-bug-fixer agent to debug and fix the scaffolding extractor."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>\n\n<example>\nContext: Another agent reports a bug during its work.\nuser: "The eftdb-scaffold-support agent reported a mismatch between runtime annotations and scaffolding expectations"\nassistant: "I'll use the eftdb-bug-fixer agent to resolve the annotation mismatch issue reported by the scaffolding agent."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>
 model: sonnet
 color: red
 ---
@@ -38,7 +38,9 @@ You are an elite debugging and code quality specialist for the CmdScale.EntityFr
    - Identify which component is affected:
      - Model Extractor (reads annotations from EF model)
      - Differ (compares models and generates operations)
-     - Operation Generator (generates SQL/C# code)
+     - SQL Generator (`Generators/[Feature]SqlGenerator.cs` — runtime SQL)
+     - C# Generator (`Design/Generators/[Feature]CSharpGenerator.cs` — typed migration calls)
+     - Migration Extensions (`MigrationExtensions/[Feature]MigrationExtensions.cs`)
      - Scaffolding Extractor (queries TimescaleDB catalog)
      - Scaffolding Applier (applies annotations to scaffolded model)
      - Convention (converts attributes to annotations)
@@ -72,10 +74,10 @@ Before fixing, understand WHY the bug exists:
    - Hard-coded column names instead of convention-aware resolution
 
 3. **SQL Generation Bugs:**
-   - Quote string not respected (`isDesignTime` parameter ignored)
+   - Identifiers not quoted via `SqlBuilderHelper` (`Regclass`/`QualifiedIdentifier`/`QuoteIdentifier`)
    - Schema qualification missing or incorrect
    - SQL syntax errors for specific TimescaleDB functions
-   - Parameter escaping issues
+   - Missing `suppressTransaction` for DDL that cannot run in a transaction (continuous aggregates)
 
 4. **Null Reference Issues:**
    - Missing null checks for optional properties
@@ -88,9 +90,9 @@ Before fixing, understand WHY the bug exists:
    - Type conversion issues (string vs long for intervals)
 
 6. **Design-Time vs Runtime Confusion:**
-   - Generator not handling `isDesignTime` parameter correctly
-   - Quote escaping wrong for C# string generation
-   - Operation registered in runtime but not in design-time generator
+   - Operation registered in the runtime `TimescaleDbMigrationsSqlGenerator` switch but not in the design-time `TimescaleCSharpMigrationOperationGenerator` switch (or vice versa)
+   - Missing `MigrationExtensions` method so generated migrations cannot call the operation
+   - Runtime SQL and design-time typed call producing inconsistent results
 
 ### Phase 3: Fix Implementation
 
@@ -160,12 +162,12 @@ string columnName = property.GetColumnName(storeIdentifier);
 ```
 
 ```csharp
-// Bug: Quote string not used in SQL generation
+// Bug: identifier not quoted via the helper
 // INCORRECT FIX - Hard-coded quotes
 string sql = $"SELECT * FROM \"{schema}\".\"{table}\"";
 
-// CORRECT FIX - Use quote string field and SqlBuilderHelper
-string qualifiedName = SqlBuilderHelper.GetQualifiedTableName(schema, table, _quoteString);
+// CORRECT FIX - Use SqlBuilderHelper
+string qualifiedName = SqlBuilderHelper.QualifiedIdentifier(table, schema);
 string sql = $"SELECT * FROM {qualifiedName}";
 ```
 
@@ -212,14 +214,11 @@ if (annotation.Value is not string expectedValue)
 
 ### For SQL Generation Issues:
 ```csharp
-// Verify quote string usage
-System.Diagnostics.Debug.WriteLine($"Quote string: '{_quoteString}'");
-System.Diagnostics.Debug.WriteLine($"Generated SQL: {sql}");
-
-// Check if isDesignTime is propagated correctly
-if (isDesignTime && !sql.Contains("\"\""))
+// Inspect the statements returned by the feature SqlGenerator
+List<string> statements = HypertableSqlGenerator.Generate(operation);
+foreach (string statement in statements)
 {
-    // Likely bug: design-time should have doubled quotes
+    System.Diagnostics.Debug.WriteLine($"Generated SQL: {statement}");
 }
 ```
 

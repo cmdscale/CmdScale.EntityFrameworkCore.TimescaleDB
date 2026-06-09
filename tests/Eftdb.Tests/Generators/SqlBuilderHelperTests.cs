@@ -17,12 +17,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         public void Regclass_Runtime_ReturnsCorrectlyQuotedString()
         {
             // Arrange
-            SqlBuilderHelper helper = new(quoteString: "\"");
             string tableName = "MyTable";
             string expected = "'public.\"MyTable\"'";
 
             // Act
-            string result = helper.Regclass(tableName);
+            string result = SqlBuilderHelper.Regclass(tableName);
 
             // Assert
             Assert.Equal(expected, result);
@@ -32,42 +31,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         public void QualifiedIdentifier_Runtime_ReturnsCorrectlyQuotedString()
         {
             // Arrange
-            SqlBuilderHelper helper = new(quoteString: "\"");
             string tableName = "MyTable";
             string expected = "\"public\".\"MyTable\"";
 
             // Act
-            string result = helper.QualifiedIdentifier(tableName);
-
-            // Assert
-            Assert.Equal(expected, result);
-        }
-
-        [Fact]
-        public void Regclass_DesignTime_ReturnsCorrectlyEscapedQuotedString()
-        {
-            // Arrange
-            SqlBuilderHelper helper = new(quoteString: "\"\"");
-            string tableName = "MyTable";
-            string expected = "'public.\"\"MyTable\"\"'";
-
-            // Act
-            string result = helper.Regclass(tableName);
-
-            // Assert
-            Assert.Equal(expected, result);
-        }
-
-        [Fact]
-        public void QualifiedIdentifier_DesignTime_ReturnsCorrectlyEscapedQuotedString()
-        {
-            // Arrange
-            SqlBuilderHelper helper = new(quoteString: "\"\"");
-            string tableName = "MyTable";
-            string expected = "\"\"public\"\".\"\"MyTable\"\"";
-
-            // Act
-            string result = helper.QualifiedIdentifier(tableName);
+            string result = SqlBuilderHelper.QualifiedIdentifier(tableName);
 
             // Assert
             Assert.Equal(expected, result);
@@ -320,6 +288,83 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             mockBuilder.Verify(b => b.Append(It.Is<string>(s => s.StartsWith("SELECT"))), Times.Once);
+        }
+
+        #endregion
+
+        #region BuildQueryString_MigrationCommandListBuilder_Grouping
+
+        private static Mock<MigrationCommandListBuilder> CreateMockBuilder()
+        {
+            MigrationsSqlGeneratorDependencies dependencies = new(
+                Mock.Of<IRelationalCommandBuilderFactory>(),
+                Mock.Of<IUpdateSqlGenerator>(),
+                Mock.Of<ISqlGenerationHelper>(),
+                Mock.Of<IRelationalTypeMappingSource>(),
+                Mock.Of<ICurrentDbContext>(),
+                Mock.Of<IModificationCommandFactory>(),
+                Mock.Of<ILoggingOptions>(),
+                Mock.Of<IRelationalCommandDiagnosticsLogger>(),
+                Mock.Of<IDiagnosticsLogger<DbLoggerCategory.Migrations>>()
+            );
+
+            Mock<MigrationCommandListBuilder> mockBuilder = new(dependencies);
+            mockBuilder.Setup(b => b.Append(It.IsAny<string>())).Returns(mockBuilder.Object);
+            mockBuilder.Setup(b => b.EndCommand(It.IsAny<bool>())).Returns(mockBuilder.Object);
+            return mockBuilder;
+        }
+
+        [Fact]
+        public void BuildQueryString_MigrationCommandListBuilder_GroupsNonSemicolonLinesIntoSingleCommand()
+        {
+            // Arrange
+            List<string> statements =
+            [
+                "DO $$",
+                "BEGIN",
+                "    EXECUTE 'SELECT 1';",
+                "END $$;"
+            ];
+            Mock<MigrationCommandListBuilder> mockBuilder = CreateMockBuilder();
+
+            // Act
+            SqlBuilderHelper.BuildQueryString(statements, mockBuilder.Object);
+
+            // Assert
+            mockBuilder.Verify(b => b.EndCommand(It.IsAny<bool>()), Times.Once);
+            mockBuilder.Verify(
+                b => b.Append(It.Is<string>(s => s.Contains("DO $$") && s.Contains("END $$;"))),
+                Times.Once);
+        }
+
+        [Fact]
+        public void BuildQueryString_MigrationCommandListBuilder_SuppressTransaction_IsForwarded()
+        {
+            // Arrange
+            List<string> statements = ["SELECT 1;", "SELECT 2;"];
+            Mock<MigrationCommandListBuilder> mockBuilder = CreateMockBuilder();
+
+            // Act
+            SqlBuilderHelper.BuildQueryString(statements, mockBuilder.Object, suppressTransaction: true);
+
+            // Assert
+            mockBuilder.Verify(b => b.EndCommand(true), Times.Exactly(2));
+            mockBuilder.Verify(b => b.EndCommand(false), Times.Never);
+        }
+
+        [Fact]
+        public void BuildQueryString_MigrationCommandListBuilder_UsePerform_And_SuppressTransaction_Combined()
+        {
+            // Arrange
+            List<string> statements = ["SELECT create_hypertable('public.\"Events\"', 'Time');"];
+            Mock<MigrationCommandListBuilder> mockBuilder = CreateMockBuilder();
+
+            // Act
+            SqlBuilderHelper.BuildQueryString(statements, mockBuilder.Object, suppressTransaction: true, usePerform: true);
+
+            // Assert
+            mockBuilder.Verify(b => b.Append(It.Is<string>(s => s.StartsWith("PERFORM"))), Times.Once);
+            mockBuilder.Verify(b => b.EndCommand(true), Times.Once);
         }
 
         #endregion

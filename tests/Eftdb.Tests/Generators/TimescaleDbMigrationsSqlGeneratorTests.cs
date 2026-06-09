@@ -29,6 +29,18 @@ public class TimescaleDbMigrationsSqlGeneratorTests
         return string.Join("\n", commands.Select(c => c.CommandText));
     }
 
+    private static IReadOnlyList<MigrationCommand> GenerateCommands(
+        List<MigrationOperation> operations,
+        MigrationsSqlGenerationOptions? options = null)
+    {
+        using TestContext context = new();
+        IMigrationsSqlGenerator sqlGenerator = context.GetService<IMigrationsSqlGenerator>();
+
+        return options.HasValue
+            ? sqlGenerator.Generate(operations, context.Model, options.Value)
+            : sqlGenerator.Generate(operations, context.Model);
+    }
+
     #region Should_Use_Perform_For_CreateHypertable_In_Idempotent_Mode
 
     [Fact]
@@ -139,6 +151,104 @@ public class TimescaleDbMigrationsSqlGeneratorTests
         // Assert
         Assert.Contains("SELECT add_retention_policy", sql);
         Assert.DoesNotContain("PERFORM", sql);
+    }
+
+    #endregion
+
+    #region Should_Suppress_Transaction_For_CreateContinuousAggregate
+
+    [Fact]
+    public void Should_Suppress_Transaction_For_CreateContinuousAggregate()
+    {
+        // Arrange — CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous) cannot run
+        // inside a transaction, so the generator must mark the command as transaction-suppressed.
+        CreateContinuousAggregateOperation operation = new()
+        {
+            Schema = "public",
+            MaterializedViewName = "daily_avg",
+            ParentName = "measurements",
+            TimeBucketWidth = "1 day",
+            TimeBucketSourceColumn = "time",
+            TimeBucketGroupBy = true,
+            AggregateFunctions = ["avg_t:Avg:temp"]
+        };
+        List<MigrationOperation> operations = [operation];
+
+        // Act
+        IReadOnlyList<MigrationCommand> commands = GenerateCommands(operations);
+
+        // Assert
+        Assert.All(commands, c => Assert.True(c.TransactionSuppressed));
+    }
+
+    #endregion
+
+    #region Should_Generate_Command_For_AlterContinuousAggregate
+
+    [Fact]
+    public void Should_Generate_Command_For_AlterContinuousAggregate()
+    {
+        // Arrange
+        AlterContinuousAggregateOperation operation = new()
+        {
+            Schema = "public",
+            MaterializedViewName = "daily_avg",
+            ChunkInterval = "7 days",
+            OldChunkInterval = "1 day"
+        };
+        List<MigrationOperation> operations = [operation];
+
+        // Act
+        string sql = GenerateSql(operations);
+
+        // Assert
+        Assert.Contains("ALTER MATERIALIZED VIEW", sql);
+        Assert.Contains("timescaledb.chunk_interval", sql);
+    }
+
+    #endregion
+
+    #region Should_Generate_Command_For_DropContinuousAggregate
+
+    [Fact]
+    public void Should_Generate_Command_For_DropContinuousAggregate()
+    {
+        // Arrange
+        DropContinuousAggregateOperation operation = new()
+        {
+            Schema = "public",
+            MaterializedViewName = "daily_avg"
+        };
+        List<MigrationOperation> operations = [operation];
+
+        // Act
+        string sql = GenerateSql(operations);
+
+        // Assert
+        Assert.Contains("DROP MATERIALIZED VIEW IF EXISTS", sql);
+    }
+
+    #endregion
+
+    #region Should_Not_Suppress_Transaction_For_CreateHypertable
+
+    [Fact]
+    public void Should_Not_Suppress_Transaction_For_CreateHypertable()
+    {
+        // Arrange
+        CreateHypertableOperation operation = new()
+        {
+            TableName = "events",
+            Schema = "public",
+            TimeColumnName = "time"
+        };
+        List<MigrationOperation> operations = [operation];
+
+        // Act
+        IReadOnlyList<MigrationCommand> commands = GenerateCommands(operations);
+
+        // Assert — only continuous aggregate creation suppresses the transaction
+        Assert.All(commands, c => Assert.False(c.TransactionSuppressed));
     }
 
     #endregion

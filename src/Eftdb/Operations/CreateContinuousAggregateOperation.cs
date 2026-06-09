@@ -17,8 +17,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
         public string TimeBucketSourceColumn { get; set; } = string.Empty;
         public bool TimeBucketGroupBy { get; set; }
 
-        public List<string> AggregateFunctions { get; set; } = [];
-        public List<string> GroupByColumns { get; set; } = [];
+        public IReadOnlyList<string> AggregateFunctions { get; set; } = [];
+        public IReadOnlyList<string> GroupByColumns { get; set; } = [];
         public string? WhereClause { get; set; }
 
         /// <summary>

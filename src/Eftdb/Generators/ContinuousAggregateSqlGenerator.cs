@@ -3,26 +3,12 @@ using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    public class ContinuousAggregateOperationGenerator
+    public class ContinuousAggregateSqlGenerator
     {
-        private readonly string quoteString = "\"";
-        private readonly SqlBuilderHelper sqlHelper;
-
-        public ContinuousAggregateOperationGenerator(bool isDesignTime = false)
+        public static List<string> Generate(CreateContinuousAggregateOperation operation)
         {
-            if (isDesignTime)
-            {
-                quoteString = "\"\"";
-            }
-
-            sqlHelper = new SqlBuilderHelper(quoteString);
-
-        }
-
-        public List<string> Generate(CreateContinuousAggregateOperation operation)
-        {
-            string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
-            string parentQualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.ParentName, operation.Schema);
+            string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
+            string parentQualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.ParentName, operation.Schema);
 
             List<string> statements = [];
 
@@ -48,7 +34,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 rawSqlBuilder.AppendLine();
                 rawSqlBuilder.Append($"WITH ({string.Join(", ", withOptions)}) AS");
                 rawSqlBuilder.AppendLine();
-                rawSqlBuilder.Append(operation.ViewDefinition!.Trim().TrimEnd(';').Replace("\"", quoteString));
+                rawSqlBuilder.Append(operation.ViewDefinition!.Trim().TrimEnd(';'));
                 if (operation.WithNoData)
                 {
                     rawSqlBuilder.AppendLine();
@@ -63,7 +49,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             List<string> selectList = [];
 
             // Add time_bucket column
-            string timeBucketColumn = $"{quoteString}{operation.TimeBucketSourceColumn}{quoteString}";
+            string timeBucketColumn = $"{SqlBuilderHelper.QuoteIdentifier(operation.TimeBucketSourceColumn)}";
             string timeBucketWidthSql = $"'{operation.TimeBucketWidth}'";
             selectList.Add($"time_bucket({timeBucketWidthSql}, {timeBucketColumn}) AS time_bucket");
 
@@ -74,7 +60,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 bool isRawSqlExpression = groupByColumn.Contains(',') || groupByColumn.Contains('(') || groupByColumn.Contains(' ');
                 if (!isRawSqlExpression)
                 {
-                    selectList.Add($"{quoteString}{groupByColumn}{quoteString}");
+                    selectList.Add($"{SqlBuilderHelper.QuoteIdentifier(groupByColumn)}");
                 }
             }
 
@@ -93,8 +79,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 string sourceColumn = parts[2];
 
                 string sqlFunction = GetSqlAggregateFunction(functionEnumString);
-                string quotedSourceColumn = $"{quoteString}{sourceColumn}{quoteString}";
-                string quotedAlias = $"{quoteString}{alias}{quoteString}";
+                string quotedSourceColumn = $"{SqlBuilderHelper.QuoteIdentifier(sourceColumn)}";
+                string quotedAlias = $"{SqlBuilderHelper.QuoteIdentifier(alias)}";
                 string aggregateExpression;
 
                 // Handle special TimescaleDB aggregates 'first' and 'last'
@@ -129,7 +115,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 else
                 {
                     // It's a column name, quote it
-                    groupByList.Add($"{quoteString}{groupByColumn}{quoteString}");
+                    groupByList.Add($"{SqlBuilderHelper.QuoteIdentifier(groupByColumn)}");
                 }
             }
 
@@ -146,7 +132,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             // Add WHERE clause if specified
             if (!string.IsNullOrWhiteSpace(operation.WhereClause))
             {
-                string whereClause = operation.WhereClause.Replace("\"", quoteString);
+                string whereClause = operation.WhereClause;
                 sqlBuilder.AppendLine();
                 sqlBuilder.Append($"WHERE {whereClause}");
             }
@@ -171,9 +157,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             return statements;
         }
 
-        public List<string> Generate(AlterContinuousAggregateOperation operation)
+        public static List<string> Generate(AlterContinuousAggregateOperation operation)
         {
-            string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
+            string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
             List<string> statements = [];
 
             // Check for ChunkInterval change
@@ -213,9 +199,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             return statements;
         }
 
-        public List<string> Generate(DropContinuousAggregateOperation operation)
+        public static List<string> Generate(DropContinuousAggregateOperation operation)
         {
-            string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
+            string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
             List<string> statements = [];
 
             statements.Add($"DROP MATERIALIZED VIEW IF EXISTS {qualifiedIdentifier};");

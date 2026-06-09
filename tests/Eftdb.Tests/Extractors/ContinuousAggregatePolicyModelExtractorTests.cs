@@ -723,8 +723,7 @@ public class ContinuousAggregatePolicyModelExtractorTests
         List<AddContinuousAggregatePolicyOperation> operations =
             [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
 
-        // Assert: policy is still produced; schema falls through to the view's own schema
-        // because the parent-lookup branch is short-circuited by the IsNullOrWhiteSpace guard.
+        // Assert
         AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
         Assert.Equal("agg_view", op.MaterializedViewName);
         Assert.Equal("custom_schema", op.Schema);
@@ -792,7 +791,7 @@ public class ContinuousAggregatePolicyModelExtractorTests
         List<AddContinuousAggregatePolicyOperation> operations =
             [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
 
-        // Assert: parent lookup yields null, schema falls through to the view's own schema.
+        // Assert
         AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
         Assert.Equal("custom_schema", op.Schema);
     }
@@ -853,7 +852,7 @@ public class ContinuousAggregatePolicyModelExtractorTests
         List<AddContinuousAggregatePolicyOperation> operations =
             [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
 
-        // Assert: optional fields stay null when their annotations are absent.
+        // Assert
         AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
         Assert.Null(op.StartOffset);
         Assert.Null(op.EndOffset);
@@ -921,8 +920,7 @@ public class ContinuousAggregatePolicyModelExtractorTests
         List<AddContinuousAggregatePolicyOperation> operations =
             [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
 
-        // Assert: with no view schema, no entity schema, and no parent schema,
-        // resolution falls through to DefaultValues.DefaultSchema ("public").
+        // Assert
         AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
         Assert.Equal("public", op.Schema);
     }

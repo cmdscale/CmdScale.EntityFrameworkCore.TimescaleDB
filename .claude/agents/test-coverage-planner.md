@@ -193,18 +193,18 @@ For detailed test writing patterns and anti-patterns, see the `test-writer` agen
 Key principles for coverage analysis:
 - Tests should verify EF Core provider integration, not TimescaleDB itself
 - Prioritize migration lifecycle simulation over raw SQL execution
-- Cover both design-time (C# string escaping) and runtime (SQL) code paths
+- Cover both design-time (typed migration call) and runtime (SQL) code paths
 - Ensure naming convention support (snake_case, PascalCase, custom)
 
 ## Technical Considerations
 
 - **Naming Convention Support**: Ensure tests cover snake_case, camelCase, PascalCase, and custom conventions
-- **Design-Time vs Runtime**: Test both `isDesignTime: true` and `isDesignTime: false` code paths
+- **Design-Time vs Runtime**: Test both the runtime `[Feature]SqlGenerator` (SQL) and the design-time `[Feature]CSharpGenerator` (typed migration calls) paths
 - **Edge Cases**: Null values, empty collections, invalid configurations, malformed SQL
 - **Error Handling**: Exception scenarios, validation failures, database errors
 - **Cross-Feature**: Interactions between hypertables, continuous aggregates, and reorder policies
-- **Quote Escaping**: Verify correct escaping for both SQL (`"table"`) and C# strings (`""table""`)
-- **Schema Qualification**: Test `regclass()` formatting and qualified table names
+- **Identifier Quoting**: Verify `SqlBuilderHelper` quoting (`"table"`, `'schema."table"'`) in generated SQL
+- **Schema Qualification**: Test `Regclass()` formatting and qualified table names
 - **Column Name Resolution**: Test `StoreObjectIdentifier` and `GetColumnName()` with various naming conventions
 
 ## Your Constraints

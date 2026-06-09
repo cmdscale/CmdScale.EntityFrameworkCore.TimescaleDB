@@ -15,12 +15,23 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
         /// <param name="source">The source model (from the last migration).</param>
         /// <param name="target">The target model (the current state).</param>
         /// <returns>A collection of migration operations.</returns>
-        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
+        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
         {
+            context ??= FeatureDiffContext.Empty;
+
             List<MigrationOperation> operations = [];
 
-            List<AddContinuousAggregatePolicyOperation> sourcePolicies = [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(source)];
-            List<AddContinuousAggregatePolicyOperation> targetPolicies = [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(target)];
+            List<AddContinuousAggregatePolicyOperation> allSourcePolicies = [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(source)];
+            List<AddContinuousAggregatePolicyOperation> allTargetPolicies = [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(target)];
+
+            // Recreating an aggregate drops its refresh policy, so re-add it and skip the normal diff.
+            foreach (AddContinuousAggregatePolicyOperation policy in allTargetPolicies.Where(t => context.RecreatedAggregates.Contains((t.Schema, t.MaterializedViewName))))
+            {
+                operations.Add(policy);
+            }
+
+            List<AddContinuousAggregatePolicyOperation> sourcePolicies = [.. allSourcePolicies.Where(s => !context.RecreatedAggregates.Contains((s.Schema, s.MaterializedViewName)))];
+            List<AddContinuousAggregatePolicyOperation> targetPolicies = [.. allTargetPolicies.Where(t => !context.RecreatedAggregates.Contains((t.Schema, t.MaterializedViewName)))];
 
             // Find new policies - continuous aggregates that now have a policy but didn't before
             IEnumerable<AddContinuousAggregatePolicyOperation> newPolicies = targetPolicies

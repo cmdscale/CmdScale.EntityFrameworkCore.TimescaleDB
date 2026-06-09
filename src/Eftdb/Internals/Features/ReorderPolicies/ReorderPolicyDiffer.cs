@@ -6,17 +6,19 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
 {
     public class ReorderPolicyDiffer : IFeatureDiffer
     {
-        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
+        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
         {
+            context ??= FeatureDiffContext.Empty;
+
             // Get the standard migration operations (CreateTable, AddColumn, etc.) from the base MigrationsModelDiffer.
             List<MigrationOperation> operations = [];
 
-            // Reorder diffs
-            List<AddReorderPolicyOperation> sourcePolicies = [.. ReorderPolicyModelExtractor.GetReorderPolicies(source)];
+            // Apply table/index renames to the source so a rename isn't seen as a new policy.
+            List<AddReorderPolicyOperation> sourcePolicies = [.. ReorderPolicyModelExtractor.GetReorderPolicies(source).Select(s => RewriteSource(s, context))];
             List<AddReorderPolicyOperation> targetPolicies = [.. ReorderPolicyModelExtractor.GetReorderPolicies(target)];
 
-            // Identiy new reorder policies
-            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName));
+            // Identiy new reorder policies (keyed on schema and table name, consistent with the update join below)
+            IEnumerable<AddReorderPolicyOperation> newReorderPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.Schema == t.Schema && s.TableName == t.TableName));
             operations.AddRange(newReorderPolicies);
 
             // Identify updated reorder policies
@@ -64,6 +66,28 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
             operations.AddRange(removedReorderPolicies);
 
             return operations;
+        }
+
+        /// <summary>
+        /// Produces a copy of a source reorder policy with its table, schema, and referenced index rewritten through
+        /// the rename maps, so that a pure rename compares equal to its target and produces no operation.
+        /// </summary>
+        private static AddReorderPolicyOperation RewriteSource(AddReorderPolicyOperation source, FeatureDiffContext context)
+        {
+            (string schema, string tableName) = context.ResolveTable(source.Schema, source.TableName);
+            (_, string indexName) = context.ResolveIndex(source.Schema, source.IndexName);
+
+            return new AddReorderPolicyOperation
+            {
+                TableName = tableName,
+                Schema = schema,
+                IndexName = indexName,
+                InitialStart = source.InitialStart,
+                ScheduleInterval = source.ScheduleInterval,
+                MaxRuntime = source.MaxRuntime,
+                MaxRetries = source.MaxRetries,
+                RetryPeriod = source.RetryPeriod,
+            };
         }
     }
 }

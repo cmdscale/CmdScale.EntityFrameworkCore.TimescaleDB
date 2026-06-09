@@ -7,15 +7,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
 {
     public class HypertableDiffer : IFeatureDiffer
     {
-        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
+        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
         {
+            context ??= FeatureDiffContext.Empty;
+
             List<MigrationOperation> operations = [];
 
-            List<CreateHypertableOperation> sourceHypertables = [.. HypertableModelExtractor.GetHypertables(source)];
+            List<CreateHypertableOperation> sourceHypertables = [.. HypertableModelExtractor.GetHypertables(source).Select(s => RewriteSource(s, context))];
             List<CreateHypertableOperation> targetHypertables = [.. HypertableModelExtractor.GetHypertables(target)];
 
             // Find new hypertables
-            IEnumerable<CreateHypertableOperation> newHypertables = targetHypertables.Where(t => !sourceHypertables.Any(s => s.TableName == t.TableName));
+            IEnumerable<CreateHypertableOperation> newHypertables = targetHypertables.Where(t => !sourceHypertables.Any(s => s.Schema == t.Schema && s.TableName == t.TableName));
             operations.AddRange(newHypertables);
 
             // Find updated hypertables
@@ -60,9 +62,60 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                 });
             }
 
-            // TODO: Detect dropped hypertables if TimescaleDB supports a "de-hyper" operation.
-
             return operations;
+        }
+
+        /// <summary>
+        /// Produces a copy of a source hypertable with its table, schema, and all column-bearing fields rewritten
+        /// through the rename maps, so that a pure rename compares equal to its target and produces no operation.
+        /// </summary>
+        private static CreateHypertableOperation RewriteSource(CreateHypertableOperation source, FeatureDiffContext context)
+        {
+            (string schema, string tableName) = context.ResolveTable(source.Schema, source.TableName);
+
+            return new CreateHypertableOperation
+            {
+                TableName = tableName,
+                Schema = schema,
+                TimeColumnName = context.ResolveColumn(schema, tableName, source.TimeColumnName),
+                ChunkTimeInterval = source.ChunkTimeInterval,
+                EnableCompression = source.EnableCompression,
+                MigrateData = source.MigrateData,
+                ChunkSkipColumns = RewriteColumns(source.ChunkSkipColumns, schema, tableName, context),
+                CompressionSegmentBy = RewriteColumns(source.CompressionSegmentBy, schema, tableName, context),
+                CompressionOrderBy = RewriteOrderByColumns(source.CompressionOrderBy, schema, tableName, context),
+                AdditionalDimensions = RewriteDimensions(source.AdditionalDimensions, schema, tableName, context),
+            };
+        }
+
+        private static List<string>? RewriteColumns(IReadOnlyList<string>? columns, string schema, string table, FeatureDiffContext context)
+            => columns?.Select(c => context.ResolveColumn(schema, table, c)).ToList();
+
+        private static List<string>? RewriteOrderByColumns(IReadOnlyList<string>? columns, string schema, string table, FeatureDiffContext context)
+        {
+            // Order-by entries carry a direction suffix (e.g. "time DESC"); only the leading column name is renamed.
+            return columns?.Select(c =>
+            {
+                string[] parts = c.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 0)
+                {
+                    return c;
+                }
+
+                string column = context.ResolveColumn(schema, table, parts[0]);
+                return parts.Length > 1 ? $"{column} {parts[1]}" : column;
+            }).ToList();
+        }
+
+        private static List<Dimension>? RewriteDimensions(IReadOnlyList<Dimension>? dimensions, string schema, string table, FeatureDiffContext context)
+        {
+            return dimensions?.Select(d => new Dimension
+            {
+                ColumnName = context.ResolveColumn(schema, table, d.ColumnName),
+                Type = d.Type,
+                Interval = d.Interval,
+                NumberOfPartitions = d.NumberOfPartitions,
+            }).ToList();
         }
 
         private static bool AreStringListsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)

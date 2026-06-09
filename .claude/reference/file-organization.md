@@ -24,7 +24,8 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Configuration/Hypertable/HypertableConvention.cs` | Convention processing |
 | `Internals/Features/Hypertables/HypertableDiffer.cs` | Diffing logic |
 | `Internals/Features/Hypertables/HypertableModelExtractor.cs` | Model extraction |
-| `Generators/HypertableOperationGenerator.cs` | SQL/C# generation |
+| `Generators/HypertableSqlGenerator.cs` | Runtime SQL generation |
+| `MigrationExtensions/HypertableMigrationExtensions.cs` | Typed migrationBuilder methods |
 | `Operations/CreateHypertableOperation.cs` | Migration operation |
 | `Operations/AlterHypertableOperation.cs` | Migration operation |
 
@@ -38,10 +39,27 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Configuration/ReorderPolicy/ReorderPolicyConvention.cs` | Convention processing |
 | `Internals/Features/ReorderPolicies/ReorderPolicyDiffer.cs` | Diffing logic |
 | `Internals/Features/ReorderPolicies/ReorderPolicyModelExtractor.cs` | Model extraction |
-| `Generators/ReorderPolicyOperationGenerator.cs` | SQL/C# generation |
+| `Generators/ReorderPolicySqlGenerator.cs` | Runtime SQL generation |
+| `MigrationExtensions/ReorderPolicyMigrationExtensions.cs` | Typed migrationBuilder methods |
 | `Operations/AddReorderPolicyOperation.cs` | Migration operation |
 | `Operations/AlterReorderPolicyOperation.cs` | Migration operation |
 | `Operations/DropReorderPolicyOperation.cs` | Migration operation |
+
+### Retention Policy
+
+| File | Purpose |
+|------|---------|
+| `Configuration/RetentionPolicy/RetentionPolicyTypeBuilder.cs` | Fluent API |
+| `Configuration/RetentionPolicy/RetentionPolicyAnnotations.cs` | Annotation constants |
+| `Configuration/RetentionPolicy/RetentionPolicyAttribute.cs` | Data annotation |
+| `Configuration/RetentionPolicy/RetentionPolicyConvention.cs` | Convention processing |
+| `Internals/Features/RetentionPolicies/RetentionPolicyDiffer.cs` | Diffing logic |
+| `Internals/Features/RetentionPolicies/RetentionPolicyModelExtractor.cs` | Model extraction |
+| `Generators/RetentionPolicySqlGenerator.cs` | Runtime SQL generation |
+| `MigrationExtensions/RetentionPolicyMigrationExtensions.cs` | Typed migrationBuilder methods |
+| `Operations/AddRetentionPolicyOperation.cs` | Migration operation |
+| `Operations/AlterRetentionPolicyOperation.cs` | Migration operation |
+| `Operations/DropRetentionPolicyOperation.cs` | Migration operation |
 
 ### Continuous Aggregate
 
@@ -56,7 +74,9 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Configuration/ContinuousAggregate/ContinuousAggregateConvention.cs` | Convention processing |
 | `Internals/Features/ContinuousAggregates/ContinuousAggregateDiffer.cs` | Diffing logic |
 | `Internals/Features/ContinuousAggregates/ContinuousAggregateModelExtractor.cs` | Model extraction |
-| `Generators/ContinuousAggregateOperationGenerator.cs` | SQL/C# generation |
+| `Generators/ContinuousAggregateSqlGenerator.cs` | Runtime SQL generation |
+| `MigrationExtensions/ContinuousAggregateMigrationExtensions.cs` | Typed migrationBuilder methods |
+| `Abstractions/ContinuousAggregateFunction.cs` | Typed aggregate-function value |
 | `Operations/CreateContinuousAggregateOperation.cs` | Migration operation |
 | `Operations/AlterContinuousAggregateOperation.cs` | Migration operation |
 | `Operations/DropContinuousAggregateOperation.cs` | Migration operation |
@@ -72,6 +92,8 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Configuration/ContinuousAggregatePolicy/ContinuousAggregateBuilderPolicyExtensions.cs` | Builder extensions |
 | `Internals/Features/ContinuousAggregatePolicies/ContinuousAggregatePolicyDiffer.cs` | Diffing logic |
 | `Internals/Features/ContinuousAggregatePolicies/ContinuousAggregatePolicyModelExtractor.cs` | Model extraction |
+| `Generators/ContinuousAggregatePolicySqlGenerator.cs` | Runtime SQL generation |
+| `MigrationExtensions/ContinuousAggregatePolicyMigrationExtensions.cs` | Typed migrationBuilder methods |
 | `Operations/AddContinuousAggregatePolicyOperation.cs` | Migration operation |
 | `Operations/RemoveContinuousAggregatePolicyOperation.cs` | Migration operation |
 
@@ -88,19 +110,29 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 
 | File | Purpose |
 |------|---------|
-| `Internals/TimescaleMigrationsModelDiffer.cs` | Operation prioritization |
+| `Internals/TimescaleMigrationsModelDiffer.cs` | Differ orchestration, context building, operation prioritization |
 | `Internals/Features/IFeatureDiffer.cs` | Differ interface |
-| `Generators/SqlBuilderHelper.cs` | Quote handling, regclass |
+| `Internals/Features/FeatureDiffContext.cs` | Cross-cutting diff state (renames, recreated aggregates) |
+| `Generators/SqlBuilderHelper.cs` | Identifier quoting, regclass, command grouping, SELECT→PERFORM |
+| `Generators/PolicyJobSqlBuilder.cs` | Shared `alter_job` clause builder for policies |
 | `DefaultValues.cs` | Centralized defaults |
 | `Abstractions/Dimension.cs` | Range/hash partitioning |
 | `Abstractions/EAggregateFunction.cs` | Aggregate function enum |
+| `Abstractions/ContinuousAggregateFunction.cs` | Typed aggregate-function value |
 
 ## Design Library Key Files
 
 | File | Purpose |
 |------|---------|
 | `TimescaleDBDesignTimeServices.cs` | Register design-time services |
-| `TimescaleCSharpMigrationOperationGenerator.cs` | C# code generation for migrations |
+| `TimescaleCSharpMigrationOperationGenerator.cs` | Dispatches operations to the `*CSharpGenerator` classes |
+| `Generators/HypertableCSharpGenerator.cs` | Emits `CreateHypertable`/`AlterHypertable` calls |
+| `Generators/ReorderPolicyCSharpGenerator.cs` | Emits reorder-policy calls |
+| `Generators/RetentionPolicyCSharpGenerator.cs` | Emits retention-policy calls |
+| `Generators/ContinuousAggregateCSharpGenerator.cs` | Emits continuous-aggregate calls |
+| `Generators/ContinuousAggregatePolicyCSharpGenerator.cs` | Emits CA-policy calls |
+| `Generators/MigrationCallWriter.cs` | Writes a `.Method(arg: value, …)` call |
+| `Generators/CSharpGeneratorHelper.cs` | Collection-expression and static-call literal helpers |
 | `TimescaleDatabaseModelFactory.cs` | Db-first scaffolding orchestration |
 | `Scaffolding/ITimescaleFeatureExtractor.cs` | Extractor interface |
 | `Scaffolding/IAnnotationApplier.cs` | Applier interface |
@@ -108,6 +140,8 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Scaffolding/HypertableAnnotationApplier.cs` | Apply hypertable annotations |
 | `Scaffolding/ReorderPolicyScaffoldingExtractor.cs` | Query reorder policies from database |
 | `Scaffolding/ReorderPolicyAnnotationApplier.cs` | Apply reorder policy annotations |
+| `Scaffolding/RetentionPolicyScaffoldingExtractor.cs` | Query retention policies from database |
+| `Scaffolding/RetentionPolicyAnnotationApplier.cs` | Apply retention policy annotations |
 | `Scaffolding/ContinuousAggregateScaffoldingExtractor.cs` | Query continuous aggregates |
 | `Scaffolding/ContinuousAggregateAnnotationApplier.cs` | Apply continuous aggregate annotations |
 | `build/CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets` | MSBuild integration |
@@ -137,20 +171,24 @@ src/
 │   │   ├── ContinuousAggregate/
 │   │   ├── ContinuousAggregatePolicy/
 │   │   ├── Hypertable/
-│   │   └── ReorderPolicy/
-│   ├── Generators/         # SQL and C# code generation
+│   │   ├── ReorderPolicy/
+│   │   └── RetentionPolicy/
+│   ├── Generators/         # Runtime SQL generation
+│   ├── MigrationExtensions/ # Typed migrationBuilder.* methods
 │   ├── Internals/          # Core diffing logic
 │   │   └── Features/
 │   │       ├── ContinuousAggregates/
 │   │       ├── ContinuousAggregatePolicies/
 │   │       ├── Hypertables/
-│   │       └── ReorderPolicies/
+│   │       ├── ReorderPolicies/
+│   │       └── RetentionPolicies/
 │   ├── Operations/         # Migration operations
 │   ├── Query/              # EF.Functions extensions and LINQ translators
 │   │   └── Internal/       # EF Core query pipeline integration
 │   └── *.cs                # Entry points, extensions
 │
 └── Eftdb.Design/           # Design-time library (CmdScale.EntityFrameworkCore.TimescaleDB.Design)
+    ├── Generators/         # Design-time C# (typed migration call) generation
     ├── Scaffolding/        # Extractors and appliers
     ├── build/              # MSBuild targets
     └── *.cs                # Design-time services

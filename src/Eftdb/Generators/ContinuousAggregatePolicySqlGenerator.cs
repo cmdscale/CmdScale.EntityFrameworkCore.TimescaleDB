@@ -6,33 +6,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
     /// <summary>
     /// Generates SQL for continuous aggregate refresh policy operations.
     /// </summary>
-    public class ContinuousAggregatePolicyOperationGenerator
+    public class ContinuousAggregatePolicySqlGenerator
     {
-        private readonly string quoteString = "\"";
-        private readonly SqlBuilderHelper sqlHelper;
-
-        /// <summary>
-        /// Initializes a new instance of the ContinuousAggregatePolicyOperationGenerator class.
-        /// </summary>
-        /// <param name="isDesignTime">Whether this generator is being used at design-time (for C# code generation) or runtime (for SQL execution).</param>
-        public ContinuousAggregatePolicyOperationGenerator(bool isDesignTime = false)
-        {
-            if (isDesignTime)
-            {
-                quoteString = "\"\"";
-            }
-
-            sqlHelper = new SqlBuilderHelper(quoteString);
-        }
-
         /// <summary>
         /// Generates SQL statements for adding a continuous aggregate refresh policy.
         /// </summary>
         /// <param name="operation">The add policy operation.</param>
         /// <returns>A list of SQL statements to execute.</returns>
-        public List<string> Generate(AddContinuousAggregatePolicyOperation operation)
+        public static List<string> Generate(AddContinuousAggregatePolicyOperation operation)
         {
-            string qualifiedViewName = sqlHelper.Regclass(operation.MaterializedViewName, operation.Schema);
+            string qualifiedViewName = SqlBuilderHelper.Regclass(operation.MaterializedViewName, operation.Schema);
 
             List<string> arguments = [];
 
@@ -119,9 +102,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// </summary>
         /// <param name="operation">The remove policy operation.</param>
         /// <returns>A list of SQL statements to execute.</returns>
-        public List<string> Generate(RemoveContinuousAggregatePolicyOperation operation)
+        public static List<string> Generate(RemoveContinuousAggregatePolicyOperation operation)
         {
-            string qualifiedViewName = sqlHelper.Regclass(operation.MaterializedViewName, operation.Schema);
+            string qualifiedViewName = SqlBuilderHelper.Regclass(operation.MaterializedViewName, operation.Schema);
 
             List<string> arguments = [qualifiedViewName];
 

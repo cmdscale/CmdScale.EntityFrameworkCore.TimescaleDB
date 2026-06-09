@@ -201,17 +201,16 @@ Assert.NotNull(result);
 Assert.Equal(expectedValue, result.Property);
 ```
 
-**Testing SQL Generation** (Functional Tests):
+**Testing SQL Generation**:
 ```csharp
 // Arrange
-using TimescaleDbTestContainer container = new();
 CreateHypertableOperation operation = new() { /* ... */ };
 
 // Act
-string sql = generator.Generate(operation, model, builder, isDesignTime: false);
+List<string> statements = HypertableSqlGenerator.Generate(operation);
 
 // Assert
-Assert.Contains("SELECT create_hypertable", sql);
+Assert.Contains(statements, s => s.Contains("SELECT create_hypertable"));
 ```
 
 ### Column Name Convention Support

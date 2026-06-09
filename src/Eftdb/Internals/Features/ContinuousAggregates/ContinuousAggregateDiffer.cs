@@ -6,12 +6,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
 {
     public class ContinuousAggregateDiffer : IFeatureDiffer
     {
-        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
+        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
         {
+            context ??= FeatureDiffContext.Empty;
+
             List<MigrationOperation> operations = [];
 
             List<CreateContinuousAggregateOperation> sourceAggregates = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(source)];
             List<CreateContinuousAggregateOperation> targetAggregates = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(target)];
+
+            // Apply the parent table's rename so a renamed parent alone doesn't force a recreate.
+            foreach (CreateContinuousAggregateOperation aggregate in sourceAggregates)
+            {
+                (_, aggregate.ParentName) = context.ResolveTable(aggregate.Schema, aggregate.ParentName);
+            }
 
             // Find new continuous aggregates - only compare by MaterializedViewName, not Schema
             IEnumerable<CreateContinuousAggregateOperation> newAggregates = targetAggregates
@@ -93,7 +101,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             return operations;
         }
 
-        private static bool AreAggregateFunctionsEqual(List<string>? list1, List<string>? list2)
+        private static bool AreAggregateFunctionsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)
         {
             if (list1 == null && list2 == null) return true;
             if (list1 == null || list2 == null) return false;
@@ -102,7 +110,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             return list1.SequenceEqual(list2);
         }
 
-        private static bool AreGroupByColumnsEqual(List<string>? list1, List<string>? list2)
+        private static bool AreGroupByColumnsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)
         {
             if (list1 == null && list2 == null) return true;
             if (list1 == null || list2 == null) return false;

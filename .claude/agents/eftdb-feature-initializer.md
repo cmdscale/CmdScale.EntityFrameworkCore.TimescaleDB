@@ -141,7 +141,7 @@ Created Files:
 
 NEXT STEPS:
 → Use eftdb-feature-implementer agent to implement migration logic
-   (Creates: Differ, ModelExtractor, OperationGenerator)
+   (Creates: Differ, ModelExtractor, SqlGenerator, MigrationExtensions, CSharpGenerator)
 
 → Then use eftdb-scaffold-support agent for db-first scaffolding
    (Creates: ScaffoldingExtractor, AnnotationApplier)

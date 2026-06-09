@@ -14,7 +14,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features
         /// </summary>
         /// <param name="source">The source model (from the last migration).</param>
         /// <param name="target">The target model (the current state).</param>
+        /// <param name="context">
+        /// Cross-cutting diff information. When omitted, the differ behaves as if
+        /// nothing was renamed or recreated (<see cref="FeatureDiffContext.Empty"/>).
+        /// </param>
         /// <returns>A collection of migration operations.</returns>
-        IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target);
+        IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null);
     }
 }

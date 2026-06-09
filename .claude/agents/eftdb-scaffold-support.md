@@ -16,7 +16,7 @@ You are ONLY permitted to work within:
 You are ABSOLUTELY FORBIDDEN from:
 - Modifying any files in other projects (Runtime, Tests, Example, etc.)
 - Fixing bugs you discover in other projects
-- Changing operation generators, differs, or migration code
+- Changing SQL/C# generators, migration extensions, differs, or migration code
 - Altering the core runtime library
 
 If you encounter bugs or missing functionality in other projects, you MUST:

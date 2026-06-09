@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations.Design;
@@ -13,90 +13,76 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             ArgumentNullException.ThrowIfNull(operation);
             ArgumentNullException.ThrowIfNull(builder);
 
-            HypertableOperationGenerator? hypertableOperationGenerator = null;
-            ReorderPolicyOperationGenerator? reorderPolicyOperationGenerator = null;
-            RetentionPolicyOperationGenerator? retentionPolicyOperationGenerator = null;
-            ContinuousAggregateOperationGenerator? continuousAggregateOperationGenerator = null;
-            ContinuousAggregatePolicyOperationGenerator? continuousAggregatePolicyOperationGenerator = null;
-
-            List<string> statements;
-            bool suppressTransaction = false;
+            HypertableCSharpGenerator? hypertableCSharpGenerator = null;
+            ReorderPolicyCSharpGenerator? reorderPolicyCSharpGenerator = null;
+            RetentionPolicyCSharpGenerator? retentionPolicyCSharpGenerator = null;
+            ContinuousAggregateCSharpGenerator? continuousAggregateCSharpGenerator = null;
+            ContinuousAggregatePolicyCSharpGenerator? continuousAggregatePolicyCSharpGenerator = null;
 
             switch (operation)
             {
                 case CreateHypertableOperation create:
-                    hypertableOperationGenerator ??= new(isDesignTime: true);
-                    statements = hypertableOperationGenerator.Generate(create);
-                    break;
+                    hypertableCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    hypertableCSharpGenerator.Generate(create, builder);
+                    return;
                 case AlterHypertableOperation alter:
-                    hypertableOperationGenerator ??= new(isDesignTime: true);
-                    statements = hypertableOperationGenerator.Generate(alter);
-                    break;
+                    hypertableCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    hypertableCSharpGenerator.Generate(alter, builder);
+                    return;
 
                 case AddReorderPolicyOperation addReorder:
-                    reorderPolicyOperationGenerator ??= new(isDesignTime: true);
-                    statements = reorderPolicyOperationGenerator.Generate(addReorder);
-                    break;
+                    reorderPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    reorderPolicyCSharpGenerator.Generate(addReorder, builder);
+                    return;
                 case AlterReorderPolicyOperation alterReorder:
-                    reorderPolicyOperationGenerator ??= new(isDesignTime: true);
-                    statements = reorderPolicyOperationGenerator.Generate(alterReorder);
-                    break;
+                    reorderPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    reorderPolicyCSharpGenerator.Generate(alterReorder, builder);
+                    return;
                 case DropReorderPolicyOperation dropReorder:
-                    reorderPolicyOperationGenerator ??= new(isDesignTime: true);
-                    statements = reorderPolicyOperationGenerator.Generate(dropReorder);
-                    break;
+                    reorderPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    reorderPolicyCSharpGenerator.Generate(dropReorder, builder);
+                    return;
 
                 case AddRetentionPolicyOperation addRetention:
-                    retentionPolicyOperationGenerator ??= new(isDesignTime: true);
-                    statements = retentionPolicyOperationGenerator.Generate(addRetention);
-                    break;
+                    retentionPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    retentionPolicyCSharpGenerator.Generate(addRetention, builder);
+                    return;
                 case AlterRetentionPolicyOperation alterRetention:
-                    retentionPolicyOperationGenerator ??= new(isDesignTime: true);
-                    statements = retentionPolicyOperationGenerator.Generate(alterRetention);
-                    break;
+                    retentionPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    retentionPolicyCSharpGenerator.Generate(alterRetention, builder);
+                    return;
                 case DropRetentionPolicyOperation dropRetention:
-                    retentionPolicyOperationGenerator ??= new(isDesignTime: true);
-                    statements = retentionPolicyOperationGenerator.Generate(dropRetention);
-                    break;
+                    retentionPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    retentionPolicyCSharpGenerator.Generate(dropRetention, builder);
+                    return;
 
                 case CreateContinuousAggregateOperation createContinuousAggregate:
-                    continuousAggregateOperationGenerator ??= new(isDesignTime: true);
-                    statements = continuousAggregateOperationGenerator.Generate(createContinuousAggregate);
-                    suppressTransaction = true;
-                    break;
+                    continuousAggregateCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    continuousAggregateCSharpGenerator.Generate(createContinuousAggregate, builder);
+                    return;
                 case AlterContinuousAggregateOperation alterContinuousAggregate:
-                    continuousAggregateOperationGenerator ??= new(isDesignTime: true);
-                    statements = continuousAggregateOperationGenerator.Generate(alterContinuousAggregate);
-                    break;
+                    continuousAggregateCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    continuousAggregateCSharpGenerator.Generate(alterContinuousAggregate, builder);
+                    return;
                 case DropContinuousAggregateOperation dropContinuousAggregate:
-                    continuousAggregateOperationGenerator ??= new(isDesignTime: true);
-                    statements = continuousAggregateOperationGenerator.Generate(dropContinuousAggregate);
-                    break;
+                    continuousAggregateCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    continuousAggregateCSharpGenerator.Generate(dropContinuousAggregate, builder);
+                    return;
 
                 case AddContinuousAggregatePolicyOperation addContinuousAggregatePolicy:
-                    continuousAggregatePolicyOperationGenerator ??= new(isDesignTime: true);
-                    statements = continuousAggregatePolicyOperationGenerator.Generate(addContinuousAggregatePolicy);
-                    break;
+                    continuousAggregatePolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    continuousAggregatePolicyCSharpGenerator.Generate(addContinuousAggregatePolicy, builder);
+                    return;
 
                 case RemoveContinuousAggregatePolicyOperation removeContinuousAggregatePolicy:
-                    continuousAggregatePolicyOperationGenerator ??= new(isDesignTime: true);
-                    statements = continuousAggregatePolicyOperationGenerator.Generate(removeContinuousAggregatePolicy);
-                    break;
+                    continuousAggregatePolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
+                    continuousAggregatePolicyCSharpGenerator.Generate(removeContinuousAggregatePolicy, builder);
+                    return;
 
                 default:
                     base.Generate(operation, builder);
                     return;
             }
-
-            // Guard: if no statements were generated, output a no-op SQL comment to maintain valid C# syntax.
-            if (statements.Count == 0)
-            {
-                builder.Append(".Sql(@\"-- No SQL generated for this operation\")");
-                return;
-            }
-
-            SqlBuilderHelper.BuildQueryString(statements, builder, suppressTransaction);
         }
-
     }
 }

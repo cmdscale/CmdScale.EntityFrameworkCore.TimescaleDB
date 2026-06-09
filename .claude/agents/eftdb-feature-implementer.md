@@ -11,7 +11,7 @@ You are an elite Entity Framework Core migrations architect specializing in the 
 
 **PROJECT SCOPE RESTRICTION**: You MUST NOT modify code in any project except:
 - CmdScale.EntityFrameworkCore.TimescaleDB (primary work area)
-- CmdScale.EntityFrameworkCore.TimescaleDB.Design (ONLY the TimescaleCSharpMigrationOperationGenerator.cs file)
+- CmdScale.EntityFrameworkCore.TimescaleDB.Design (the `Generators/[Feature]CSharpGenerator.cs` file and `TimescaleCSharpMigrationOperationGenerator.cs`)
 
 Any attempt to modify other projects should result in immediate rejection with explanation.
 
@@ -48,105 +48,58 @@ Implement the following components in this exact order:
 
 #### 2. Feature Differ (Internals/Features/[Feature]Differ.cs)
 
-- Implement `IFeatureDiffer` interface
-- Use the extractor to compare source and target models
-- Generate appropriate operations (Create, Alter, Drop) based on differences
-- Return `IEnumerable<MigrationOperation>` with proper priority values:
-  - Priority 0: Standard EF operations
-  - Priority 10: CreateHypertableOperation
-  - Priority 20: Reorder policies
-  - Priority 30: Create continuous aggregates
-  - Priority 40: Alter/Drop continuous aggregates
-  - Choose appropriate priority for your feature based on dependencies
-- Follow existing patterns from HypertableDiffer, ReorderPolicyDiffer, or ContinuousAggregateDiffer
+- Implement `IFeatureDiffer`: `IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)`
+- Normalize `context ??= FeatureDiffContext.Empty;` and use it to resolve renames (`ResolveTable`, `ResolveColumn`, `ResolveIndex`) so a rename is not treated as drop-and-create
+- Use the extractor to compare source and target models, generating Create/Alter/Drop operations
+- Operation ordering is handled centrally by `GetOperationPriority()` (see step 3) — the differ does not set priorities itself
+- Follow existing patterns from HypertableDiffer, ReorderPolicyDiffer, RetentionPolicyDiffer, or ContinuousAggregateDiffer
 
 #### 3. Update TimescaleMigrationsModelDiffer (Internals/TimescaleMigrationsModelDiffer.cs)
 
-- Register your new differ in the constructor's `_featureDiffers` list
-- Ensure it's positioned correctly based on dependency order
-- No other changes needed to this file
+- Invoke your new differ in `GetDifferences()`, passing the shared `FeatureDiffContext`
+- Add a `case` for each new operation type in `GetOperationPriority()` (drops negative, adds/alters positive; pick values matching the feature's dependency order — see the priority table in `reference/architecture.md`)
 
-#### 4. Operation Generator (Generators/[Feature]OperationGenerator.cs)
+#### 4. Runtime SQL Generator (Generators/[Feature]SqlGenerator.cs)
 
-- Create a class that handles both SQL generation and C# code generation
-- **CRITICAL**: Constructor MUST have `isDesignTime` parameter with default value `false`:
-  ```csharp
-  public FeatureOperationGenerator(bool isDesignTime = false)
-  {
-      _quoteString = isDesignTime ? "\"\"" : "\"";
-  }
-  ```
-- Use `_quoteString` for all string literals in SQL generation
-- Implement these methods for each operation type:
-  - `Generate([Operation] operation, IModel? model, MigrationCommandListBuilder builder, bool isDesignTime)` - Runtime SQL
-  - `Generate([Operation] operation, CSharpMigrationOperationBuilder builder)` - Design-time C# code
-- Use `SqlBuilderHelper` static methods for table names, schema handling, and identifier quoting:
-  - `GetQualifiedTableName(schema, table, quoteString)` for fully qualified names
-  - `GetSchemaPrefix(schema, quoteString)` for schema prefixing
-  - Always pass your `_quoteString` to these methods
-- Follow SQL generation patterns from existing generators (HypertableOperationGenerator, ReorderPolicyOperationGenerator)
+- Static class exposing `static List<string> Generate(XxxOperation operation)` per operation type, returning TimescaleDB SQL statements
+- Build identifiers with `SqlBuilderHelper.Regclass()`, `SqlBuilderHelper.QualifiedIdentifier()`, `SqlBuilderHelper.QuoteIdentifier()`
+- For policy scheduling SQL (`alter_job` clauses), reuse `PolicyJobSqlBuilder`
+- Follow existing generators (HypertableSqlGenerator, RetentionPolicySqlGenerator)
 
-#### 5. Update TimescaleDbMigrationsSqlGenerator (TimescaleDbMigrationsSqlGenerator.cs)
+#### 5. Typed Migration Extensions (MigrationExtensions/[Feature]MigrationExtensions.cs)
 
-- Add method to handle your operation type:
-  ```csharp
-  protected virtual void Generate([YourOperation] operation, IModel? model, MigrationCommandListBuilder builder)
-  {
-      var generator = new YourOperationGenerator(_isDesignTime);
-      generator.Generate(operation, model, builder, _isDesignTime);
-  }
-  ```
-- Store `isDesignTime` parameter in a field: `private readonly bool _isDesignTime;`
-- Pass it through to generators
+- Add extension methods on `MigrationBuilder` (declared in namespace `Microsoft.EntityFrameworkCore.Migrations`) that construct the operation and `migrationBuilder.Operations.Add(operation)`
+- Return an `OperationBuilder<XxxOperation>`
+- These are the methods generated migrations call (e.g. `migrationBuilder.CreateHypertable(...)`)
 
-#### 6. Update TimescaleCSharpMigrationOperationGenerator (Design Project - ONLY FILE ALLOWED)
+#### 6. Register in TimescaleDbMigrationsSqlGenerator (TimescaleDbMigrationsSqlGenerator.cs)
 
-- Add C# code generation method:
-  ```csharp
-  protected virtual void Generate([YourOperation] operation, CSharpMigrationOperationBuilder builder)
-  {
-      var generator = new YourOperationGenerator(isDesignTime: true);
-      generator.Generate(operation, builder);
-  }
-  ```
-- This is the ONLY file in the Design project you may modify
+- Add a `case XxxOperation op:` to the `Generate` switch that calls `[Feature]SqlGenerator.Generate(op)` and assigns `statements`
+- Set `suppressTransaction = true` for operations whose DDL cannot run in a transaction (e.g. continuous-aggregate creation)
+
+#### 7. Design-Time C# Generator (Design/Generators/[Feature]CSharpGenerator.cs + register)
+
+- `Generate(XxxOperation operation, IndentedStringBuilder builder)` emits the typed `migrationBuilder.[Method](...)` call using `MigrationCallWriter` and `CSharpGeneratorHelper`
+- Emit a named `call.Arg("argName", code.Literal(...))` for each value, skipping defaults/empties
+- Register the operation type in the `switch` in `TimescaleCSharpMigrationOperationGenerator.cs`
 
 ## Critical Technical Requirements
 
-### Quote String Handling
+### Runtime vs Design-Time Split
 
-**This is ABSOLUTELY CRITICAL for runtime vs design-time duality:**
+The two paths are independent and consume the same operation types:
 
-- **Runtime Migrations** (`dotnet ef database update`):
-  - Quote string: `"` (single quote)
-  - Generates raw SQL that executes against database
-  
-- **Design-Time Migrations** (`dotnet ef migrations add`):
-  - Quote string: `""` (doubled quotes)
-  - Generates C# code with escaped strings for migration files
+- **Runtime** (`dotnet ef database update`): `TimescaleDbMigrationsSqlGenerator` → `[Feature]SqlGenerator.Generate(operation)` → SQL statements.
+- **Design-time** (`dotnet ef migrations add`): `TimescaleCSharpMigrationOperationGenerator` → `[Feature]CSharpGenerator.Generate(operation, builder)` → typed `migrationBuilder.[Method](...)` calls.
 
-**Implementation Pattern:**
-```csharp
-public class YourOperationGenerator
-{
-    private readonly string _quoteString;
-    
-    public YourOperationGenerator(bool isDesignTime = false)
-    {
-        _quoteString = isDesignTime ? "\"\"" : "\"";
-    }
-    
-    // Use _quoteString in all SQL generation
-    var tableName = SqlBuilderHelper.GetQualifiedTableName(schema, table, _quoteString);
-}
-```
+Generators carry no `isDesignTime` flag and do no quote-doubling.
 
 ### SqlBuilderHelper Usage
 
-ALWAYS use SqlBuilderHelper for:
-- Table name qualification: `GetQualifiedTableName(schema, table, quoteString)`
-- Schema prefixing: `GetSchemaPrefix(schema, quoteString)`
-- Identifier quoting: Methods handle this internally when you pass quoteString
+In `[Feature]SqlGenerator`, build identifiers with:
+- `SqlBuilderHelper.Regclass(table, schema)` → `'schema."table"'` (for `create_hypertable` and other regclass arguments)
+- `SqlBuilderHelper.QualifiedIdentifier(table, schema)` → `"schema"."table"` (for `ALTER TABLE` etc.)
+- `SqlBuilderHelper.QuoteIdentifier(column)` → `"column"`
 
 NEVER manually construct qualified names or handle quoting yourself.
 
@@ -243,10 +196,12 @@ Once the feature initializer completes, relaunch this agent to implement the mig
 Implemented Components:
 - Internals/Features/[Feature]/[Feature]ModelExtractor.cs
 - Internals/Features/[Feature]/[Feature]Differ.cs
-- Generators/[Feature]OperationGenerator.cs
-- Updated: Internals/TimescaleMigrationsModelDiffer.cs
-- Updated: TimescaleDbMigrationsSqlGenerator.cs
-- Updated: Design/TimescaleCSharpMigrationOperationGenerator.cs
+- Generators/[Feature]SqlGenerator.cs
+- MigrationExtensions/[Feature]MigrationExtensions.cs
+- Design/Generators/[Feature]CSharpGenerator.cs
+- Updated: Internals/TimescaleMigrationsModelDiffer.cs (differ invocation + GetOperationPriority cases)
+- Updated: TimescaleDbMigrationsSqlGenerator.cs (Generate switch case)
+- Updated: Design/TimescaleCSharpMigrationOperationGenerator.cs (Generate switch case)
 
 Operation Priority: [X] (rationale: [explanation])
 

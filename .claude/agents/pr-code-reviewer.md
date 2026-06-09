@@ -34,10 +34,12 @@ You are an expert code reviewer specializing in Entity Framework Core extensions
 
 4. **Critical Pattern Verification**
    - **StoreObjectIdentifier Usage**: Confirm `GetColumnName(storeIdentifier)` is used for column name resolution to support naming conventions
-   - **Quote Escaping**: Verify `isDesignTime` parameter is correctly passed to SQL generators
+   - **Generator Split**: Verify runtime SQL lives in `Generators/[Feature]SqlGenerator.cs` and design-time output in `Design/Generators/[Feature]CSharpGenerator.cs`; identifiers use `SqlBuilderHelper` (`Regclass`/`QualifiedIdentifier`/`QuoteIdentifier`)
+   - **Migration Extensions**: Confirm `MigrationExtensions/[Feature]MigrationExtensions.cs` adds the operation to `migrationBuilder.Operations`
+   - **Diff Context**: Verify differs accept `FeatureDiffContext` and resolve renames via it
    - **Annotation Storage**: Check that feature metadata uses centralized annotation constants
    - **Default Values**: Ensure `DefaultValues.cs` constants are referenced instead of hardcoded values
-   - **Continuous Aggregate Encoding**: Validate colon-delimited aggregate function strings follow the correct format
+   - **Continuous Aggregate Encoding**: Validate `ContinuousAggregateFunction` values and the colon-delimited annotation format follow the correct format
 
 5. **Project Structure Compliance**
    - Verify files are in correct namespaces and directories

@@ -86,8 +86,8 @@ private class TestContext(string connectionString) : DbContext { }
 | Service Registration | `UseTimescaleDb()` configures all services | `reference/patterns.md` |
 | Convention System | `IEntityTypeAddedConvention` processes attributes | `reference/patterns.md` |
 | Dual Configuration | Annotations + Fluent API → same annotations | `reference/patterns.md` |
-| IFeatureDiffer | Per-feature differ with model extractor | `reference/patterns.md` |
-| Runtime vs Design-Time | `isDesignTime` parameter changes quote escaping | `reference/patterns.md` |
+| IFeatureDiffer | Per-feature differ with model extractor + `FeatureDiffContext` | `reference/patterns.md` |
+| Runtime vs Design-Time | `*SqlGenerator` (SQL) vs `*CSharpGenerator` (typed migration calls) | `reference/patterns.md` |
 | Column Name Resolution | Always use `StoreObjectIdentifier` + `GetColumnName()` | `reference/patterns.md` |
 
 ## Agent Workflow
