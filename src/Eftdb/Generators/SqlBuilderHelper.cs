@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    public class SqlBuilderHelper(string quoteString)
+    public static class SqlBuilderHelper
     {
-        private readonly string quoteString = quoteString;
+        private static readonly string quoteString = "\"";
 
         public static void BuildQueryString(List<string> statements, MigrationCommandListBuilder builder, bool suppressTransaction = false, bool usePerform = false)
         {
@@ -17,13 +17,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             // Group consecutive statements that don't end with semicolon into single commands
             List<List<string>> commandGroups = [];
             List<string> currentGroup = [];
+            int dollarQuoteCount = 0;
 
             foreach (string statement in statements)
             {
                 currentGroup.Add(statement);
 
-                // If statement ends with semicolon, it's a complete command
-                if (statement.TrimEnd().EndsWith(';'))
+                dollarQuoteCount += statement.AsSpan().Count("$$");
+                bool insideDollarQuote = dollarQuoteCount % 2 != 0;
+
+                if (!insideDollarQuote && statement.TrimEnd().EndsWith(';'))
                 {
                     commandGroups.Add([.. currentGroup]);
                     currentGroup.Clear();
@@ -107,14 +110,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             }
         }
 
-        public string Regclass(string tableName, string schema = DefaultValues.DefaultSchema)
+        public static string Regclass(string tableName, string schema = DefaultValues.DefaultSchema)
         {
             return $"'{schema}.{quoteString}{tableName}{quoteString}'";
         }
 
-        public string QualifiedIdentifier(string tableName, string schema = DefaultValues.DefaultSchema)
+        public static string QualifiedIdentifier(string tableName, string schema = DefaultValues.DefaultSchema)
         {
             return $"{quoteString}{schema}{quoteString}.{quoteString}{tableName}{quoteString}";
         }
+
+        /// <summary>
+        /// Wraps a single identifier in PostgreSQL double quotes. Used by SQL generators
+        /// to quote column references in compression segment/order-by lists, group-by clauses, etc.
+        /// </summary>
+        public static string QuoteIdentifier(string identifier) => $"\"{identifier}\"";
     }
 }

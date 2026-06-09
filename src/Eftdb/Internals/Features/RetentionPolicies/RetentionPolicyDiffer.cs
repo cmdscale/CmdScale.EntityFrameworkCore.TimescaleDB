@@ -6,12 +6,24 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.RetentionP
 {
     public class RetentionPolicyDiffer : IFeatureDiffer
     {
-        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
+        public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
         {
+            context ??= FeatureDiffContext.Empty;
+
             List<MigrationOperation> operations = [];
 
-            List<AddRetentionPolicyOperation> sourcePolicies = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(source)];
-            List<AddRetentionPolicyOperation> targetPolicies = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(target)];
+            // Apply table renames to the source so a rename isn't seen as a drop-and-add.
+            List<AddRetentionPolicyOperation> allSourcePolicies = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(source).Select(s => RewriteSource(s, context))];
+            List<AddRetentionPolicyOperation> allTargetPolicies = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(target)];
+
+            // Recreating an aggregate drops its retention policy, so re-add it and skip the normal diff.
+            foreach (AddRetentionPolicyOperation policy in allTargetPolicies.Where(t => context.RecreatedAggregates.Contains((t.Schema, t.TableName))))
+            {
+                operations.Add(policy);
+            }
+
+            List<AddRetentionPolicyOperation> sourcePolicies = [.. allSourcePolicies.Where(s => !context.RecreatedAggregates.Contains((s.Schema, s.TableName)))];
+            List<AddRetentionPolicyOperation> targetPolicies = [.. allTargetPolicies.Where(t => !context.RecreatedAggregates.Contains((t.Schema, t.TableName)))];
 
             // Identify new retention policies
             IEnumerable<AddRetentionPolicyOperation> newRetentionPolicies = targetPolicies.Where(t => !sourcePolicies.Any(s => s.TableName == t.TableName && s.Schema == t.Schema));
@@ -66,6 +78,28 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.RetentionP
             operations.AddRange(removedRetentionPolicies);
 
             return operations;
+        }
+
+        /// <summary>
+        /// Produces a copy of a source retention policy with its table and schema rewritten through the table-rename
+        /// map, so that a pure rename compares equal to its target and produces no operation.
+        /// </summary>
+        private static AddRetentionPolicyOperation RewriteSource(AddRetentionPolicyOperation source, FeatureDiffContext context)
+        {
+            (string schema, string tableName) = context.ResolveTable(source.Schema, source.TableName);
+
+            return new AddRetentionPolicyOperation
+            {
+                TableName = tableName,
+                Schema = schema,
+                DropAfter = source.DropAfter,
+                DropCreatedBefore = source.DropCreatedBefore,
+                InitialStart = source.InitialStart,
+                ScheduleInterval = source.ScheduleInterval,
+                MaxRuntime = source.MaxRuntime,
+                MaxRetries = source.MaxRetries,
+                RetryPeriod = source.RetryPeriod,
+            };
         }
     }
 }

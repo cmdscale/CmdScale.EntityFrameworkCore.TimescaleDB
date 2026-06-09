@@ -17,79 +17,61 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             MigrationCommandListBuilder builder)
         {
             List<string> statements;
-            HypertableOperationGenerator? hypertableOperationGenerator = null;
-            ReorderPolicyOperationGenerator? reorderPolicyOperationGenerator = null;
-            RetentionPolicyOperationGenerator? retentionPolicyOperationGenerator = null;
-            ContinuousAggregateOperationGenerator? continuousAggregateOperationGenerator = null;
-            ContinuousAggregatePolicyOperationGenerator? continuousAggregatePolicyOperationGenerator = null;
             bool suppressTransaction = false;
 
             switch (operation)
             {
                 case CreateHypertableOperation hypertableOperation:
-                    hypertableOperationGenerator ??= new(isDesignTime: false);
-                    statements = hypertableOperationGenerator.Generate(hypertableOperation);
+                    statements = HypertableSqlGenerator.Generate(hypertableOperation);
                     break;
 
                 case AlterHypertableOperation alterHypertableOperation:
-                    hypertableOperationGenerator ??= new(isDesignTime: false);
-                    statements = hypertableOperationGenerator.Generate(alterHypertableOperation);
+                    statements = HypertableSqlGenerator.Generate(alterHypertableOperation);
                     break;
 
                 case AlterReorderPolicyOperation alterReorderPolicyOperation:
-                    reorderPolicyOperationGenerator ??= new(isDesignTime: false);
-                    statements = reorderPolicyOperationGenerator.Generate(alterReorderPolicyOperation);
+                    statements = ReorderPolicySqlGenerator.Generate(alterReorderPolicyOperation);
                     break;
 
                 case AddReorderPolicyOperation addReorderPolicyOperation:
-                    reorderPolicyOperationGenerator ??= new(isDesignTime: false);
-                    statements = reorderPolicyOperationGenerator.Generate(addReorderPolicyOperation);
+                    statements = ReorderPolicySqlGenerator.Generate(addReorderPolicyOperation);
                     break;
 
                 case DropReorderPolicyOperation dropReorderPolicyOperation:
-                    reorderPolicyOperationGenerator ??= new(isDesignTime: false);
-                    statements = reorderPolicyOperationGenerator.Generate(dropReorderPolicyOperation);
+                    statements = ReorderPolicySqlGenerator.Generate(dropReorderPolicyOperation);
                     break;
 
                 case AddRetentionPolicyOperation addRetentionPolicyOperation:
-                    retentionPolicyOperationGenerator ??= new(isDesignTime: false);
-                    statements = retentionPolicyOperationGenerator.Generate(addRetentionPolicyOperation);
+                    statements = RetentionPolicySqlGenerator.Generate(addRetentionPolicyOperation);
                     break;
 
                 case AlterRetentionPolicyOperation alterRetentionPolicyOperation:
-                    retentionPolicyOperationGenerator ??= new(isDesignTime: false);
-                    statements = retentionPolicyOperationGenerator.Generate(alterRetentionPolicyOperation);
+                    statements = RetentionPolicySqlGenerator.Generate(alterRetentionPolicyOperation);
                     break;
 
                 case DropRetentionPolicyOperation dropRetentionPolicyOperation:
-                    retentionPolicyOperationGenerator ??= new(isDesignTime: false);
-                    statements = retentionPolicyOperationGenerator.Generate(dropRetentionPolicyOperation);
+                    statements = RetentionPolicySqlGenerator.Generate(dropRetentionPolicyOperation);
                     break;
 
                 case CreateContinuousAggregateOperation createContinuousAggregateOperation:
-                    continuousAggregateOperationGenerator ??= new(isDesignTime: false);
-                    statements = continuousAggregateOperationGenerator.Generate(createContinuousAggregateOperation);
+                    statements = ContinuousAggregateSqlGenerator.Generate(createContinuousAggregateOperation);
                     suppressTransaction = true;
                     break;
 
                 case AlterContinuousAggregateOperation alterContinuousAggregateOperation:
-                    continuousAggregateOperationGenerator ??= new(isDesignTime: false);
-                    statements = continuousAggregateOperationGenerator.Generate(alterContinuousAggregateOperation);
+                    statements = ContinuousAggregateSqlGenerator.Generate(alterContinuousAggregateOperation);
                     break;
 
                 case DropContinuousAggregateOperation dropContinuousAggregateOperation:
-                    continuousAggregateOperationGenerator ??= new(isDesignTime: false);
-                    statements = continuousAggregateOperationGenerator.Generate(dropContinuousAggregateOperation);
+                    statements = ContinuousAggregateSqlGenerator.Generate(dropContinuousAggregateOperation);
                     break;
 
                 case AddContinuousAggregatePolicyOperation addContinuousAggregatePolicyOperation:
-                    continuousAggregatePolicyOperationGenerator ??= new(isDesignTime: false);
-                    statements = continuousAggregatePolicyOperationGenerator.Generate(addContinuousAggregatePolicyOperation);
+                    statements = ContinuousAggregatePolicySqlGenerator.Generate(addContinuousAggregatePolicyOperation);
                     break;
 
                 case RemoveContinuousAggregatePolicyOperation removeContinuousAggregatePolicyOperation:
-                    continuousAggregatePolicyOperationGenerator ??= new(isDesignTime: false);
-                    statements = continuousAggregatePolicyOperationGenerator.Generate(removeContinuousAggregatePolicyOperation);
+                    statements = ContinuousAggregatePolicySqlGenerator.Generate(removeContinuousAggregatePolicyOperation);
                     break;
 
                 default:

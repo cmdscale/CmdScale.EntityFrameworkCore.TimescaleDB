@@ -1,48 +1,31 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    public class HypertableOperationGenerator
+    public class HypertableSqlGenerator
     {
-        private readonly string quoteString = "\"";
-        private readonly SqlBuilderHelper sqlHelper;
-
-        public HypertableOperationGenerator(bool isDesignTime = false)
+        public static List<string> Generate(CreateHypertableOperation operation)
         {
-            if (isDesignTime)
-            {
-                quoteString = "\"\"";
-            }
-
-            sqlHelper = new SqlBuilderHelper(quoteString);
-        }
-
-        public List<string> Generate(CreateHypertableOperation operation)
-        {
-            string qualifiedTableName = sqlHelper.Regclass(operation.TableName, operation.Schema);
-            string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
+            string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
+            string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
 
             List<string> statements = [];
             List<string> communityStatements = [];
 
-            // Build create_hypertable with chunk_time_interval if provided
             StringBuilder createHypertableCall = new();
             createHypertableCall.Append($"SELECT create_hypertable({qualifiedTableName}, '{operation.TimeColumnName}'");
             createHypertableCall.Append(operation.MigrateData ? ", migrate_data => true" : "");
 
             if (!string.IsNullOrEmpty(operation.ChunkTimeInterval))
             {
-                // Check if the interval is a plain number (e.g., for microseconds).
                 if (long.TryParse(operation.ChunkTimeInterval, out _))
                 {
-                    // If it's a number, don't wrap it in quotes.
                     createHypertableCall.Append($", chunk_time_interval => {operation.ChunkTimeInterval}::bigint");
                 }
                 else
                 {
-                    // If it's a string like '7 days', wrap it in quotes.
                     createHypertableCall.Append($", chunk_time_interval => INTERVAL '{operation.ChunkTimeInterval}'");
                 }
             }
@@ -65,7 +48,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (hasSegmentBy)
             {
-                string segmentList = string.Join(", ", operation.CompressionSegmentBy!.Select(QuoteIdentifier));
+                string segmentList = string.Join(", ", operation.CompressionSegmentBy!.Select(SqlBuilderHelper.QuoteIdentifier));
                 compressionSettings.Add($"timescaledb.compress_segmentby = '{segmentList}'");
             }
 
@@ -75,13 +58,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 compressionSettings.Add($"timescaledb.compress_orderby = '{orderList}'");
             }
 
-            // If there are compression settings, add the ALTER TABLE SET (...) statement
             if (compressionSettings.Count > 0)
             {
                 communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});");
             }
 
-            // ChunkSkipColumns (Community Edition only)
             if (operation.ChunkSkipColumns != null && operation.ChunkSkipColumns.Count > 0)
             {
                 communityStatements.Add("SET timescaledb.enable_chunk_skipping = 'ON';");
@@ -92,14 +73,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
-            // AdditionalDimensions (Available in both editions)
             if (operation.AdditionalDimensions != null && operation.AdditionalDimensions.Count > 0)
             {
                 foreach (Dimension dimension in operation.AdditionalDimensions)
                 {
                     if (dimension.Type == EDimensionType.Range)
                     {
-                        // Detect if interval is numeric (integer range) or time-based (timestamp range)
                         bool isIntegerRange = long.TryParse(dimension.Interval, out _);
                         string intervalExpression = isIntegerRange
                             ? dimension.Interval!
@@ -114,7 +93,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
-            // Add wrapped community statements if any exist
             if (communityStatements.Count > 0)
             {
                 statements.Add(WrapCommunityFeatures(communityStatements));
@@ -122,29 +100,25 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             return statements;
         }
 
-        public List<string> Generate(AlterHypertableOperation operation)
+        public static List<string> Generate(AlterHypertableOperation operation)
         {
-            string qualifiedTableName = sqlHelper.Regclass(operation.TableName, operation.Schema);
-            string qualifiedIdentifier = sqlHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
+            string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
+            string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
 
             List<string> statements = [];
             List<string> communityStatements = [];
 
-            // Check for ChunkTimeInterval change (Available in both editions)
             if (operation.ChunkTimeInterval != operation.OldChunkTimeInterval)
             {
                 StringBuilder setChunkTimeInterval = new();
                 setChunkTimeInterval.Append($"SELECT set_chunk_time_interval({qualifiedTableName}, ");
 
-                // Check if the interval is a plain number (e.g., for microseconds).
                 if (long.TryParse(operation.ChunkTimeInterval, out _))
                 {
-                    // If it's a number, don't wrap it in quotes.
                     setChunkTimeInterval.Append($"{operation.ChunkTimeInterval}::bigint");
                 }
                 else
                 {
-                    // If it's a string like '7 days', wrap it in quotes.
                     setChunkTimeInterval.Append($"INTERVAL '{operation.ChunkTimeInterval}'");
                 }
 
@@ -177,7 +151,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (ListsChanged(operation.OldCompressionSegmentBy, operation.CompressionSegmentBy))
             {
                 string val = (operation.CompressionSegmentBy?.Count > 0)
-                    ? $"'{string.Join(", ", operation.CompressionSegmentBy.Select(QuoteIdentifier))}'"
+                    ? $"'{string.Join(", ", operation.CompressionSegmentBy.Select(SqlBuilderHelper.QuoteIdentifier))}'"
                     : "''";
                 compressionSettings.Add($"timescaledb.compress_segmentby = {val}");
             }
@@ -190,13 +164,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 compressionSettings.Add($"timescaledb.compress_orderby = {val}");
             }
 
-            // If there are compression settings, add the ALTER TABLE SET (...) statement
             if (compressionSettings.Count > 0)
             {
                 communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});");
             }
 
-            // Handle ChunkSkipColumns (Community Edition only)
             IReadOnlyList<string> newColumns = operation.ChunkSkipColumns ?? [];
             IReadOnlyList<string> oldColumns = operation.OldChunkSkipColumns ?? [];
             List<string> addedColumns = [.. newColumns.Except(oldColumns)];
@@ -220,14 +192,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
-            // Handle AdditionalDimensions - only add new dimensions
-            // NOTE: TimescaleDB does NOT support removing dimensions from hypertables.
-            // Once a dimension is added, it cannot be removed. Therefore, we only generate
-            // SQL for adding new dimensions and ignore dimension removals.
+            // TimescaleDB does NOT support removing dimensions from hypertables.
+            // Once added, a dimension cannot be removed, so only additions are generated.
             IReadOnlyList<Dimension> newDimensions = operation.AdditionalDimensions ?? [];
             IReadOnlyList<Dimension> oldDimensions = operation.OldAdditionalDimensions ?? [];
 
-            // Find dimensions that are in new but not in old (added dimensions)
             foreach (Dimension newDim in newDimensions)
             {
                 bool exists = oldDimensions.Any(oldDim =>
@@ -240,7 +209,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 {
                     if (newDim.Type == EDimensionType.Range)
                     {
-                        // Detect if interval is numeric (integer range) or time-based (timestamp range)
                         bool isIntegerRange = long.TryParse(newDim.Interval, out _);
                         string intervalExpression = isIntegerRange
                             ? newDim.Interval!
@@ -255,7 +223,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
-            // Warn if dimensions were removed (which cannot be reversed in TimescaleDB)
             List<Dimension> removedDimensions = [.. oldDimensions
                 .Where(oldDim => !newDimensions.Any(newDim =>
                     oldDim.ColumnName == newDim.ColumnName &&
@@ -267,7 +234,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 statements.Add($"-- WARNING: TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: {dimensionList}");
             }
 
-            // Add wrapped community statements if any exist
             if (communityStatements.Count > 0)
             {
                 statements.Add(WrapCommunityFeatures(communityStatements));
@@ -291,7 +257,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             foreach (string sql in sqlStatements)
             {
-                // Remove trailing semicolon and escape single quotes for EXECUTE
                 string cleanSql = sql.TrimEnd(';').Replace("'", "''");
                 sb.AppendLine($"        EXECUTE '{cleanSql}';");
             }
@@ -305,20 +270,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         }
 
         /// <summary>
-        /// Wraps an identifier in double quotes to preserve case-sensitivity in Postgres.
-        /// Escapes existing double quotes.
-        /// Example: TenantId -> "TenantId"
-        /// </summary>
-        private string QuoteIdentifier(string identifier)
-        {
-            return $"{quoteString}{identifier.Replace("\"", "\"\"")}{quoteString}";
-        }
-
-        /// <summary>
         /// Quotes the column name within an ORDER BY clause while preserving direction/nulls.
         /// Example: Timestamp DESC -> "Timestamp" DESC
         /// </summary>
-        private string QuoteOrderByList(IEnumerable<string> orderByClauses)
+        private static string QuoteOrderByList(IEnumerable<string> orderByClauses)
         {
             return string.Join(", ", orderByClauses.Select(clause =>
             {
@@ -326,7 +281,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 string col = parts[0];
                 string suffix = parts.Length > 1 ? " " + parts[1] : "";
 
-                return QuoteIdentifier(col) + suffix;
+                return SqlBuilderHelper.QuoteIdentifier(col) + suffix;
             }));
         }
     }
