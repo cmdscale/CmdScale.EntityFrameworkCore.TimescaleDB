@@ -54,6 +54,12 @@ This document provides detailed architectural information for the CmdScale.Entit
 - `ReorderPolicyAnnotations.cs` - Annotation constants
 - `ReorderPolicyTypeBuilder.cs` - Fluent API: `WithReorderPolicy()`
 
+#### RetentionPolicy/ (4 files)
+- `RetentionPolicyAttribute.cs` - Data annotation: `[RetentionPolicy(DropAfter = "30 days")]`
+- `RetentionPolicyConvention.cs` - IEntityTypeAddedConvention implementation
+- `RetentionPolicyAnnotations.cs` - Annotation constants
+- `RetentionPolicyTypeBuilder.cs` - Fluent API: `WithRetentionPolicy()`
+
 #### ContinuousAggregate/ (8 files)
 - `ContinuousAggregateAttribute.cs` - Entity-level attribute defining materialized view
 - `TimeBucketAttribute.cs` - Property-level attribute for time bucketing
@@ -76,7 +82,8 @@ This document provides detailed architectural information for the CmdScale.Entit
 |------|---------|
 | `Dimension.cs` | Represents range/hash partitioning with factory methods |
 | `EDimensionType.cs` | Enum: `Range`, `Hash` |
-| `EAggregateFunction.cs` | Enum: `Avg`, `Sum`, `Min`, `Max`, `Count`, `First`, `Last` |W
+| `EAggregateFunction.cs` | Enum: `Avg`, `Sum`, `Min`, `Max`, `Count`, `First`, `Last` |
+| `ContinuousAggregateFunction.cs` | Strongly-typed `(Alias, Function, SourceColumn)` for continuous-aggregate columns; `ToAnnotationValue()` serializes to the `alias:Function:sourceColumn` wire format |
 
 ### Operations/ - Migration Operations
 
@@ -84,6 +91,7 @@ All inherit `MigrationOperation` and contain feature-specific properties:
 
 - `CreateHypertableOperation.cs` / `AlterHypertableOperation.cs`
 - `AddReorderPolicyOperation.cs` / `AlterReorderPolicyOperation.cs` / `DropReorderPolicyOperation.cs`
+- `AddRetentionPolicyOperation.cs` / `AlterRetentionPolicyOperation.cs` / `DropRetentionPolicyOperation.cs`
 - `CreateContinuousAggregateOperation.cs` / `AlterContinuousAggregateOperation.cs` / `DropContinuousAggregateOperation.cs`
 - `AddContinuousAggregatePolicyOperation.cs` / `RemoveContinuousAggregatePolicyOperation.cs`
 
@@ -101,25 +109,52 @@ These are runtime-only — they have no in-memory implementation and throw when 
 
 The plugin is registered in `TimescaleDbServiceCollectionExtensions.AddEntityFrameworkTimescaleDb()` via `.TryAdd<IMethodCallTranslatorPlugin, TimescaleDbMethodCallTranslatorPlugin>()`.
 
-### Generators/ - SQL and C# Code Generation
+### Generators/ - Runtime SQL Generation
+
+Each `*SqlGenerator` exposes `static List<string> Generate(XxxOperation operation)` and returns TimescaleDB SQL statements. `TimescaleDbMigrationsSqlGenerator` switches on the operation type, calls the matching generator, and passes the statements to `SqlBuilderHelper.BuildQueryString(statements, builder, suppressTransaction, usePerform)`. `CreateContinuousAggregateOperation` is emitted with `suppressTransaction: true` (continuous-aggregate DDL cannot run inside a transaction block).
 
 | File | Purpose |
 |------|---------|
-| `HypertableOperationGenerator.cs` | Generates `create_hypertable()`, `set_chunk_time_interval()`, etc. |
-| `ReorderPolicyOperationGenerator.cs` | Generates `add_reorder_policy()`, `remove_reorder_policy()`, etc. |
-| `ContinuousAggregateOperationGenerator.cs` | Generates materialized view SQL |
-| `SqlBuilderHelper.cs` | Quote handling utilities (`isDesignTime` parameter critical) |
+| `HypertableSqlGenerator.cs` | `create_hypertable()`, `set_chunk_time_interval()`, `add_dimension()`, compression/chunk-skipping SQL |
+| `ReorderPolicySqlGenerator.cs` | `add_reorder_policy()`, `remove_reorder_policy()`, `alter_job` tuning |
+| `RetentionPolicySqlGenerator.cs` | `add_retention_policy()`, `remove_retention_policy()`, `alter_job` tuning |
+| `ContinuousAggregateSqlGenerator.cs` | `CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous)` plus drop/alter SQL |
+| `ContinuousAggregatePolicySqlGenerator.cs` | `add_continuous_aggregate_policy()` / `remove_continuous_aggregate_policy()` |
+| `PolicyJobSqlBuilder.cs` | Shared `alter_job` clause builder (schedule interval, max runtime, retries, retry period) used by reorder/retention/CA refresh policies |
+| `SqlBuilderHelper.cs` | `Regclass()`, `QualifiedIdentifier()`, `QuoteIdentifier()`, statement grouping, and `SELECT`→`PERFORM` rewriting for idempotent scripts |
+
+### MigrationExtensions/ - Typed migrationBuilder API
+
+Generated migrations call strongly-typed extension methods that construct a `MigrationOperation` and add it to `migrationBuilder.Operations`. Methods are declared in the `Microsoft.EntityFrameworkCore.Migrations` namespace so they are available in migration files without extra `using` directives.
+
+| File | Methods |
+|------|---------|
+| `HypertableMigrationExtensions.cs` | `CreateHypertable(...)`, `AlterHypertable(...)` |
+| `ReorderPolicyMigrationExtensions.cs` | `AddReorderPolicy(...)`, `AlterReorderPolicy(...)`, `DropReorderPolicy(...)` |
+| `RetentionPolicyMigrationExtensions.cs` | `AddRetentionPolicy(...)`, `AlterRetentionPolicy(...)`, `DropRetentionPolicy(...)` |
+| `ContinuousAggregateMigrationExtensions.cs` | `CreateContinuousAggregate(...)`, `AlterContinuousAggregate(...)`, `DropContinuousAggregate(...)` |
+| `ContinuousAggregatePolicyMigrationExtensions.cs` | `AddContinuousAggregatePolicy(...)`, `RemoveContinuousAggregatePolicy(...)` |
 
 ### Internals/ - Core Diffing Logic
 
-- `TimescaleMigrationsModelDiffer.cs` - Extends EF Core's MigrationsModelDiffer, implements `GetOperationPriority()`
-- `Features/IFeatureDiffer.cs` - Interface: `GetDifferences(IRelationalModel? source, IRelationalModel? target)`
+- `TimescaleMigrationsModelDiffer.cs` - Extends EF Core's MigrationsModelDiffer; orchestrates the feature differs, builds the `FeatureDiffContext`, implements `GetOperationPriority()`
+- `Features/IFeatureDiffer.cs` - Interface: `GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)`
+- `Features/FeatureDiffContext.cs` - Cross-cutting diff state passed to every feature differ
 
 **Feature-specific:**
 - `Features/Hypertables/` - `HypertableDiffer.cs`, `HypertableModelExtractor.cs`
 - `Features/ReorderPolicies/` - `ReorderPolicyDiffer.cs`, `ReorderPolicyModelExtractor.cs`
+- `Features/RetentionPolicies/` - `RetentionPolicyDiffer.cs`, `RetentionPolicyModelExtractor.cs`
 - `Features/ContinuousAggregates/` - `ContinuousAggregateDiffer.cs`, `ContinuousAggregateModelExtractor.cs`
 - `Features/ContinuousAggregatePolicies/` - `ContinuousAggregatePolicyDiffer.cs`, `ContinuousAggregatePolicyModelExtractor.cs`
+
+#### FeatureDiffContext
+
+`TimescaleMigrationsModelDiffer` runs EF Core's base differ first, builds a `FeatureDiffContext` from the resulting operations, and passes it to every feature differ. It carries:
+
+- **TableRenames / IndexRenames / ColumnRenames** - maps built from EF's `RenameTableOperation` / `RenameIndexOperation` / `RenameColumnOperation` so feature differs treat a rename as a rename rather than drop-and-create. Schemas are normalized to `DefaultValues.DefaultSchema`. Resolve via `ResolveTable()`, `ResolveIndex()`, `ResolveColumn()`.
+- **RecreatedAggregates** - continuous aggregates being dropped and recreated in this diff, populated by `PopulateRecreatedAggregates` after the continuous-aggregate differ runs. Recreating a continuous aggregate cascades to drop its refresh and retention policies, so dependent policy differs re-add those policies even when their config is unchanged.
+- `FeatureDiffContext.Empty` - identity context used when a differ runs without orchestration (e.g. unit tests).
 
 ### DefaultValues.cs - Centralized Constants
 
@@ -143,8 +178,22 @@ ReorderPolicyMaxRuntime = "00:00:00" // no limit
 ### TimescaleCSharpMigrationOperationGenerator.cs
 
 - Generates C# code for `dotnet ef migrations add`
-- Calls operation generators with `isDesignTime: true`
-- Outputs `.Sql(@"...")` calls in migration Up/Down methods
+- Switches on the operation type and delegates to the matching `*CSharpGenerator` (constructed with `Dependencies.CSharpHelper`)
+- Emits typed `migrationBuilder.CreateHypertable(...)` / `AddRetentionPolicy(...)` / etc. calls in migration Up/Down methods
+
+### Generators/ - Design-Time C# Generation
+
+Each `*CSharpGenerator.Generate(XxxOperation, IndentedStringBuilder)` emits one typed `migrationBuilder` call, with one named argument per line.
+
+| File | Purpose |
+|------|---------|
+| `HypertableCSharpGenerator.cs` | Emits `CreateHypertable(...)` / `AlterHypertable(...)` |
+| `ReorderPolicyCSharpGenerator.cs` | Emits `AddReorderPolicy(...)` / `AlterReorderPolicy(...)` / `DropReorderPolicy(...)` |
+| `RetentionPolicyCSharpGenerator.cs` | Emits `AddRetentionPolicy(...)` / `AlterRetentionPolicy(...)` / `DropRetentionPolicy(...)` |
+| `ContinuousAggregateCSharpGenerator.cs` | Emits `CreateContinuousAggregate(...)` / `AlterContinuousAggregate(...)` / `DropContinuousAggregate(...)` |
+| `ContinuousAggregatePolicyCSharpGenerator.cs` | Emits `AddContinuousAggregatePolicy(...)` / `RemoveContinuousAggregatePolicy(...)` |
+| `MigrationCallWriter.cs` | `IDisposable` helper that writes a `.Method(` call and named `arg: value` lines |
+| `CSharpGeneratorHelper.cs` | `LiteralStringList()` for `["a", "b"]` collection expressions and `StaticCall()` for `Type.Method(args)` literals |
 
 ### TimescaleDatabaseModelFactory.cs
 
@@ -172,15 +221,22 @@ Orchestrates db-first scaffolding with extractor/applier pairs:
 
 ## Migration Operation Priority Ordering
 
-Custom operations are prioritized by `TimescaleMigrationsModelDiffer.GetOperationPriority()`:
+Custom operations are sorted by `TimescaleMigrationsModelDiffer.GetOperationPriority()`. Drop operations get negative priorities (run before standard EF table drops, in reverse dependency order); add/alter operations get positive priorities (run after standard EF table creation, in dependency order).
 
-| Priority | Operation Type | Reason |
-|----------|---------------|--------|
-| 0 | Standard EF operations | CreateTable, AddColumn, DropColumn, etc. |
-| 10 | `CreateHypertableOperation` | Tables must exist first |
-| 20 | Reorder policy operations | Hypertables must exist |
-| 30 | `CreateContinuousAggregateOperation` | Source hypertables must exist |
-| 40 | Alter/Drop continuous aggregate | Last to ensure dependencies exist |
+| Priority | Operation Type |
+|----------|---------------|
+| -60 | `DropRetentionPolicyOperation` |
+| -50 | `RemoveContinuousAggregatePolicyOperation` |
+| -40 | `DropContinuousAggregateOperation` |
+| -20 | `DropReorderPolicyOperation` |
+| 0 | Standard EF operations (CreateTable, AddColumn, DropTable, …) |
+| 10 | `CreateHypertableOperation` |
+| 15 | `AlterHypertableOperation` |
+| 20 | `AddReorderPolicyOperation` / `AlterReorderPolicyOperation` |
+| 30 | `CreateContinuousAggregateOperation` |
+| 40 | `AlterContinuousAggregateOperation` |
+| 50 | `AddContinuousAggregatePolicyOperation` |
+| 60 | `AddRetentionPolicyOperation` / `AlterRetentionPolicyOperation` |
 
 ## Continuous Aggregates Implementation Details
 
@@ -190,9 +246,9 @@ Continuous aggregates are materialized views that automatically refresh:
 - **ParentName:** Entity name of source hypertable (resolved to table name via EF metadata)
 - **TimeBucketWidth:** Time interval for bucketing (e.g., "1 day", "1 hour")
 - **TimeBucketSourceColumn:** Time column to bucket on (resolved to database column name)
-- **AggregateFunctions:** Colon-delimited strings (see patterns.md)
+- **AggregateFunctions:** `ContinuousAggregateFunction` values in the typed API; stored as colon-delimited strings on the operation (see patterns.md)
 - **GroupByColumns:** Column names for GROUP BY
-- **WhereClause:** Raw SQL for filtering (partially implemented)
+- **WhereClause:** Raw SQL for filtering, emitted verbatim into the materialized view's `WHERE`. Identifiers are passed through unchanged, so quoted column references must match the resolved database column names.
 
 **SQL Generation Special Cases:**
 - `first()`/`last()` functions require time ordering column: `first(price, timestamp ORDER BY timestamp)`

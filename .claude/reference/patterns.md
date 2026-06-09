@@ -44,33 +44,36 @@ Both approaches store identical annotation values in entity type metadata.
 
 ## 4. IFeatureDiffer Pattern
 
-Each TimescaleDB feature has a dedicated differ implementing `IFeatureDiffer`. The differ uses a corresponding `*ModelExtractor` static class to read annotations from the source and target models, then compares them to generate appropriate migration operations (Create, Alter, Drop).
+Each TimescaleDB feature has a dedicated differ implementing `IFeatureDiffer`. The differ uses a corresponding `*ModelExtractor` static class to read annotations from the source and target models, then compares them to generate appropriate migration operations (Create, Alter, Drop). A `FeatureDiffContext` carries rename maps and recreated-aggregate state the differ cannot derive on its own (see architecture.md).
 
 Example (`HypertableDiffer`):
 ```csharp
 public class HypertableDiffer : IFeatureDiffer
 {
-    public IEnumerable<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
+    public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
     {
+        context ??= FeatureDiffContext.Empty;
         HypertableInfo? sourceInfo = HypertableModelExtractor.Extract(source);
         HypertableInfo? targetInfo = HypertableModelExtractor.Extract(target);
-        return CompareDifferences(sourceInfo, targetInfo);
+        return CompareDifferences(sourceInfo, targetInfo, context);
     }
 }
 ```
 
-All differs are registered in `TimescaleMigrationsModelDiffer`'s `_featureDiffers` list.
+`TimescaleMigrationsModelDiffer.GetDifferences()` runs EF Core's base differ, builds the `FeatureDiffContext`, then invokes each feature differ with it.
 
 **Location:** `Internals/Features/{Feature}/` — check the source for the full list of feature differs.
 
 ## 5. Runtime vs Design-Time Duality
 
-| Context | Generator | Quote String | isDesignTime |
-|---------|-----------|--------------|--------------|
-| Runtime (`dotnet ef database update`) | `TimescaleDbMigrationsSqlGenerator` | `"` | `false` |
-| Design-time (`dotnet ef migrations add`) | `TimescaleCSharpMigrationOperationGenerator` | `""` | `true` |
+The same custom `MigrationOperation` types feed two independent code paths:
 
-Both use the same operation generators with different `isDesignTime` parameter values.
+| Context | Entry point | Generators | Output |
+|---------|-------------|------------|--------|
+| Runtime (`dotnet ef database update`) | `TimescaleDbMigrationsSqlGenerator` | `Generators/*SqlGenerator` | TimescaleDB SQL statements |
+| Design-time (`dotnet ef migrations add`) | `TimescaleCSharpMigrationOperationGenerator` | `Design/Generators/*CSharpGenerator` | Typed `migrationBuilder.*` calls |
+
+The design-time path emits typed calls (e.g. `migrationBuilder.CreateHypertable(...)`) from `MigrationExtensions/`; those operations are turned into SQL by the runtime path at `database update` time.
 
 ## 6. Annotation-Based Metadata Storage
 
@@ -114,44 +117,39 @@ This automatically handles snake_case, camelCase, PascalCase, and custom naming 
 
 **Location:** `Internals/Features/{Feature}/{Feature}ModelExtractor.cs`
 
-## 8. SQL Generation with Quote Escaping
+## 8. SQL Building Helpers
 
-**SqlBuilderHelper** provides utilities for proper quoting:
+`*SqlGenerator` classes build identifiers and table references through `SqlBuilderHelper`:
 
 ```csharp
-// Runtime SQL (isDesignTime = false)
-string sql = SqlBuilderHelper.BuildQueryString("SELECT * FROM \"my_table\"", builder, isDesignTime: false);
-// Output: SELECT * FROM "my_table"
-
-// Design-time C# (isDesignTime = true)
-string csharp = SqlBuilderHelper.BuildQueryString("SELECT * FROM \"my_table\"", builder, isDesignTime: true);
-// Output: SELECT * FROM ""my_table"" (quotes doubled for C# string escaping)
+SqlBuilderHelper.Regclass("my_table", "custom_schema");           // 'custom_schema."my_table"'
+SqlBuilderHelper.QualifiedIdentifier("my_table", "custom_schema"); // "custom_schema"."my_table"
+SqlBuilderHelper.QuoteIdentifier("my_column");                    // "my_column"
 ```
 
-**Critical:** Always pass `isDesignTime` parameter correctly to operation generators.
+`SqlBuilderHelper.BuildQueryString(statements, builder, suppressTransaction, usePerform)` groups the generated statements into commands and appends them to the `MigrationCommandListBuilder`. When `usePerform` is set (idempotent scripts), leading `SELECT` keywords are rewritten to `PERFORM` so the SQL is valid inside a PL/pgSQL block.
 
-**Location:** `Generators/SqlBuilderHelper.cs`
+**Location:** `Generators/SqlBuilderHelper.cs`, `Generators/PolicyJobSqlBuilder.cs`
 
-## 9. Continuous Aggregate String Encoding
+## 9. Continuous Aggregate Function Encoding
 
-Aggregate functions are stored as colon-delimited strings in annotations:
+The typed API uses `Abstractions/ContinuousAggregateFunction` — `(Alias, Function, SourceColumn)` — for each aggregate column:
+
+```csharp
+new ContinuousAggregateFunction("average_price", EAggregateFunction.Avg, "price")
+```
+
+`ToAnnotationValue()` serializes it to the colon-delimited wire format stored on `CreateContinuousAggregateOperation.AggregateFunctions`:
 
 **Format:**
-- Basic: `"alias:function:sourceColumn"`
-- First/Last: `"alias:function:sourceColumn:timeColumn"`
+- Basic: `"alias:Function:sourceColumn"`
+- First/Last: `"alias:Function:sourceColumn:timeColumn"`
 
-**Examples:**
-```csharp
-// Avg aggregate
-"avg_price:Avg:price"
-
-// Last aggregate with time column
-"last_price:Last:price:timestamp"
-```
+**Examples:** `"average_price:Avg:price"`, `"last_price:Last:price:timestamp"`
 
 **Parsing:** Split by `:` and validate array length (3 or 4 elements).
 
-**Location:** `ContinuousAggregateModelExtractor.cs`, `ContinuousAggregateOperationGenerator.cs`
+**Location:** `Abstractions/ContinuousAggregateFunction.cs`, `ContinuousAggregateModelExtractor.cs`, `Generators/ContinuousAggregateSqlGenerator.cs`
 
 ## 10. Expression-Based Configuration
 
@@ -186,19 +184,19 @@ Lambda expressions are parsed to extract property names (via `LambdaExpression.B
 
 ## 11. DRY Principle Implementation
 
-- Extract common logic into helper methods (`SqlBuilderHelper`)
+- Extract common logic into helper methods (`SqlBuilderHelper`, `PolicyJobSqlBuilder`)
 - Centralize constants in `DefaultValues.cs` and annotation name classes
 - Use `StoreObjectIdentifier` pattern consistently across extractors
-- Avoid duplicating SQL generation logic - use operation generators consistently
+- Avoid duplicating SQL generation logic - route it through the `*SqlGenerator` classes
 
 ```csharp
 // Correct - Centralized helper
-string tableName = SqlBuilderHelper.GetQualifiedTableName(schema, table, _quoteString);
+string qualifiedName = SqlBuilderHelper.QualifiedIdentifier(table, schema);
 
 // Incorrect - Duplicated logic
-string tableName = string.IsNullOrEmpty(schema)
-    ? $"{_quoteString}{table}{_quoteString}"
-    : $"{_quoteString}{schema}{_quoteString}.{_quoteString}{table}{_quoteString}";
+string qualifiedName = string.IsNullOrEmpty(schema)
+    ? $"\"{table}\""
+    : $"\"{schema}\".\"{table}\"";
 ```
 
 ## 12. Separation of Concerns
@@ -210,8 +208,10 @@ Keep each class focused on a single responsibility:
 | Configuration | User-facing APIs | Attributes, Fluent API, Conventions |
 | Model Extraction | Read from EF metadata | `*ModelExtractor` classes |
 | Diffing | Compare models, generate operations | `*Differ` classes |
-| Generation | Convert operations to SQL/C# | `*OperationGenerator` classes |
-| Design-time | Reverse engineer from database | Scaffolding extractors/appliers |
+| Runtime SQL | Convert operations to SQL | `Generators/*SqlGenerator` classes |
+| Design-time C# | Convert operations to typed migration calls | `Design/Generators/*CSharpGenerator` classes |
+| Migration API | Construct operations from migration files | `MigrationExtensions/*MigrationExtensions` classes |
+| Scaffolding | Reverse engineer from database | Scaffolding extractors/appliers |
 
 **Never mix concerns:** Extractors should not generate SQL, differs should not read databases.
 
@@ -219,12 +219,12 @@ Keep each class focused on a single responsibility:
 // Correct - Separation of concerns
 public class HypertableDiffer : IFeatureDiffer
 {
-    public IEnumerable<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target)
+    public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
     {
         // Only diffing logic - delegates extraction to HypertableModelExtractor
         HypertableInfo? sourceInfo = HypertableModelExtractor.Extract(source);
         HypertableInfo? targetInfo = HypertableModelExtractor.Extract(target);
-        return CompareDifferences(sourceInfo, targetInfo);
+        return CompareDifferences(sourceInfo, targetInfo, context ?? FeatureDiffContext.Empty);
     }
 }
 ```
