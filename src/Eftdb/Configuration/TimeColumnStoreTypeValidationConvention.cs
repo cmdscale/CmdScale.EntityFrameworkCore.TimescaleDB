@@ -102,12 +102,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
         }
 
         private static void EnsureValidTimeColumn(IProperty property, string owner, string columnModelName)
+            => EnsureValidTimeColumn(property.GetColumnType(), property.FindRelationalTypeMapping()?.StoreType, owner, columnModelName);
+
+        /// <summary>
+        /// Validates the resolved store type of a time column, preferring the explicit column type and
+        /// falling back to the relational type mapping's store type.
+        /// </summary>
+        internal static void EnsureValidTimeColumn(string? columnType, string? mappingStoreType, string owner, string columnModelName)
         {
-            string? storeType = property.GetColumnType();
-            if (string.IsNullOrWhiteSpace(storeType))
-            {
-                storeType = property.FindRelationalTypeMapping()?.StoreType;
-            }
+            string? storeType = string.IsNullOrWhiteSpace(columnType) ? mappingStoreType : columnType;
 
             // If the store type cannot be determined, do not block model building.
             if (string.IsNullOrWhiteSpace(storeType))
