@@ -24,41 +24,53 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, DateTime>> timePropertyExpression) where TEntity : class
-            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+            => IsHypertableCore(entityTypeBuilder, timePropertyExpression);
 
         /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
         public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, DateTimeOffset>> timePropertyExpression) where TEntity : class
-            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+            => IsHypertableCore(entityTypeBuilder, timePropertyExpression);
 
         /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
         public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, DateOnly>> timePropertyExpression) where TEntity : class
-            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+            => IsHypertableCore(entityTypeBuilder, timePropertyExpression);
 
         /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
         public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, long>> timePropertyExpression) where TEntity : class
-            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+            => IsHypertableCore(entityTypeBuilder, timePropertyExpression);
 
         /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
         public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, int>> timePropertyExpression) where TEntity : class
-            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+            => IsHypertableCore(entityTypeBuilder, timePropertyExpression);
 
         /// <inheritdoc cref="IsHypertable{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, DateTime}})"/>
         public static EntityTypeBuilder<TEntity> IsHypertable<TEntity>(
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, short>> timePropertyExpression) where TEntity : class
-            => IsHypertableCore(entityTypeBuilder, Box(timePropertyExpression));
+            => IsHypertableCore(entityTypeBuilder, timePropertyExpression);
 
-        private static EntityTypeBuilder<TEntity> IsHypertableCore<TEntity>(
+        /// <summary>
+        /// Configures the entity as a TimescaleDB hypertable using a time column of any mapped type.
+        /// </summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <typeparam name="TProperty">The .NET type of the time column.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type.</param>
+        /// <param name="timePropertyExpression">A lambda expression representing the time column (e.g., <c>x =&gt; x.Timestamp</c>).</param>
+        public static EntityTypeBuilder<TEntity> IsHypertable<TEntity, TProperty>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Expression<Func<TEntity, TProperty>> timePropertyExpression) where TEntity : class
+            => IsHypertableCore(entityTypeBuilder, timePropertyExpression);
+
+        private static EntityTypeBuilder<TEntity> IsHypertableCore<TEntity, TProperty>(
             EntityTypeBuilder<TEntity> entityTypeBuilder,
-            Expression<Func<TEntity, object>> timePropertyExpression) where TEntity : class
+            Expression<Func<TEntity, TProperty>> timePropertyExpression) where TEntity : class
         {
             string propertyName = GetPropertyName(timePropertyExpression);
 
@@ -67,15 +79,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
 
             return entityTypeBuilder;
         }
-
-        // Lifts a typed time-column expression to Expression<Func<TEntity, object>> by inserting a Convert
-        // node, so the shared core method can extract the property name uniformly via GetPropertyName.
-        private static Expression<Func<TEntity, object>> Box<TEntity, TProperty>(
-            Expression<Func<TEntity, TProperty>> expression)
-            where TProperty : struct
-            => Expression.Lambda<Func<TEntity, object>>(
-                Expression.Convert(expression.Body, typeof(object)),
-                expression.Parameters);
 
         /// <summary>
         /// Adds an additional partitioning dimension to the hypertable.
@@ -251,17 +254,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         /// Extracts the property name from a member access lambda expression.
         /// </summary>
         /// <typeparam name="TEntity">The entity type.</typeparam>
+        /// <typeparam name="TProperty">The type of the selected property.</typeparam>
         /// <param name="propertyExpression">The expression to parse.</param>
         /// <returns>The name of the property.</returns>
         /// <exception cref="ArgumentException">Thrown if the expression is not a valid property expression.</exception>
-        private static string GetPropertyName<TEntity>(Expression<Func<TEntity, object>> propertyExpression)
+        private static string GetPropertyName<TEntity, TProperty>(Expression<Func<TEntity, TProperty>> propertyExpression)
         {
             if (propertyExpression.Body is MemberExpression memberExpression)
             {
                 return memberExpression.Member.Name;
             }
 
-            // This handles cases where the property is a value type (e.g., DateTime)
             if (propertyExpression.Body is UnaryExpression unaryExpression && unaryExpression.Operand is MemberExpression unaryMemberExpression)
             {
                 return unaryMemberExpression.Member.Name;

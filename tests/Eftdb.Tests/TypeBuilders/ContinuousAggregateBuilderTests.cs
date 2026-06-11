@@ -1865,4 +1865,68 @@ public class ContinuousAggregateBuilderTests
     }
 
     #endregion
+
+    #region IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type
+
+    private readonly struct IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_CustomInstant(DateTime utcDateTime)
+    {
+        public DateTime UtcDateTime { get; } = utcDateTime;
+    }
+
+    private class IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_MetricEntity
+    {
+        public IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_CustomInstant Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_HourlyMetricAggregate
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_Context : DbContext
+    {
+        public DbSet<IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_MetricEntity> Metrics => Set<IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_MetricEntity>();
+        public DbSet<IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_HourlyMetricAggregate> HourlyMetrics => Set<IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_HourlyMetricAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("custom_cagg_metrics");
+                entity.Property(x => x.Timestamp)
+                      .HasConversion(v => v.UtcDateTime, v => new IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_CustomInstant(v));
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_HourlyMetricAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_HourlyMetricAggregate, IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_MetricEntity, IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_CustomInstant>(
+                    "custom_cagg_hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp)
+                .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type()
+    {
+        using IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(IsContinuousAggregate_Should_Accept_Custom_TimeColumn_Type_HourlyMetricAggregate))!;
+
+        Assert.Equal("custom_cagg_hourly_metrics", entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName)?.Value);
+        Assert.Equal("Timestamp", entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn)?.Value);
+    }
+
+    #endregion
 }

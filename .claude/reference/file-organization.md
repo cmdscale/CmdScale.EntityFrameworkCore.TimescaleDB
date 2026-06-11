@@ -115,6 +115,8 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Internals/Features/FeatureDiffContext.cs` | Cross-cutting diff state (renames, recreated aggregates) |
 | `Generators/SqlBuilderHelper.cs` | Identifier quoting, regclass, command grouping, SELECT→PERFORM |
 | `Generators/PolicyJobSqlBuilder.cs` | Shared `alter_job` clause builder for policies |
+| `Configuration/TimeColumnStoreTypeValidationConvention.cs` | Model-finalized validation of hypertable & continuous-aggregate time-column store types |
+| `Internals/TimeColumnStoreTypeValidator.cs` | Allowed PostgreSQL store types for a TimescaleDB time dimension |
 | `DefaultValues.cs` | Centralized defaults |
 | `Abstractions/Dimension.cs` | Range/hash partitioning |
 | `Abstractions/EAggregateFunction.cs` | Aggregate function enum |
