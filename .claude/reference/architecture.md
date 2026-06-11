@@ -76,6 +76,9 @@ This document provides detailed architectural information for the CmdScale.Entit
 - `ContinuousAggregatePolicyBuilder.cs` - Fluent API builder
 - `ContinuousAggregateBuilderPolicyExtensions.cs` - Extension methods for builder
 
+#### Cross-cutting
+- `TimeColumnStoreTypeValidationConvention.cs` - IModelFinalizedConvention validating that hypertable and continuous-aggregate time columns resolve to a PostgreSQL time-dimension store type (timestamp/timestamptz/date/integer); backed by `Internals/TimeColumnStoreTypeValidator.cs`
+
 ### Abstractions/ - Domain Objects
 
 | File | Purpose |

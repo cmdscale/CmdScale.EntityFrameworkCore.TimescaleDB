@@ -30,7 +30,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             string? chunkInterval = null)
             where TEntity : class
             where TSourceEntity : class
-            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+            => IsContinuousAggregateCore(entityTypeBuilder, materializedViewName, timeBucketWidth, propertyExpression, timeBucketGroupBy, chunkInterval);
 
         /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
         public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
@@ -42,7 +42,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             string? chunkInterval = null)
             where TEntity : class
             where TSourceEntity : class
-            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+            => IsContinuousAggregateCore(entityTypeBuilder, materializedViewName, timeBucketWidth, propertyExpression, timeBucketGroupBy, chunkInterval);
 
         /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
         public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
@@ -54,7 +54,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             string? chunkInterval = null)
             where TEntity : class
             where TSourceEntity : class
-            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+            => IsContinuousAggregateCore(entityTypeBuilder, materializedViewName, timeBucketWidth, propertyExpression, timeBucketGroupBy, chunkInterval);
 
         /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
         public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
@@ -66,7 +66,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             string? chunkInterval = null)
             where TEntity : class
             where TSourceEntity : class
-            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+            => IsContinuousAggregateCore(entityTypeBuilder, materializedViewName, timeBucketWidth, propertyExpression, timeBucketGroupBy, chunkInterval);
 
         /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
         public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
@@ -78,7 +78,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             string? chunkInterval = null)
             where TEntity : class
             where TSourceEntity : class
-            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+            => IsContinuousAggregateCore(entityTypeBuilder, materializedViewName, timeBucketWidth, propertyExpression, timeBucketGroupBy, chunkInterval);
 
         /// <inheritdoc cref="IsContinuousAggregate{TEntity, TSourceEntity}(EntityTypeBuilder{TEntity}, string, string, Expression{Func{TSourceEntity, DateTime}}, bool, string)"/>
         public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity>(
@@ -90,13 +90,37 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             string? chunkInterval = null)
             where TEntity : class
             where TSourceEntity : class
-            => IsContinuousAggregateCore<TEntity, TSourceEntity>(entityTypeBuilder, materializedViewName, timeBucketWidth, Box(propertyExpression), timeBucketGroupBy, chunkInterval);
+            => IsContinuousAggregateCore(entityTypeBuilder, materializedViewName, timeBucketWidth, propertyExpression, timeBucketGroupBy, chunkInterval);
 
-        private static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregateCore<TEntity, TSourceEntity>(
+        /// <summary>
+        /// Configures the entity as a TimescaleDB continuous aggregate using a time column of any mapped type.
+        /// </summary>
+        /// <typeparam name="TEntity">The continuous aggregate entity type.</typeparam>
+        /// <typeparam name="TSourceEntity">The source hypertable entity type.</typeparam>
+        /// <typeparam name="TProperty">The .NET type of the source time column.</typeparam>
+        /// <param name="entityTypeBuilder">The entity type builder.</param>
+        /// <param name="materializedViewName">The name of the materialized view.</param>
+        /// <param name="timeBucketWidth">The time bucket width interval (e.g., "1 hour", "1 day").</param>
+        /// <param name="propertyExpression">Expression selecting the time column from the source entity.</param>
+        /// <param name="timeBucketGroupBy">Whether to include time_bucket in GROUP BY clause.</param>
+        /// <param name="chunkInterval">Optional chunk interval for the continuous aggregate.</param>
+        /// <returns>A builder for further continuous aggregate configuration.</returns>
+        public static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregate<TEntity, TSourceEntity, TProperty>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string materializedViewName,
+            string timeBucketWidth,
+            Expression<Func<TSourceEntity, TProperty>> propertyExpression,
+            bool timeBucketGroupBy = true,
+            string? chunkInterval = null)
+            where TEntity : class
+            where TSourceEntity : class
+            => IsContinuousAggregateCore(entityTypeBuilder, materializedViewName, timeBucketWidth, propertyExpression, timeBucketGroupBy, chunkInterval);
+
+        private static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregateCore<TEntity, TSourceEntity, TProperty>(
             EntityTypeBuilder<TEntity> entityTypeBuilder,
             string materializedViewName,
             string timeBucketWidth,
-            Expression<Func<TSourceEntity, object>> propertyExpression,
+            Expression<Func<TSourceEntity, TProperty>> propertyExpression,
             bool timeBucketGroupBy,
             string? chunkInterval)
             where TEntity : class
@@ -123,14 +147,5 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
 
             return new ContinuousAggregateBuilder<TEntity, TSourceEntity>(entityTypeBuilder);
         }
-
-        // Lifts a typed time-column expression to Expression<Func<TSourceEntity, object>> by inserting
-        // a Convert node, so the shared core method can extract the property name uniformly.
-        private static Expression<Func<TSourceEntity, object>> Box<TSourceEntity, TProperty>(
-            Expression<Func<TSourceEntity, TProperty>> expression)
-            where TProperty : struct
-            => Expression.Lambda<Func<TSourceEntity, object>>(
-                Expression.Convert(expression.Body, typeof(object)),
-                expression.Parameters);
     }
 }

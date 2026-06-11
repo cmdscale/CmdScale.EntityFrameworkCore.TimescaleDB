@@ -1212,4 +1212,51 @@ public class HypertableTypeBuilderTests
     }
 
     #endregion
+
+    #region IsHypertable_Should_Accept_Custom_TimeColumn_Type
+
+    private readonly struct CustomInstant(DateTime utcDateTime)
+    {
+        public DateTime UtcDateTime { get; } = utcDateTime;
+    }
+
+    private class CustomTimeColumnEntity
+    {
+        public CustomInstant Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CustomTimeColumnContext : DbContext
+    {
+        public DbSet<CustomTimeColumnEntity> Metrics => Set<CustomTimeColumnEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CustomTimeColumnEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_custom_time");
+                entity.Property(x => x.Timestamp)
+                      .HasConversion(v => v.UtcDateTime, v => new CustomInstant(v));
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void IsHypertable_Should_Accept_Custom_TimeColumn_Type()
+    {
+        using CustomTimeColumnContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CustomTimeColumnEntity))!;
+
+        Assert.Equal("Timestamp", entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
 }
