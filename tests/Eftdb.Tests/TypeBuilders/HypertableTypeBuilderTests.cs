@@ -1259,4 +1259,88 @@ public class HypertableTypeBuilderTests
     }
 
     #endregion
+
+    #region WithChunkSkipping_Should_Throw_For_Non_Member_Expression
+
+    private class NonMemberExpressionEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NonMemberExpressionContext : DbContext
+    {
+        public DbSet<NonMemberExpressionEntity> Metrics => Set<NonMemberExpressionEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NonMemberExpressionEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_non_member_expression");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithChunkSkipping(x => x.ToString()!);
+            });
+        }
+    }
+
+    [Fact]
+    public void WithChunkSkipping_Should_Throw_For_Non_Member_Expression()
+    {
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+        {
+            using NonMemberExpressionContext context = new();
+            _ = GetModel(context);
+        });
+
+        Assert.Contains("not a valid property expression", exception.Message);
+    }
+
+    #endregion
+
+    #region WithCompressionSegmentBy_Should_Throw_For_Converted_Non_Member_Expression
+
+    private class ConvertedNonMemberExpressionEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ConvertedNonMemberExpressionContext : DbContext
+    {
+        public DbSet<ConvertedNonMemberExpressionEntity> Metrics => Set<ConvertedNonMemberExpressionEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ConvertedNonMemberExpressionEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_converted_non_member_expression");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => (object)(x.Value + 1));
+            });
+        }
+    }
+
+    [Fact]
+    public void WithCompressionSegmentBy_Should_Throw_For_Converted_Non_Member_Expression()
+    {
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+        {
+            using ConvertedNonMemberExpressionContext context = new();
+            _ = GetModel(context);
+        });
+
+        Assert.Contains("not a valid property expression", exception.Message);
+    }
+
+    #endregion
 }

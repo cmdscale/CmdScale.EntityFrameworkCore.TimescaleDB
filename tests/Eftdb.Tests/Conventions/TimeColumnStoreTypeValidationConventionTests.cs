@@ -1,4 +1,5 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
@@ -453,6 +454,297 @@ public class TimeColumnStoreTypeValidationConventionTests
         });
 
         Assert.Contains("not a valid TimescaleDB time dimension", exception.Message);
+    }
+
+    #endregion
+
+    #region Should_Not_Throw_When_Hypertable_TimeColumn_Annotation_Missing
+
+    private class MissingTimeColumnEntity
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MissingTimeColumnContext : DbContext
+    {
+        public DbSet<MissingTimeColumnEntity> Metrics => Set<MissingTimeColumnEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MissingTimeColumnEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("validation_missing_time_column");
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Throw_When_Hypertable_TimeColumn_Annotation_Missing()
+    {
+        using MissingTimeColumnContext context = new();
+
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(MissingTimeColumnEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Not_Throw_When_Hypertable_TimeColumn_Cannot_Be_Resolved
+
+    private class UnresolvableTimeColumnEntity
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class UnresolvableTimeColumnContext : DbContext
+    {
+        public DbSet<UnresolvableTimeColumnEntity> Metrics => Set<UnresolvableTimeColumnEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UnresolvableTimeColumnEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("validation_unresolvable_time_column");
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                entity.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "does_not_exist");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Throw_When_Hypertable_TimeColumn_Cannot_Be_Resolved()
+    {
+        using UnresolvableTimeColumnContext context = new();
+
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(UnresolvableTimeColumnEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Resolve_Hypertable_TimeColumn_By_Column_Name
+
+    private class ColumnNamedTimeEntity
+    {
+        public DateTime Moment { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ColumnNamedTimeContext : DbContext
+    {
+        public DbSet<ColumnNamedTimeEntity> Metrics => Set<ColumnNamedTimeEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ColumnNamedTimeEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("validation_column_named_time");
+                entity.Property(x => x.Moment).HasColumnName("event_ts");
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                entity.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "event_ts");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_Hypertable_TimeColumn_By_Column_Name()
+    {
+        using ColumnNamedTimeContext context = new();
+
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ColumnNamedTimeEntity))!;
+
+        Assert.Equal("event_ts", entityType.FindProperty("Moment")!.GetColumnName(StoreObjectIdentifier.Table("validation_column_named_time", null)));
+    }
+
+    #endregion
+
+    #region Should_Resolve_Hypertable_TimeColumn_By_Column_Name_On_View
+
+    private class ViewColumnNamedTimeEntity
+    {
+        public DateTime Moment { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ViewColumnNamedTimeContext : DbContext
+    {
+        public DbSet<ViewColumnNamedTimeEntity> Metrics => Set<ViewColumnNamedTimeEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ViewColumnNamedTimeEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("validation_view_column_named_time");
+                entity.Property(x => x.Moment).HasColumnName("event_ts");
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                entity.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "event_ts");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_Hypertable_TimeColumn_By_Column_Name_On_View()
+    {
+        using ViewColumnNamedTimeContext context = new();
+
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ViewColumnNamedTimeEntity))!;
+
+        Assert.Equal("validation_view_column_named_time", entityType.GetViewName());
+    }
+
+    #endregion
+
+    #region Should_Resolve_ContinuousAggregate_Parent_By_Table_Name
+
+    private class ParentByTableNameSourceEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ParentByTableNameAggregateEntity
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ParentByTableNameContext : DbContext
+    {
+        public DbSet<ParentByTableNameSourceEntity> Metrics => Set<ParentByTableNameSourceEntity>();
+        public DbSet<ParentByTableNameAggregateEntity> HourlyMetrics => Set<ParentByTableNameAggregateEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ParentByTableNameSourceEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("validation_parent_by_table_name");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ParentByTableNameAggregateEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<ParentByTableNameAggregateEntity, ParentByTableNameSourceEntity>(
+                    "validation_parent_by_table_name_view",
+                    "1 hour",
+                    x => x.Timestamp)
+                .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+
+                entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "validation_parent_by_table_name");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_ContinuousAggregate_Parent_By_Table_Name()
+    {
+        using ParentByTableNameContext context = new();
+
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ParentByTableNameAggregateEntity))!;
+
+        Assert.Equal("validation_parent_by_table_name", entityType.FindAnnotation(ContinuousAggregateAnnotations.ParentName)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Not_Throw_When_Hypertable_Has_No_Table_Or_View
+
+    private class NoStoreObjectEntity
+    {
+        public DateTime Moment { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NoStoreObjectContext : DbContext
+    {
+        public DbSet<NoStoreObjectEntity> Metrics => Set<NoStoreObjectEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoStoreObjectEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable((string?)null);
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                entity.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "does_not_exist");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Throw_When_Hypertable_Has_No_Table_Or_View()
+    {
+        using NoStoreObjectContext context = new();
+
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(NoStoreObjectEntity))!;
+
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region EnsureValidTimeColumn store-type resolution (direct)
+
+    [Fact]
+    public void EnsureValidTimeColumn_Falls_Back_To_Mapping_Store_Type_When_Column_Type_Blank()
+    {
+        TimeColumnStoreTypeValidationConvention.EnsureValidTimeColumn("", "timestamp with time zone", "hypertable 'Probe'", "Time");
+    }
+
+    [Fact]
+    public void EnsureValidTimeColumn_Does_Not_Throw_When_Store_Type_Undeterminable()
+    {
+        TimeColumnStoreTypeValidationConvention.EnsureValidTimeColumn(null, null, "hypertable 'Probe'", "Time");
+    }
+
+    [Fact]
+    public void EnsureValidTimeColumn_Throws_When_Resolved_Store_Type_Invalid()
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            TimeColumnStoreTypeValidationConvention.EnsureValidTimeColumn(null, "boolean", "hypertable 'Probe'", "Time"));
+
+        Assert.Contains("not a valid TimescaleDB time dimension", exception.Message);
+        Assert.Contains("boolean", exception.Message);
     }
 
     #endregion
