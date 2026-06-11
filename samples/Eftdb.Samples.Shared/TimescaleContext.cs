@@ -8,6 +8,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared
     {
         public DbSet<DeviceReading> DeviceReadings { get; set; }
         public DbSet<WeatherData> WeatherData { get; set; }
+        public DbSet<SensorMeasurement> SensorMeasurements { get; set; }
+        public DbSet<EnvironmentReading> EnvironmentReadings { get; set; }
         public DbSet<OrderStatusEvent> OrderStatusEvents { get; set; }
         public DbSet<Trade> Trades { get; set; }
         public DbSet<TradeWithId> TradesWithId { get; set; }
