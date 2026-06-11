@@ -48,6 +48,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{DD66FBE1-7
 	ProjectSection(SolutionItems) = preProject
 		docs\00-getting-started.md = docs\00-getting-started.md
 		docs\01-dotnet-tools.md = docs\01-dotnet-tools.md
+		docs\02-nodatime.md = docs\02-nodatime.md
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "data-annotations", "data-annotations", "{97EBA3D4-DBB9-4564-B45B-D6ECF3A077DF}"
