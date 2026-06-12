@@ -5,5 +5,7 @@
         public decimal AveragePrice { get; set; }
         public decimal MaxPrice { get; set; }
         public decimal MinPrice { get; set; }
+        public decimal TotalVolume { get; set; }
+        public long TradeCount { get; set; }
     }
 }

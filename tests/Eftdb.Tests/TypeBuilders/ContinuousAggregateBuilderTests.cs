@@ -788,6 +788,69 @@ public class ContinuousAggregateBuilderTests
 
     #endregion
 
+    #region AddAggregateFunction_Should_Support_Mismatched_Property_And_SourceColumn_Types
+
+    private class CountMismatch_TradeEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public string Ticker { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+    }
+
+    private class CountMismatch_TradeAggregate
+    {
+        public DateTime TimeBucket { get; set; }
+        public int TradeCount { get; set; }
+        public long TickerCount { get; set; }
+    }
+
+    private class CountMismatch_Context : DbContext
+    {
+        public DbSet<CountMismatch_TradeEntity> Trades => Set<CountMismatch_TradeEntity>();
+        public DbSet<CountMismatch_TradeAggregate> HourlyTrades => Set<CountMismatch_TradeAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CountMismatch_TradeEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Trades");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CountMismatch_TradeAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CountMismatch_TradeAggregate, CountMismatch_TradeEntity>(
+                    "hourly_trades",
+                    "1 hour",
+                    x => x.Timestamp)
+                .AddAggregateFunction(x => x.TradeCount, x => x.Timestamp, EAggregateFunction.Count)
+                .AddAggregateFunction(x => x.TickerCount, x => x.Ticker, EAggregateFunction.Count);
+            });
+        }
+    }
+
+    [Fact]
+    public void AddAggregateFunction_Should_Support_Mismatched_Property_And_SourceColumn_Types()
+    {
+        using CountMismatch_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CountMismatch_TradeAggregate))!;
+
+        List<string>? aggregateFunctions = entityType.FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions)?.Value as List<string>;
+        Assert.NotNull(aggregateFunctions);
+        Assert.Equal(2, aggregateFunctions.Count);
+        Assert.Contains("TradeCount:Count:Timestamp", aggregateFunctions);
+        Assert.Contains("TickerCount:Count:Ticker", aggregateFunctions);
+    }
+
+    #endregion
+
     #region AddGroupByColumn_Should_Add_Single_Column_From_Expression
 
     private class AddGroupByColumn_Should_Add_Single_Column_From_Expression_MetricEntity

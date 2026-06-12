@@ -45,7 +45,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
 
         // Count aggregate function (using "*" for count all records)
         [Aggregate(EAggregateFunction.Count, "*")]
-        public int RecordCount { get; set; }
+        public long RecordCount { get; set; }
 
         // First aggregate function (gets first temperature value in time bucket)
         [Aggregate(EAggregateFunction.First, nameof(WeatherData.Temperature))]

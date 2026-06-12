@@ -81,7 +81,7 @@ public class TradeAggregate
     public decimal TotalVolume { get; set; }
 
     [Aggregate(EAggregateFunction.Count, "*")]
-    public int TradeCount { get; set; }
+    public long TradeCount { get; set; }
 }
 ```
 
@@ -232,7 +232,7 @@ public class TradeHourlyAggregate
     public decimal TotalVolume { get; set; }
 
     [Aggregate(EAggregateFunction.Count, "*")]
-    public int TradeCount { get; set; }
+    public long TradeCount { get; set; }
 
     [Aggregate(EAggregateFunction.First, nameof(Trade.Price))]
     public decimal OpeningPrice { get; set; }
@@ -453,7 +453,7 @@ public class TradeHourlyAggregate
     public decimal TotalVolume { get; set; }
 
     [Aggregate(EAggregateFunction.Count, "*")]
-    public int TradeCount { get; set; }
+    public long TradeCount { get; set; }
 }
 ```
 
@@ -509,7 +509,7 @@ public class DailySummary
     public decimal TotalRevenue { get; set; }
 
     [Aggregate(EAggregateFunction.Count, nameof(OrderEvent.OrderId))]
-    public int OrderCount { get; set; }
+    public long OrderCount { get; set; }
 }
 ```
 
@@ -562,6 +562,6 @@ public class WeatherDaily
     public double AvgHumidity { get; set; }
 
     [Aggregate(EAggregateFunction.Count, "*")]
-    public int ReadingCount { get; set; }
+    public long ReadingCount { get; set; }
 }
 ```

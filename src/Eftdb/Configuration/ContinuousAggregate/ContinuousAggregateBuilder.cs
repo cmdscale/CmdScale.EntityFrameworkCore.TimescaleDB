@@ -58,14 +58,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         /// <summary>
         /// Adds an aggregate function mapping between a property on the continuous aggregate and a source column.
         /// </summary>
-        /// <typeparam name="TProperty">The property type.</typeparam>
+        /// <typeparam name="TProperty">The type of the property on the continuous aggregate.</typeparam>
+        /// <typeparam name="TSourceProperty">The type of the source column on the hypertable.</typeparam>
         /// <param name="propertyExpression">Expression selecting the property on the continuous aggregate.</param>
         /// <param name="sourceColumn">Expression selecting the source column from the hypertable.</param>
         /// <param name="function">The aggregate function to apply.</param>
         /// <returns>The builder for method chaining.</returns>
-        public ContinuousAggregateBuilder<TEntity, TSourceEntity> AddAggregateFunction<TProperty>(
+        public ContinuousAggregateBuilder<TEntity, TSourceEntity> AddAggregateFunction<TProperty, TSourceProperty>(
             Expression<Func<TEntity, TProperty>> propertyExpression,
-            Expression<Func<TSourceEntity, TProperty>> sourceColumn,
+            Expression<Func<TSourceEntity, TSourceProperty>> sourceColumn,
             EAggregateFunction function)
         {
             string propertyName = GetPropertyName(propertyExpression);

@@ -251,7 +251,7 @@ public class TradeAggregate
     public decimal MaxPrice { get; set; }
     public decimal MinPrice { get; set; }
     public decimal TotalVolume { get; set; }
-    public int TradeCount { get; set; }
+    public long TradeCount { get; set; }
 }
 ```
 
