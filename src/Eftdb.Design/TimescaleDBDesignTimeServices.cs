@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Design;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
+using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Migrations.Design;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +17,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
 
             services.AddSingleton<ICSharpMigrationOperationGenerator, TimescaleCSharpMigrationOperationGenerator>()
                     .AddSingleton<IDatabaseModelFactory, TimescaleDatabaseModelFactory>()
-                    .AddSingleton<IProviderConfigurationCodeGenerator, TimescaleDbCodeGenerator>();
+                    .AddSingleton<IProviderConfigurationCodeGenerator, TimescaleDbCodeGenerator>()
+                    .AddSingleton<IAnnotationCodeGenerator, TimescaleDbAnnotationCodeGenerator>()
+                    .AddSingleton<IModelCodeGenerator, TimescaleCSharpModelGenerator>()
+                    .AddSingleton<IModelCodeGeneratorSelector, TimescaleModelCodeGeneratorSelector>()
+                    .AddSingleton<ICSharpHelper, TimescaleCSharpHelper>();
         }
     }
 }

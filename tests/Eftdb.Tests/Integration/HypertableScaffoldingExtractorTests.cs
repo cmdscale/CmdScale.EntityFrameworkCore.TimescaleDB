@@ -795,7 +795,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
             {
                 entity.HasNoKey();
                 entity.ToTable("one_day_chunk_metrics");
-                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("86400000000");
+                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("1 day");
             });
         }
     }
@@ -815,7 +815,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         // Assert
         HypertableScaffoldingExtractor.HypertableInfo info =
             (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "one_day_chunk_metrics")];
-        Assert.Equal("86400000000", info.ChunkTimeInterval);
+        Assert.Equal("1 day", info.ChunkTimeInterval);
     }
 
     #endregion
@@ -841,8 +841,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
             {
                 entity.HasNoKey();
                 entity.ToTable("seven_days_chunk_metrics");
-                // 7 days = 604,800 seconds * 1,000,000 us/s = 604,800,000,000 us
-                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("604800000000");
+                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("7 days");
             });
         }
     }
@@ -862,7 +861,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         // Assert
         HypertableScaffoldingExtractor.HypertableInfo info =
             (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "seven_days_chunk_metrics")];
-        Assert.Equal("604800000000", info.ChunkTimeInterval);
+        Assert.Equal("7 days", info.ChunkTimeInterval);
     }
 
     #endregion
@@ -889,9 +888,8 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
             {
                 entity.HasNoKey();
                 entity.ToTable("time_range_dim_metrics");
-                // 30 days expressed in microseconds (30 * 86,400 * 1,000,000 = 2,592,000,000,000)
                 entity.IsHypertable(x => x.Timestamp)
-                      .HasDimension(Dimension.CreateRange("SecondaryTimestamp", "2592000000000"));
+                      .HasDimension(Dimension.CreateRange("SecondaryTimestamp", "30 days"));
             });
         }
     }
@@ -915,7 +913,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Assert.Equal("SecondaryTimestamp", dimension.ColumnName);
         Assert.Equal(EDimensionType.Range, dimension.Type);
         // 30 days in microseconds
-        Assert.Equal("2592000000000", dimension.Interval);
+        Assert.Equal("30 days", dimension.Interval);
     }
 
     #endregion
