@@ -95,12 +95,25 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 // If it's the first dimension, it defines the primary hypertable settings
                 if (dimensionNumber == 1)
                 {
-                    long chunkInterval = reader.IsDBNull(5) ? DefaultValues.ChunkTimeIntervalLong : (long)reader.GetDouble(5);
+                    string chunkTimeInterval;
+                    if (!reader.IsDBNull(5))
+                    {
+                        chunkTimeInterval = HumanizeMicroseconds((long)reader.GetDouble(5));
+                    }
+                    else if (!reader.IsDBNull(6))
+                    {
+                        chunkTimeInterval = reader.GetInt64(6).ToString();
+                    }
+                    else
+                    {
+                        chunkTimeInterval = DefaultValues.ChunkTimeInterval;
+                    }
+
                     bool compressionEnabled = compressionSettings.TryGetValue(key, out bool enabled) && enabled;
 
                     hypertables[key] = new HypertableInfo(
                         TimeColumnName: columnName,
-                        ChunkTimeInterval: chunkInterval.ToString(),
+                        ChunkTimeInterval: chunkTimeInterval,
                         CompressionEnabled: compressionEnabled,
                         CompressionSegmentBy: [],
                         CompressionOrderBy: [],
@@ -122,9 +135,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         }
                         else if (!reader.IsDBNull(5))
                         {
-                            // Time-based range dimension
-                            long interval = (long)reader.GetDouble(5);
-                            dimension = Dimension.CreateRange(columnName, interval.ToString());
+                            dimension = Dimension.CreateRange(columnName, HumanizeMicroseconds((long)reader.GetDouble(5)));
                         }
                         else if (!reader.IsDBNull(6))
                         {
@@ -216,6 +227,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     info.CompressionOrderBy.Add($"{columnName} {direction}{nulls}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Converts a microsecond chunk interval to the equivalent PostgreSQL interval string when it
+        /// divides cleanly into days, hours, minutes, or seconds (e.g. <c>86400000000</c> becomes
+        /// <c>"1 day"</c>), matching the hand-written configuration style. Uneven values keep the raw
+        /// microsecond form, which round-trips identically.
+        /// </summary>
+        private static string HumanizeMicroseconds(long microseconds)
+        {
+            (long Factor, string Unit)[] units =
+            [
+                (86_400_000_000L, "day"),
+                (3_600_000_000L, "hour"),
+                (60_000_000L, "minute"),
+                (1_000_000L, "second"),
+            ];
+
+            foreach ((long factor, string unit) in units)
+            {
+                if (microseconds >= factor && microseconds % factor == 0)
+                {
+                    long count = microseconds / factor;
+                    return count == 1 ? $"1 {unit}" : $"{count} {unit}s";
+                }
+            }
+
+            return microseconds.ToString();
         }
     }
 }

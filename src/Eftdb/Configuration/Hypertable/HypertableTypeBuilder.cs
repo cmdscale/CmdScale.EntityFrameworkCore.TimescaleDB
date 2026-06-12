@@ -81,9 +81,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         }
 
         /// <summary>
-        /// Adds an additional partitioning dimension to the hypertable.
+        /// Adds an additional partitioning dimension to the hypertable from a <see cref="Dimension"/> object.
         /// </summary>
         /// <remarks>
+        /// Prefer <see cref="HasRangeDimension{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, object}}, string)"/>
+        /// or <see cref="HasHashDimension{TEntity}(EntityTypeBuilder{TEntity}, Expression{Func{TEntity, object}}, int)"/>
+        /// for static configuration; they select the column with a type-safe lambda and match the scaffolder's output.
+        /// This overload suits dynamic scenarios where the column name is only known at runtime.
         /// This method can be called multiple times to add several dimensions (hash or range).
         /// These are often called "space" dimensions and are used to partition data within the same time interval,
         /// which can improve performance by enabling parallelism and query constraints.
@@ -95,28 +99,49 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         public static EntityTypeBuilder<TEntity> HasDimension<TEntity>(
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Dimension dimension) where TEntity : class
+            => AddDimension(entityTypeBuilder, dimension);
+
+        private static EntityTypeBuilder<TEntity> AddDimension<TEntity>(
+            EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Dimension dimension) where TEntity : class
         {
-            // Find existing dimensions annotations
             IAnnotation? existingAnnotation = entityTypeBuilder.Metadata.FindAnnotation(HypertableAnnotations.AdditionalDimensions);
 
-            // Deserialize existing dimensions or create a new list
-            List<Dimension> dimensions;
-            if (existingAnnotation?.Value is string json)
-            {
-                dimensions = JsonSerializer.Deserialize<List<Dimension>>(json) ?? [];
-            }
-            else
-            {
-                dimensions = [];
-            }
+            List<Dimension> dimensions = existingAnnotation?.Value is string json
+                ? JsonSerializer.Deserialize<List<Dimension>>(json) ?? []
+                : [];
 
-            // Add new dimension to the list and serialize back to JSON
             dimensions.Add(dimension);
-            string updatedJson = JsonSerializer.Serialize(dimensions);
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.AdditionalDimensions, JsonSerializer.Serialize(dimensions));
 
-            entityTypeBuilder.HasAnnotation(HypertableAnnotations.AdditionalDimensions, updatedJson);
             return entityTypeBuilder;
         }
+
+        /// <summary>
+        /// Adds a range partitioning dimension to the hypertable.
+        /// </summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type.</param>
+        /// <param name="column">A lambda expression representing the column to partition by (e.g. <c>x =&gt; x.Timestamp</c>).</param>
+        /// <param name="interval">The partitioning interval (e.g. <c>"1 month"</c> or an integer interval as a string).</param>
+        public static EntityTypeBuilder<TEntity> HasRangeDimension<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Expression<Func<TEntity, object>> column,
+            string interval) where TEntity : class
+            => AddDimension(entityTypeBuilder, Dimension.CreateRange(GetPropertyName(column), interval));
+
+        /// <summary>
+        /// Adds a hash (space) partitioning dimension to the hypertable.
+        /// </summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type.</param>
+        /// <param name="column">A lambda expression representing the column to partition by (e.g. <c>x =&gt; x.WarehouseId</c>).</param>
+        /// <param name="numberOfPartitions">The number of hash partitions.</param>
+        public static EntityTypeBuilder<TEntity> HasHashDimension<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            Expression<Func<TEntity, object>> column,
+            int numberOfPartitions) where TEntity : class
+            => AddDimension(entityTypeBuilder, Dimension.CreateHash(GetPropertyName(column), numberOfPartitions));
 
         /// <summary>
         /// Sets the time interval for each chunk of the hypertable.
@@ -229,6 +254,21 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
             IEnumerable<OrderBy> rules = orderSelector(selector);
 
             return entityTypeBuilder.WithCompressionOrderBy([.. rules]);
+        }
+
+        /// <summary>
+        /// Specifies the columns to order by within each compressed segment, one selector per column.
+        /// </summary>
+        /// <remarks>
+        /// Example: <c>.WithCompressionOrderBy(s => s.ByDescending(x => x.Time), s => s.By(x => x.Value))</c>
+        /// </remarks>
+        public static EntityTypeBuilder<TEntity> WithCompressionOrderBy<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            params Func<OrderBySelector<TEntity>, OrderBy>[] orderSelectors) where TEntity : class
+        {
+            OrderBySelector<TEntity> selector = new();
+
+            return entityTypeBuilder.WithCompressionOrderBy([.. orderSelectors.Select(orderSelector => orderSelector(selector))]);
         }
 
         /// <summary>

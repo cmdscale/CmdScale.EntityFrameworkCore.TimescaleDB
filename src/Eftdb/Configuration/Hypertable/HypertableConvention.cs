@@ -1,7 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using System.Reflection;
+using System.Text.Json;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
 {
@@ -63,6 +65,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionOrderBy, string.Join(", ", attribute.CompressionOrderBy));
                 }
             }
+
+            DimensionAttribute[] dimensionAttributes = entityType.ClrType?.GetCustomAttributes<DimensionAttribute>().ToArray() ?? [];
+            if (dimensionAttributes.Length > 0)
+            {
+                List<Dimension> dimensions = [.. dimensionAttributes.Select(ToDimension)];
+                entityTypeBuilder.HasAnnotation(HypertableAnnotations.AdditionalDimensions, JsonSerializer.Serialize(dimensions));
+            }
         }
+
+        private static Dimension ToDimension(DimensionAttribute attribute)
+            => attribute.Type == EDimensionType.Hash
+                ? Dimension.CreateHash(attribute.ColumnName, attribute.NumberOfPartitions)
+                : Dimension.CreateRange(attribute.ColumnName, attribute.Interval!);
     }
 }
