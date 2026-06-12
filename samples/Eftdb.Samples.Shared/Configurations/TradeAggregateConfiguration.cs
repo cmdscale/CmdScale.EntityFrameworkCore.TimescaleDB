@@ -16,6 +16,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
                 .AddAggregateFunction(x => x.AveragePrice, x => x.Price, EAggregateFunction.Avg)
                 .AddAggregateFunction(x => x.MinPrice, x => x.Price, EAggregateFunction.Max)
                 .AddAggregateFunction(x => x.MaxPrice, x => x.Price, EAggregateFunction.Min)
+                .AddAggregateFunction(x => x.TotalVolume, x => x.Size, EAggregateFunction.Sum)
+                .AddAggregateFunction(x => x.TradeCount, x => x.Timestamp, EAggregateFunction.Count)
                 .AddGroupByColumn(x => x.Exchange)
                 .AddGroupByColumn("1, 2")
                 .Where("\"ticker\" = 'MCRS'")
