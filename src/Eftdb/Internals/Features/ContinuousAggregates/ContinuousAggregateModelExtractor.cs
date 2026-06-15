@@ -102,8 +102,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                         string functionEnumString = parts[1];
                         string sourceColumnModelName = parts[2];
 
-                        // Resolve source column name from parent entity
-                        string? sourceColumnDbName = ColumnNameResolver.Resolve(parentEntityType, sourceColumnModelName, parentStoreIdentifier);
+                        // Resolve source column name from parent entity. "*" is not a column
+                        // but the COUNT(*) wildcard, so it bypasses resolution.
+                        string? sourceColumnDbName = sourceColumnModelName == "*"
+                            ? "*"
+                            : ColumnNameResolver.Resolve(parentEntityType, sourceColumnModelName, parentStoreIdentifier);
                         if (string.IsNullOrWhiteSpace(sourceColumnDbName))
                         {
                             // Skip if source column not found

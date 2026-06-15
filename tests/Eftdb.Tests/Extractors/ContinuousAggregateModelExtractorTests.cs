@@ -1322,6 +1322,61 @@ public class ContinuousAggregateModelExtractorTests
 
     #endregion
 
+    #region Should_Extract_CountStar_AggregateFunction
+
+    private class CountStarSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_count_star_metrics", ParentName = nameof(CountStarSourceMetric))]
+    [TimeBucket("1 hour", nameof(CountStarSourceMetric.Timestamp))]
+    private class CountStarHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+
+        [Aggregate(EAggregateFunction.Count, "*")]
+        public long RecordCount { get; set; }
+    }
+
+    private class CountStarContext : DbContext
+    {
+        public DbSet<CountStarSourceMetric> Metrics => Set<CountStarSourceMetric>();
+        public DbSet<CountStarHourlyMetric> HourlyMetrics => Set<CountStarHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CountStarSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("count_star_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CountStarHourlyMetric>(entity => entity.HasNoKey());
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_CountStar_AggregateFunction()
+    {
+        using CountStarContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Single(operations);
+        Assert.Single(operations[0].AggregateFunctions);
+        Assert.Equal("RecordCount:Count:*", operations[0].AggregateFunctions[0]);
+    }
+
+    #endregion
+
     #region Should_Extract_First_AggregateFunction
 
     private class FirstAggregateFunctionSourceMetric

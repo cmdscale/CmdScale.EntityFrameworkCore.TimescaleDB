@@ -423,7 +423,7 @@ public class ReorderPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
-            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval // "00:05:00"
+            RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
         // Act
@@ -665,14 +665,14 @@ public class ReorderPolicyAnnotationApplierTests
         Assert.Equal(initialStart, table[ReorderPolicyAnnotations.InitialStart]);
     }
 
-    public static IEnumerable<object[]> InitialStartTestData()
-    {
-        yield return new object[] { new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) };
-        yield return new object[] { new DateTime(2024, 12, 31, 23, 59, 59, DateTimeKind.Utc) };
-        yield return new object[] { new DateTime(2024, 6, 15, 12, 30, 45, DateTimeKind.Utc) };
-        yield return new object[] { DateTime.MinValue };
-        yield return new object[] { DateTime.MaxValue };
-    }
+    public static TheoryData<DateTime> InitialStartTestData() =>
+    [
+        new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+        new DateTime(2024, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+        new DateTime(2024, 6, 15, 12, 30, 45, DateTimeKind.Utc),
+        DateTime.MinValue,
+        DateTime.MaxValue,
+    ];
 
     #endregion
 

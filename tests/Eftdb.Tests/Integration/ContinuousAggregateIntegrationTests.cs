@@ -29,6 +29,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             {
                 await _container.DisposeAsync();
             }
+            GC.SuppressFinalize(this);
         }
 
         #region Should_Create_ContinuousAggregate_With_BasicAggregates
@@ -1130,6 +1131,83 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 
             Assert.Single(aggregates);
             Assert.Equal(100.00m, aggregates[0].AvgPrice);
+        }
+
+        #endregion
+
+        #region Should_Create_ContinuousAggregate_With_CountStar_And_Verify_Counts
+
+        private class CountStarEvent
+        {
+            public DateTime Timestamp { get; set; }
+            public string? Category { get; set; }
+            public decimal Value { get; set; }
+        }
+
+        [ContinuousAggregate(MaterializedViewName = "count_star_integration_aggregate", ParentName = nameof(CountStarEvent))]
+        [TimeBucket("1 hour", nameof(CountStarEvent.Timestamp))]
+        private class CountStarAggregate
+        {
+            public DateTime Bucket { get; set; }
+
+            [Aggregate(EAggregateFunction.Count, "*")]
+            public long TotalCount { get; set; }
+
+            [Aggregate(EAggregateFunction.Count, nameof(CountStarEvent.Category))]
+            public long CategoryCount { get; set; }
+        }
+
+        private class CountStarIntegrationContext(string connectionString) : DbContext
+        {
+            public DbSet<CountStarEvent> Events => Set<CountStarEvent>();
+            public DbSet<CountStarAggregate> Aggregates => Set<CountStarAggregate>();
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                modelBuilder.Entity<CountStarEvent>(entity =>
+                {
+                    entity.ToTable("count_star_events");
+                    entity.HasNoKey();
+                    entity.IsHypertable(x => x.Timestamp);
+                });
+
+                modelBuilder.Entity<CountStarAggregate>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.Bucket).HasColumnName("time_bucket");
+                    entity.Property(x => x.TotalCount).HasColumnName("TotalCount");
+                    entity.Property(x => x.CategoryCount).HasColumnName("CategoryCount");
+                });
+            }
+        }
+
+        [Fact]
+        public async Task Should_Create_ContinuousAggregate_With_CountStar_And_Verify_Counts()
+        {
+            await using CountStarIntegrationContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
+
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO count_star_events (""Timestamp"", ""Category"", ""Value"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"sports"}, {1.0m}),
+                    ({new DateTime(2025, 1, 6, 10, 15, 0, DateTimeKind.Utc)}, {"news"}, {2.0m}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {(string?)null}, {3.0m})",
+                TestContext.Current.CancellationToken);
+
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.count_star_integration_aggregate', NULL, NULL);",
+                [], TestContext.Current.CancellationToken);
+
+            List<CountStarAggregate> aggregates = await context.Aggregates
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            Assert.Single(aggregates);
+            Assert.Equal(3L, aggregates[0].TotalCount);
+            Assert.Equal(2L, aggregates[0].CategoryCount);
         }
 
         #endregion

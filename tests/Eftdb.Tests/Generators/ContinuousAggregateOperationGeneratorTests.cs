@@ -101,6 +101,40 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         [Fact]
+        public void DesignTime_Create_WithCountStarAggregate_GeneratesUnquotedWildcard()
+        {
+            // Arrange - the COUNT(*) wildcard is not an identifier and must not be quoted
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "hourly_counts",
+                Schema = "public",
+                ParentName = "events",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "event_time",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["record_count:Count:*"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            string expected = @"
+                CREATE MATERIALIZED VIEW ""public"".""hourly_counts""
+                WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
+                SELECT time_bucket('1 hour', ""event_time"") AS time_bucket, COUNT(*) AS ""record_count""
+                FROM ""public"".""events""
+                GROUP BY time_bucket;
+            ";
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
         public void DesignTime_Create_WithTimescaleDBFirstLastFunctions_GeneratesCorrectSyntax()
         {
             // Arrange - TimescaleDB first() and last() require (value, time) parameter ordering
