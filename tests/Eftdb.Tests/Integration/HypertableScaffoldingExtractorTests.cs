@@ -30,6 +30,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         {
             await _container.DisposeAsync();
         }
+        GC.SuppressFinalize(this);
     }
 
     #region Should_Extract_Minimal_Hypertable

@@ -79,7 +79,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 string sourceColumn = parts[2];
 
                 string sqlFunction = GetSqlAggregateFunction(functionEnumString);
-                string quotedSourceColumn = $"{SqlBuilderHelper.QuoteIdentifier(sourceColumn)}";
+                // The COUNT(*) wildcard is not an identifier and must stay unquoted.
+                string quotedSourceColumn = sourceColumn == "*" ? "*" : SqlBuilderHelper.QuoteIdentifier(sourceColumn);
                 string quotedAlias = $"{SqlBuilderHelper.QuoteIdentifier(alias)}";
                 string aggregateExpression;
 
