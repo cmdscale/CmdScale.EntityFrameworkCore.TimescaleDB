@@ -45,4 +45,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Eftdb\Eftdb.csproj" />
 	</ItemGroup>
+	<ItemGroup>
+		<InternalsVisibleTo Include="CmdScale.EntityFrameworkCore.TimescaleDB.Tests" />
+	</ItemGroup>
 </Project>

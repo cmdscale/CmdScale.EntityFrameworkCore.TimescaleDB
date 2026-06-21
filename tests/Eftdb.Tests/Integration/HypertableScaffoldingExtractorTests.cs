@@ -978,4 +978,210 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
     }
 
     #endregion
+
+    #region Should_Humanize_ChunkTimeInterval_OneHour
+
+    private class OneHourChunkIntervalMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OneHourChunkIntervalContext(string connectionString) : DbContext
+    {
+        public DbSet<OneHourChunkIntervalMetric> Metrics => Set<OneHourChunkIntervalMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<OneHourChunkIntervalMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("humanize_1h_metrics");
+                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("1 hour");
+            });
+    }
+
+    [Fact]
+    public async Task Should_Humanize_ChunkTimeInterval_OneHour()
+    {
+        await using OneHourChunkIntervalContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "humanize_1h_metrics")];
+        Assert.Equal("1 hour", info.ChunkTimeInterval);
+    }
+
+    #endregion
+
+    #region Should_Humanize_ChunkTimeInterval_TwoHours
+
+    private class TwoHoursChunkIntervalMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class TwoHoursChunkIntervalContext(string connectionString) : DbContext
+    {
+        public DbSet<TwoHoursChunkIntervalMetric> Metrics => Set<TwoHoursChunkIntervalMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<TwoHoursChunkIntervalMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("humanize_2h_metrics");
+                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("2 hours");
+            });
+    }
+
+    [Fact]
+    public async Task Should_Humanize_ChunkTimeInterval_TwoHours()
+    {
+        await using TwoHoursChunkIntervalContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "humanize_2h_metrics")];
+        Assert.Equal("2 hours", info.ChunkTimeInterval);
+    }
+
+    #endregion
+
+    #region Should_Humanize_ChunkTimeInterval_TwoDays
+
+    private class TwoDaysChunkIntervalMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class TwoDaysChunkIntervalContext(string connectionString) : DbContext
+    {
+        public DbSet<TwoDaysChunkIntervalMetric> Metrics => Set<TwoDaysChunkIntervalMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<TwoDaysChunkIntervalMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("humanize_2d_metrics");
+                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("2 days");
+            });
+    }
+
+    [Fact]
+    public async Task Should_Humanize_ChunkTimeInterval_TwoDays()
+    {
+        await using TwoDaysChunkIntervalContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "humanize_2d_metrics")];
+        Assert.Equal("2 days", info.ChunkTimeInterval);
+    }
+
+    #endregion
+
+    #region Should_Humanize_ChunkTimeInterval_OneMinute
+
+    private class OneMinuteChunkIntervalMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OneMinuteChunkIntervalContext(string connectionString) : DbContext
+    {
+        public DbSet<OneMinuteChunkIntervalMetric> Metrics => Set<OneMinuteChunkIntervalMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<OneMinuteChunkIntervalMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("humanize_1min_metrics");
+                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("1 minute");
+            });
+    }
+
+    [Fact]
+    public async Task Should_Humanize_ChunkTimeInterval_OneMinute()
+    {
+        await using OneMinuteChunkIntervalContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "humanize_1min_metrics")];
+        Assert.Equal("1 minute", info.ChunkTimeInterval);
+    }
+
+    #endregion
+
+    #region Should_Humanize_ChunkTimeInterval_NonRound_Falls_Back_To_Seconds
+
+    private class NonRoundChunkIntervalMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NonRoundChunkIntervalContext(string connectionString) : DbContext
+    {
+        public DbSet<NonRoundChunkIntervalMetric> Metrics => Set<NonRoundChunkIntervalMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<NonRoundChunkIntervalMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("humanize_nonround_metrics");
+                entity.IsHypertable(x => x.Timestamp).WithChunkTimeInterval("90 seconds");
+            });
+    }
+
+    [Fact]
+    public async Task Should_Humanize_ChunkTimeInterval_NonRound_Falls_Back_To_Seconds()
+    {
+        await using NonRoundChunkIntervalContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "humanize_nonround_metrics")];
+        // 90s doesn't fit a round minute, so humanizer outputs "90 seconds"
+        Assert.Equal("90 seconds", info.ChunkTimeInterval);
+    }
+
+    #endregion
 }

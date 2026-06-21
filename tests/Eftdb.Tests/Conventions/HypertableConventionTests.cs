@@ -1,7 +1,9 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using System.Text.Json;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Conventions;
 
@@ -850,6 +852,152 @@ public class HypertableConventionTests
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.MigrateData));
         // But IsHypertable should still be set
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region DimensionAttribute_Range_Should_Set_AdditionalDimensions_Annotation
+
+    [Hypertable("Timestamp")]
+    [Dimension("Location", EDimensionType.Range, "30 days")]
+    private class RangeDimensionAttrEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public string? Location { get; set; }
+    }
+
+    private class RangeDimensionAttrContext : DbContext
+    {
+        public DbSet<RangeDimensionAttrEntity> Entities => Set<RangeDimensionAttrEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RangeDimensionAttrEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("RangeDimensionAttr");
+            });
+        }
+    }
+
+    [Fact]
+    public void DimensionAttribute_Range_Should_Set_AdditionalDimensions_Annotation()
+    {
+        using RangeDimensionAttrContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(RangeDimensionAttrEntity))!;
+
+        string? dimensionsJson = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions)?.Value as string;
+        Assert.NotNull(dimensionsJson);
+
+        List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
+        Assert.NotNull(dimensions);
+        Assert.Single(dimensions);
+        Assert.Equal("Location", dimensions[0].ColumnName);
+        Assert.Equal(EDimensionType.Range, dimensions[0].Type);
+        Assert.Equal("30 days", dimensions[0].Interval);
+    }
+
+    #endregion
+
+    #region DimensionAttribute_Hash_Should_Set_AdditionalDimensions_Annotation
+
+    [Hypertable("Timestamp")]
+    [Dimension("WarehouseId", EDimensionType.Hash, 4)]
+    private class HashDimensionAttrEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public int WarehouseId { get; set; }
+    }
+
+    private class HashDimensionAttrContext : DbContext
+    {
+        public DbSet<HashDimensionAttrEntity> Entities => Set<HashDimensionAttrEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HashDimensionAttrEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("HashDimensionAttr");
+            });
+        }
+    }
+
+    [Fact]
+    public void DimensionAttribute_Hash_Should_Set_AdditionalDimensions_Annotation()
+    {
+        using HashDimensionAttrContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(HashDimensionAttrEntity))!;
+
+        string? dimensionsJson = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions)?.Value as string;
+        Assert.NotNull(dimensionsJson);
+
+        List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
+        Assert.NotNull(dimensions);
+        Assert.Single(dimensions);
+        Assert.Equal("WarehouseId", dimensions[0].ColumnName);
+        Assert.Equal(EDimensionType.Hash, dimensions[0].Type);
+        Assert.Equal(4, dimensions[0].NumberOfPartitions);
+    }
+
+    #endregion
+
+    #region Multiple_DimensionAttributes_Should_All_Appear_In_Annotation
+
+    [Hypertable("Timestamp")]
+    [Dimension("Region", EDimensionType.Range, "1 month")]
+    [Dimension("TenantId", EDimensionType.Hash, 8)]
+    private class MultipleDimensionAttrsEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public string? Region { get; set; }
+        public int TenantId { get; set; }
+    }
+
+    private class MultipleDimensionAttrsContext : DbContext
+    {
+        public DbSet<MultipleDimensionAttrsEntity> Entities => Set<MultipleDimensionAttrsEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MultipleDimensionAttrsEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("MultipleDimensionAttrs");
+            });
+        }
+    }
+
+    [Fact]
+    public void Multiple_DimensionAttributes_Should_All_Appear_In_Annotation()
+    {
+        using MultipleDimensionAttrsContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(MultipleDimensionAttrsEntity))!;
+
+        string? dimensionsJson = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions)?.Value as string;
+        Assert.NotNull(dimensionsJson);
+
+        List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
+        Assert.NotNull(dimensions);
+        Assert.Equal(2, dimensions.Count);
+
+        Assert.Contains(dimensions, d => d.ColumnName == "Region" && d.Type == EDimensionType.Range && d.Interval == "1 month");
+        Assert.Contains(dimensions, d => d.ColumnName == "TenantId" && d.Type == EDimensionType.Hash && d.NumberOfPartitions == 8);
     }
 
     #endregion

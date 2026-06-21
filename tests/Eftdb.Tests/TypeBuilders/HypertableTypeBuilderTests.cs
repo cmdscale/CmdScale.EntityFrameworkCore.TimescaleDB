@@ -1343,4 +1343,155 @@ public class HypertableTypeBuilderTests
     }
 
     #endregion
+
+    #region HasRangeDimension_Should_Add_Range_Dimension_To_AdditionalDimensions_Annotation
+
+    private class HasRangeDimensionEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public string? Region { get; set; }
+    }
+
+    private class HasRangeDimensionContext : DbContext
+    {
+        public DbSet<HasRangeDimensionEntity> Metrics => Set<HasRangeDimensionEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HasRangeDimensionEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_has_range_dimension");
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasRangeDimension(x => (object)x.Region!, "1 month");
+            });
+        }
+    }
+
+    [Fact]
+    public void HasRangeDimension_Should_Add_Range_Dimension_To_AdditionalDimensions_Annotation()
+    {
+        using HasRangeDimensionContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(HasRangeDimensionEntity))!;
+
+        string? dimensionsJson = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions)?.Value as string;
+        Assert.NotNull(dimensionsJson);
+
+        List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
+        Assert.NotNull(dimensions);
+        Assert.Single(dimensions);
+        Assert.Equal("Region", dimensions[0].ColumnName);
+        Assert.Equal(EDimensionType.Range, dimensions[0].Type);
+        Assert.Equal("1 month", dimensions[0].Interval);
+    }
+
+    #endregion
+
+    #region HasHashDimension_Should_Add_Hash_Dimension_To_AdditionalDimensions_Annotation
+
+    private class HasHashDimensionEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public int WarehouseId { get; set; }
+    }
+
+    private class HasHashDimensionContext : DbContext
+    {
+        public DbSet<HasHashDimensionEntity> Metrics => Set<HasHashDimensionEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HasHashDimensionEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_has_hash_dimension");
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasHashDimension(x => (object)x.WarehouseId, 8);
+            });
+        }
+    }
+
+    [Fact]
+    public void HasHashDimension_Should_Add_Hash_Dimension_To_AdditionalDimensions_Annotation()
+    {
+        using HasHashDimensionContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(HasHashDimensionEntity))!;
+
+        string? dimensionsJson = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions)?.Value as string;
+        Assert.NotNull(dimensionsJson);
+
+        List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
+        Assert.NotNull(dimensions);
+        Assert.Single(dimensions);
+        Assert.Equal("WarehouseId", dimensions[0].ColumnName);
+        Assert.Equal(EDimensionType.Hash, dimensions[0].Type);
+        Assert.Equal(8, dimensions[0].NumberOfPartitions);
+    }
+
+    #endregion
+
+    #region HasRangeDimension_And_HasHashDimension_Can_Be_Combined
+
+    private class CombinedDimensionEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public string? Region { get; set; }
+        public int WarehouseId { get; set; }
+    }
+
+    private class CombinedDimensionContext : DbContext
+    {
+        public DbSet<CombinedDimensionEntity> Metrics => Set<CombinedDimensionEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CombinedDimensionEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("metrics_combined_dimensions");
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasRangeDimension(x => (object)x.Region!, "30 days")
+                      .HasHashDimension(x => (object)x.WarehouseId, 4);
+            });
+        }
+    }
+
+    [Fact]
+    public void HasRangeDimension_And_HasHashDimension_Can_Be_Combined()
+    {
+        using CombinedDimensionContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CombinedDimensionEntity))!;
+
+        string? dimensionsJson = entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions)?.Value as string;
+        Assert.NotNull(dimensionsJson);
+
+        List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
+        Assert.NotNull(dimensions);
+        Assert.Equal(2, dimensions.Count);
+
+        Assert.Equal("Region", dimensions[0].ColumnName);
+        Assert.Equal(EDimensionType.Range, dimensions[0].Type);
+        Assert.Equal("30 days", dimensions[0].Interval);
+
+        Assert.Equal("WarehouseId", dimensions[1].ColumnName);
+        Assert.Equal(EDimensionType.Hash, dimensions[1].Type);
+        Assert.Equal(4, dimensions[1].NumberOfPartitions);
+    }
+
+    #endregion
 }
