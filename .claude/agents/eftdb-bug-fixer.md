@@ -120,56 +120,7 @@ Before fixing, understand WHY the bug exists:
    - Use `SqlBuilderHelper` for SQL construction
    - Use `StoreObjectIdentifier` pattern for column names
 
-**Fix Pattern Examples:**
-
-```csharp
-// Bug: Missing null check causing NullReferenceException
-// INCORRECT FIX - Too broad
-public void ProcessEntity(IEntityType entity)
-{
-    try
-    {
-        var annotation = entity.FindAnnotation("SomeKey")?.Value;
-        // ... process
-    }
-    catch (Exception ex)
-    {
-        // Swallow all exceptions
-    }
-}
-
-// CORRECT FIX - Targeted null check
-public void ProcessEntity(IEntityType entity)
-{
-    IAnnotation? annotation = entity.FindAnnotation("SomeKey");
-    if (annotation?.Value == null)
-    {
-        return; // Or handle appropriately
-    }
-
-    // ... process with guaranteed non-null value
-}
-```
-
-```csharp
-// Bug: Column name not respecting naming convention
-// INCORRECT FIX - Hard-coded conversion
-string columnName = propertyName.ToSnakeCase(); // Don't assume convention
-
-// CORRECT FIX - Use EF Core's convention system
-StoreObjectIdentifier storeIdentifier = StoreObjectIdentifier.Table(tableName, schema);
-string columnName = property.GetColumnName(storeIdentifier);
-```
-
-```csharp
-// Bug: identifier not quoted via the helper
-// INCORRECT FIX - Hard-coded quotes
-string sql = $"SELECT * FROM \"{schema}\".\"{table}\"";
-
-// CORRECT FIX - Use SqlBuilderHelper
-string qualifiedName = SqlBuilderHelper.QualifiedIdentifier(table, schema);
-string sql = $"SELECT * FROM {qualifiedName}";
-```
+**Fix patterns:** For null-check, column-name resolution, and identifier-quoting approaches, see `.claude/reference/patterns.md` sections 7–8 — both include INCORRECT vs CORRECT examples.
 
 ### Phase 4: Verification
 
@@ -194,144 +145,26 @@ After implementing the fix:
 
 ## Common Debugging Techniques
 
-### For Annotation Issues:
-```csharp
-// Add diagnostic logging
-IAnnotation? annotation = entity.FindAnnotation(SomeAnnotations.KeyName);
-if (annotation == null)
-{
-    // Log: Expected annotation not found
-    return null;
-}
-
-// Verify annotation value type
-if (annotation.Value is not string expectedValue)
-{
-    // Log: Annotation value has unexpected type
-    return null;
-}
-```
-
-### For SQL Generation Issues:
-```csharp
-// Inspect the statements returned by the feature SqlGenerator
-List<string> statements = HypertableSqlGenerator.Generate(operation);
-foreach (string statement in statements)
-{
-    System.Diagnostics.Debug.WriteLine($"Generated SQL: {statement}");
-}
-```
-
-### For Differ Issues:
-```csharp
-// Compare properties one by one
-bool hasChanges =
-    sourceInfo.Property1 != targetInfo.Property1 ||
-    sourceInfo.Property2 != targetInfo.Property2 ||
-    !AreListsEqual(sourceInfo.List1, targetInfo.List1);
-
-// Log what changed
-if (sourceInfo.Property1 != targetInfo.Property1)
-{
-    // Log: Property1 changed from X to Y
-}
-```
+Add temporary `Console.Error.WriteLine` or `Debug.WriteLine` statements to inspect annotation values, generated SQL strings, or differ property comparisons. Remove all diagnostic output before committing.
 
 ## Handoff Protocol
 
-### Successful Fix Completion:
+**On successful fix**, report:
+- Description of the bug and its root cause
+- Files modified with a one-line description of each change
+- Verification: solution builds, reproduction case resolved, no regressions, existing tests pass
+- Next step: launch `test-writer` agent to add a regression test
 
-```
-✅ BUG FIX COMPLETE
+**If an additional issue is found during the fix**, report:
+- Description of the secondary issue and which file is affected
+- How it relates to the original bug
+- Recommendation: fix both together (if closely related) or complete the original fix first and relaunch for the secondary issue
 
-Bug Description:
-[Brief description of the bug]
-
-Root Cause:
-[Explanation of why the bug occurred]
-
-Files Modified:
-- [File path 1] - [Brief description of change]
-- [File path 2] - [Brief description of change]
-
-Fix Summary:
-[1-2 paragraph explanation of what was changed and why]
-
-Verification:
-□ Solution builds successfully
-□ Bug reproduction case now works correctly
-□ No regressions observed
-□ Existing tests still pass (if applicable)
-
-NEXT STEPS:
-→ Use test-writer agent to add regression test
-   (Prevents this bug from reoccurring)
-
-→ Use git-committer agent when ready to commit
-   (Creates fix: [bug description] commit)
-
-RECOMMENDATION:
-Add test case covering: [specific scenario that exposed this bug]
-```
-
-### When Additional Issues are Discovered:
-
-While fixing one bug, you might discover related issues:
-
-```
-⚠️ ADDITIONAL ISSUE FOUND
-
-While fixing [Original Bug], discovered related issue:
-
-Secondary Issue:
-[Description of additional bug found]
-
-File Affected: [File path]
-
-Relationship to Original Bug:
-[How this relates to the bug being fixed]
-
-OPTIONS:
-1. Fix both issues together (if closely related and fix is still minimal)
-2. Fix original bug only, create separate bug report for secondary issue
-
-RECOMMENDATION: [Choice with rationale]
-
-If proceeding with option 2:
-→ Complete current fix first
-→ Document secondary issue clearly
-→ User can relaunch eftdb-bug-fixer for secondary issue
-```
-
-### When Fix Requires Design Change:
-
-If the bug cannot be fixed without significant design changes:
-
-```
-❌ BUG REQUIRES ARCHITECTURAL CHANGE
-
-Bug: [Description]
-File: [Path]
-
-Analysis:
-[Explanation of why simple fix won't work]
-
-Issue:
-The current architecture [describe limitation] which prevents a proper fix.
-
-Required Changes:
-1. [Architectural change 1]
-2. [Architectural change 2]
-3. [Impact on existing code]
-
-RECOMMENDATION:
-This is beyond bug-fixing scope. Options:
-1. Implement workaround with known limitations: [describe workaround]
-2. Plan architectural refactoring (coordinate with user)
-3. Document as known limitation if low impact
-
-Cannot proceed with standard bug fix. User decision required.
-```
+**If the fix requires architectural change**, report:
+- Why a minimal fix is insufficient (the architectural constraint preventing it)
+- What structural changes would be required and their impact
+- Options: implement a known-limitation workaround, plan a refactoring, or document as a known limitation
+- Stop work — user decision required before proceeding
 
 ## Quality Standards
 

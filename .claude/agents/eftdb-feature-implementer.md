@@ -105,13 +105,7 @@ NEVER manually construct qualified names or handle quoting yourself.
 
 ### Column Name Resolution
 
-ALWAYS use the StoreObjectIdentifier pattern:
-```csharp
-var storeIdentifier = StoreObjectIdentifier.Table(tableName, schema);
-var columnName = property.GetColumnName(storeIdentifier);
-```
-
-This automatically handles all naming conventions (snake_case, camelCase, PascalCase, custom conventions).
+ALWAYS use `StoreObjectIdentifier.Table(tableName, schema)` and `property.GetColumnName(storeIdentifier)` — see the code example under Model Extractor above. NEVER manually convert property names to column names or assume a naming convention.
 
 ## Code Quality Standards
 
@@ -165,86 +159,17 @@ You are not just writing code - you are extending a carefully architected system
 
 ## Handoff Protocol
 
-### When Operations Don't Exist - ABORT with Instructions:
+**If operations are missing (abort)**, report:
+- Which operation files are missing from `Operations/`
+- Instruct the user to run `eftdb-feature-initializer` first; relaunch this agent after
 
-```
-❌ CANNOT PROCEED - OPERATIONS MISSING
+**On successful completion**, report:
+- List of files created and updated
+- Operation priority value chosen and the rationale
+- Next agents in sequence: `eftdb-scaffold-support` → `test-writer` → `example-feature-generator`
+- Testing checklist: `dotnet build`, generate a test migration, inspect the C# output, run `database update`, verify SQL, test column naming conventions
 
-Required operation classes not found in Operations/ directory:
-- Create[Feature]Operation.cs
-- Alter[Feature]Operation.cs (if applicable)
-- Drop[Feature]Operation.cs (if applicable)
-
-REQUIRED ACTION:
-→ Use eftdb-feature-initializer agent first to create the foundational scaffolding
-
-The eftdb-feature-initializer agent will create:
-- Operation classes with all required properties
-- FluentAPI configuration methods
-- Data attributes (if applicable)
-- Convention implementations
-- Annotation constant definitions
-
-Once the feature initializer completes, relaunch this agent to implement the migration logic.
-```
-
-### Successful Completion Handoff:
-
-```
-✅ MIGRATION IMPLEMENTATION COMPLETE
-
-Implemented Components:
-- Internals/Features/[Feature]/[Feature]ModelExtractor.cs
-- Internals/Features/[Feature]/[Feature]Differ.cs
-- Generators/[Feature]SqlGenerator.cs
-- MigrationExtensions/[Feature]MigrationExtensions.cs
-- Design/Generators/[Feature]CSharpGenerator.cs
-- Updated: Internals/TimescaleMigrationsModelDiffer.cs (differ invocation + GetOperationPriority cases)
-- Updated: TimescaleDbMigrationsSqlGenerator.cs (Generate switch case)
-- Updated: Design/TimescaleCSharpMigrationOperationGenerator.cs (Generate switch case)
-
-Operation Priority: [X] (rationale: [explanation])
-
-NEXT STEPS:
-→ Use eftdb-scaffold-support agent to implement db-first scaffolding
-   (Creates: ScaffoldingExtractor, AnnotationApplier for reverse engineering from database)
-
-→ Then use test-writer agent to create comprehensive tests
-   (Creates: Unit tests for differ/extractor, integration tests for SQL generation)
-
-→ Then use example-feature-generator agent to create usage examples
-   (Creates: Example models showcasing the new feature)
-
-TESTING CHECKLIST before proceeding:
-□ Run `dotnet build` - verify no compilation errors
-□ Test with Eftdb.Samples.CodeFirst:
-  □ Run `dotnet ef migrations add Test[Feature]Migration --project samples/Eftdb.Samples.CodeFirst`
-  □ Inspect generated C# code in migration file
-  □ Run `dotnet ef database update --project samples/Eftdb.Samples.CodeFirst`
-  □ Verify SQL execution succeeds
-□ Test column naming conventions (try snake_case)
-□ Verify operation priority ordering in migrations
-```
-
-### When Discovering Bugs in Other Code:
-
-If you encounter bugs in existing code while implementing:
-
-```
-⚠️ EXISTING BUG DETECTED DURING IMPLEMENTATION
-
-File: [File path]
-Line: [Approximate line number]
-Component: [Differ/Extractor/Generator/Other]
-
-Issue Description:
-[Clear description of the bug]
-
-Impact on Current Implementation:
-[How this bug affects your work]
-
-REQUIRED ACTION:
-→ Use eftdb-bug-fixer agent to resolve the existing bug first
-
-This agent will pause current implementation. After the bug is fixed, relaunch this agent to continue the feature implementation.
-```
+**If a bug is found in existing code during implementation**, report:
+- File, approximate line, and component affected
+- How it blocks the current implementation
+- Stop work; instruct the user to run `eftdb-bug-fixer` to resolve it first, then relaunch this agent

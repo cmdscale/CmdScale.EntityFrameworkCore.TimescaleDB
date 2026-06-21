@@ -211,9 +211,47 @@ Keep each class focused on a single responsibility:
 | Runtime SQL | Convert operations to SQL | `Generators/*SqlGenerator` classes |
 | Design-time C# | Convert operations to typed migration calls | `Design/Generators/*CSharpGenerator` classes |
 | Migration API | Construct operations from migration files | `MigrationExtensions/*MigrationExtensions` classes |
-| Scaffolding | Reverse engineer from database | Scaffolding extractors/appliers |
+| Scaffolding extraction | Reverse engineer from database | `Scaffolding/*ScaffoldingExtractor` + `*AnnotationApplier` classes |
+| Scaffolding code generation | Annotations → C# fluent API or data annotation attributes | `Design/Generators/AnnotationRenderers/*AnnotationRenderer` classes |
 
 **Never mix concerns:** Extractors should not generate SQL, differs should not read databases.
+
+## 13. Scaffolding Annotation Code Generation
+
+`dotnet ef dbcontext scaffold` runs two distinct phases:
+
+**Phase 1 — Database extraction** (`Scaffolding/`): `TimescaleDatabaseModelFactory` calls each `*ScaffoldingExtractor` to query TimescaleDB system tables, then calls the matching `*AnnotationApplier` to store the metadata as annotations on the EF Core `DatabaseModel`. The result is the same annotation format the runtime library uses.
+
+**Phase 2 — Code generation** (`Generators/AnnotationRenderers/`): EF Core's scaffolding pipeline asks `TimescaleDbAnnotationCodeGenerator` to convert those annotations into C# code. It dispatches to registered `IFeatureAnnotationRenderer` implementations.
+
+**`IFeatureAnnotationRenderer` contract:**
+
+```csharp
+interface IFeatureAnnotationRenderer
+{
+    // Called when UseDataAnnotations = false — emit fluent API calls
+    void GenerateFluentApiCalls(
+        IEntityType entityType,
+        Dictionary<string, IAnnotation> annotations,
+        CSharpRuntimeAnnotationCodeGeneratorParameters parameters);
+
+    // Called when UseDataAnnotations = true — return attribute fragments
+    IReadOnlyList<AttributeCodeFragment> GenerateDataAnnotationAttributes(
+        IEntityType entityType,
+        Dictionary<string, IAnnotation> annotations);
+}
+```
+
+**Key rules:**
+- Call `AnnotationRendererHelper.Consume(annotations, keys...)` for every annotation key you handle. Unconsumed annotations cause EF Core to emit a raw `.HasAnnotation("key", value)` fallback in the scaffolded code.
+- Use `AnnotationRendererHelper.ResolvePropertyName(entityType, columnName)` to map database column names back to C# property names.
+- Use `NameOfCodeFragment` to emit `nameof(Entity.Property)` instead of hard-coded string literals so the scaffolded code is refactoring-safe. `TimescaleCSharpHelper.UnknownLiteral` handles rendering these.
+- Register each new renderer in `TimescaleDbAnnotationCodeGenerator`.
+- If a renderer emits attributes from a new namespace, add that namespace to `TimescaleCSharpModelGenerator.CollectAttributeNamespaces()` so the `using` directive is injected automatically.
+
+**`TimescaleCSharpModelGenerator`** sits at the top of the scaffolding code generation chain. It wraps EF Core's standard `CSharpModelGenerator` and, when `UseDataAnnotations = true`, inspects the generated entity files to add any missing TimescaleDB `using` directives. `TimescaleModelCodeGeneratorSelector` ensures this generator is selected in preference to EF Core's default `CSharpModelGenerator`.
+
+**Location:** `Design/Generators/AnnotationRenderers/`, `Design/Generators/TimescaleDbAnnotationCodeGenerator.cs`, `Design/Generators/TimescaleCSharpModelGenerator.cs`, `Design/Generators/TimescaleModelCodeGeneratorSelector.cs`
 
 ```csharp
 // Correct - Separation of concerns
