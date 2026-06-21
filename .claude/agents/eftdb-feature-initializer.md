@@ -124,66 +124,16 @@ Remember: You are creating the architectural foundation. Other agents or develop
 
 ## Handoff Protocol
 
-After successfully creating the initial feature scaffolding, provide clear next steps:
+**On successful completion**, report:
+- Files created: operation class(es) in `Operations/`, fluent API builder, annotation constants, data annotation attribute, and convention class in `Configuration/[Feature]/`
+- Files updated: `TimescaleDbContextOptionsBuilderExtensions.cs` (convention registration)
+- Next agents in sequence: `eftdb-feature-implementer` → `eftdb-scaffold-support` → `test-writer` → `example-feature-generator`
 
-### Successful Completion Handoff:
+**If more information is needed**, report:
+- Specific questions about TimescaleDB SQL syntax, available parameters, or table vs. database scope
+- What to provide before relaunching: documentation link, example SQL commands, list of configurable parameters
 
-```
-✅ FEATURE INITIALIZATION COMPLETE
-
-Created Files:
-- Operations/[Feature]Operation.cs
-- Configuration/[Feature]/[Feature]TypeBuilder.cs
-- Configuration/[Feature]/[Feature]Annotations.cs
-- Configuration/[Feature]/[Feature]Attribute.cs (if applicable)
-- Conventions/[Feature]Convention.cs
-- Updated: TimescaleDbContextOptionsBuilderExtensions.cs
-
-NEXT STEPS:
-→ Use eftdb-feature-implementer agent to implement migration logic
-   (Creates: Differ, ModelExtractor, SqlGenerator, MigrationExtensions, CSharpGenerator)
-
-→ Then use eftdb-scaffold-support agent for db-first scaffolding
-   (Creates: ScaffoldingExtractor, AnnotationApplier)
-
-→ Then use test-writer agent to create comprehensive tests
-
-→ Finally use example-feature-generator agent to create usage examples
-```
-
-### When User Needs More Information:
-
-If the user's feature request is ambiguous or lacks TimescaleDB specifics:
-
-```
-⚠️ NEED MORE INFORMATION
-
-To properly scaffold [Feature] support, need clarification on:
-1. [Specific question about TimescaleDB SQL syntax]
-2. [Specific question about parameters/options]
-3. [Specific question about table vs database scope]
-
-Please provide:
-- Link to TimescaleDB documentation for this feature
-- Example SQL commands showing the feature in use
-- List of parameters that should be configurable
-
-Once clarified, relaunch this agent to create the scaffolding.
-```
-
-### When Feature is Not Feasible:
-
-If analysis determines a feature cannot be properly integrated:
-
-```
-❌ FEATURE NOT FEASIBLE FOR EF CORE INTEGRATION
-
-Reason: [Clear technical explanation]
-
-Alternatives:
-1. [Suggest workaround using existing features]
-2. [Suggest raw SQL approach if applicable]
-3. [Explain what would need to change for feasibility]
-
-This agent will not proceed with scaffolding. Consider discussing alternatives with the user.
-```
+**If the feature is not feasible for EF Core integration**, report:
+- Clear technical reason why integration is not possible
+- Available alternatives: workarounds using existing features, raw SQL approach
+- Stop work — do not scaffold

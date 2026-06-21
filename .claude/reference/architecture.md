@@ -42,11 +42,12 @@ This document provides detailed architectural information for the CmdScale.Entit
 
 > When adding new features, follow the same directory structure pattern.
 
-#### Hypertable/ (4 files)
+#### Hypertable/ (5 files)
 - `HypertableAttribute.cs` - Data annotation: `[Hypertable("TimeColumn", ChunkTimeInterval = "1 day")]`
-- `HypertableConvention.cs` - IEntityTypeAddedConvention implementation
+- `DimensionAttribute.cs` - Data annotation for additional partitioning dimensions: `[Dimension("Col", EDimensionType.Range, "1 month")]`
+- `HypertableConvention.cs` - IEntityTypeAddedConvention implementation; processes both `[Hypertable]` and `[Dimension]` attributes
 - `HypertableAnnotations.cs` - Annotation constants
-- `HypertableTypeBuilder.cs` - Fluent API: `IsHypertable()`, `WithChunkTimeInterval()`, etc.
+- `HypertableTypeBuilder.cs` - Fluent API: `IsHypertable()`, `WithChunkTimeInterval()`, `HasRangeDimension()`, `HasHashDimension()`, etc.
 
 #### ReorderPolicy/ (3 files)
 - `ReorderPolicyAttribute.cs` - Data annotation: `[ReorderPolicy("index_name")]`
@@ -177,6 +178,8 @@ ReorderPolicyMaxRuntime = "00:00:00" // no limit
 - Registers:
   - `ICSharpMigrationOperationGenerator` → `TimescaleCSharpMigrationOperationGenerator`
   - `IDatabaseModelFactory` → `TimescaleDatabaseModelFactory`
+  - `IAnnotationCodeGenerator` → `TimescaleDbAnnotationCodeGenerator`
+  - `IModelCodeGeneratorSelector` → `TimescaleModelCodeGeneratorSelector`
 
 ### TimescaleCSharpMigrationOperationGenerator.cs
 
@@ -185,6 +188,8 @@ ReorderPolicyMaxRuntime = "00:00:00" // no limit
 - Emits typed `migrationBuilder.CreateHypertable(...)` / `AddRetentionPolicy(...)` / etc. calls in migration Up/Down methods
 
 ### Generators/ - Design-Time C# Generation
+
+#### Migration code generation
 
 Each `*CSharpGenerator.Generate(XxxOperation, IndentedStringBuilder)` emits one typed `migrationBuilder` call, with one named argument per line.
 
@@ -198,23 +203,41 @@ Each `*CSharpGenerator.Generate(XxxOperation, IndentedStringBuilder)` emits one 
 | `MigrationCallWriter.cs` | `IDisposable` helper that writes a `.Method(` call and named `arg: value` lines |
 | `CSharpGeneratorHelper.cs` | `LiteralStringList()` for `["a", "b"]` collection expressions and `StaticCall()` for `Type.Method(args)` literals |
 
-### TimescaleDatabaseModelFactory.cs
+#### Annotation code generation (scaffolding phase 2)
 
-Orchestrates db-first scaffolding with extractor/applier pairs:
-- `HypertableScaffoldingExtractor` + `HypertableAnnotationApplier`
+Converts `DatabaseModel` annotations to C# fluent API calls or data annotation attributes in scaffolded entity files.
+
+| File | Purpose |
+|------|---------|
+| `TimescaleModelCodeGeneratorSelector.cs` | Selects `TimescaleCSharpModelGenerator` over EF Core's default `CSharpModelGenerator` |
+| `TimescaleCSharpModelGenerator.cs` | Wraps base model generator; injects TimescaleDB `using` directives when `UseDataAnnotations = true` |
+| `TimescaleDbAnnotationCodeGenerator.cs` | `IAnnotationCodeGenerator` implementation; dispatches to `IFeatureAnnotationRenderer` instances |
+| `TimescaleCSharpHelper.cs` | Extends `ICSharpHelper.UnknownLiteral` to render `NameOfCodeFragment` and mixed `object?[]` arrays |
+| `AnnotationRenderers/IFeatureAnnotationRenderer.cs` | Per-feature renderer interface: `GenerateFluentApiCalls` + `GenerateDataAnnotationAttributes` |
+| `AnnotationRenderers/HypertableAnnotationRenderer.cs` | Renders hypertable and dimension annotations to fluent API or data annotation attributes |
+| `AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName`, `ResolveColumns` |
+| `AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` record: renders as `nameof(Property)` or `$"{nameof(Property)} DESC"` |
+
+### Scaffolding Pipeline
+
+`dotnet ef dbcontext scaffold` runs in two phases:
+
+**Phase 1 — Database extraction** (`TimescaleDatabaseModelFactory.cs` + `Scaffolding/`):
+`TimescaleDatabaseModelFactory` overrides NpgsqlDatabaseModelFactory. After the base factory builds the `DatabaseModel` from the database schema, it calls each extractor/applier pair to layer TimescaleDB metadata on top as annotations:
+- `HypertableScaffoldingExtractor` + `HypertableAnnotationApplier` — hypertable config, dimensions, chunk time interval
 - `ReorderPolicyScaffoldingExtractor` + `ReorderPolicyAnnotationApplier`
 - `ContinuousAggregateScaffoldingExtractor` + `ContinuousAggregateAnnotationApplier`
 
-### Scaffolding/
+**Phase 2 — Annotation code generation** (`TimescaleDbAnnotationCodeGenerator` + `AnnotationRenderers/`):
+EF Core's scaffolding pipeline calls `TimescaleDbAnnotationCodeGenerator` to convert those annotations into C# code. The dispatcher iterates its registered `IFeatureAnnotationRenderer` implementations:
+- When `UseDataAnnotations = false` → `GenerateFluentApiCalls` → fluent API method chains in `OnModelCreating`
+- When `UseDataAnnotations = true` → `GenerateDataAnnotationAttributes` → `[Attribute]` declarations on entity classes
 
-**Interfaces:**
+`TimescaleCSharpModelGenerator` wraps EF Core's standard model generator and post-processes the generated files to inject missing `using` directives for TimescaleDB attribute namespaces. `TimescaleModelCodeGeneratorSelector` ensures this custom generator is selected.
+
+**Scaffolding/ Interfaces:**
 - `ITimescaleFeatureExtractor.cs` - `Extract(DbConnection connection)` returns feature metadata
 - `IAnnotationApplier.cs` - `ApplyAnnotations(DatabaseTable table, object featureInfo)`
-
-**Feature Extractors** query TimescaleDB system tables:
-- `HypertableScaffoldingExtractor.cs` - Queries `timescaledb_information.hypertables`, dimensions, chunk stats
-- `ReorderPolicyScaffoldingExtractor.cs` - Queries `timescaledb_information.jobs`
-- `ContinuousAggregateScaffoldingExtractor.cs` - Queries continuous aggregate metadata
 
 ### build/CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets
 

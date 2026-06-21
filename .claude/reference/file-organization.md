@@ -21,6 +21,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Configuration/Hypertable/HypertableTypeBuilder.cs` | Fluent API |
 | `Configuration/Hypertable/HypertableAnnotations.cs` | Annotation constants |
 | `Configuration/Hypertable/HypertableAttribute.cs` | Data annotation |
+| `Configuration/Hypertable/DimensionAttribute.cs` | Data annotation for additional partitioning dimensions |
 | `Configuration/Hypertable/HypertableConvention.cs` | Convention processing |
 | `Internals/Features/Hypertables/HypertableDiffer.cs` | Diffing logic |
 | `Internals/Features/Hypertables/HypertableModelExtractor.cs` | Model extraction |
@@ -124,6 +125,8 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 
 ## Design Library Key Files
 
+### Entry Points & Migration Code Generation
+
 | File | Purpose |
 |------|---------|
 | `TimescaleDBDesignTimeServices.cs` | Register design-time services |
@@ -135,6 +138,24 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Generators/ContinuousAggregatePolicyCSharpGenerator.cs` | Emits CA-policy calls |
 | `Generators/MigrationCallWriter.cs` | Writes a `.Method(arg: value, …)` call |
 | `Generators/CSharpGeneratorHelper.cs` | Collection-expression and static-call literal helpers |
+
+### Annotation Code Generation (Scaffolding Phase 2)
+
+| File | Purpose |
+|------|---------|
+| `Generators/TimescaleModelCodeGeneratorSelector.cs` | Prefers `TimescaleCSharpModelGenerator` over base `CSharpModelGenerator` |
+| `Generators/TimescaleCSharpModelGenerator.cs` | Injects TimescaleDB `using` directives when `UseDataAnnotations = true` |
+| `Generators/TimescaleDbAnnotationCodeGenerator.cs` | Dispatches to `IFeatureAnnotationRenderer` implementations |
+| `Generators/TimescaleCSharpHelper.cs` | Extends `ICSharpHelper.UnknownLiteral` for `NameOfCodeFragment` and mixed arrays |
+| `Generators/AnnotationRenderers/IFeatureAnnotationRenderer.cs` | Per-feature renderer interface |
+| `Generators/AnnotationRenderers/HypertableAnnotationRenderer.cs` | Renders hypertable annotations to fluent API or data annotation C# |
+| `Generators/AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName` |
+| `Generators/AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` producing `nameof(X)` or `$"{nameof(X)} DESC"` |
+
+### Scaffolding (Phase 1: Database Extraction)
+
+| File | Purpose |
+|------|---------|
 | `TimescaleDatabaseModelFactory.cs` | Db-first scaffolding orchestration |
 | `Scaffolding/ITimescaleFeatureExtractor.cs` | Extractor interface |
 | `Scaffolding/IAnnotationApplier.cs` | Applier interface |
@@ -190,8 +211,9 @@ src/
 │   └── *.cs                # Entry points, extensions
 │
 └── Eftdb.Design/           # Design-time library (CmdScale.EntityFrameworkCore.TimescaleDB.Design)
-    ├── Generators/         # Design-time C# (typed migration call) generation
-    ├── Scaffolding/        # Extractors and appliers
+    ├── Generators/         # Design-time C# generation (migration calls + scaffolding code)
+    │   └── AnnotationRenderers/ # Per-feature annotation-to-C# renderers
+    ├── Scaffolding/        # Database extractors and annotation appliers
     ├── build/              # MSBuild targets
     └── *.cs                # Design-time services
 

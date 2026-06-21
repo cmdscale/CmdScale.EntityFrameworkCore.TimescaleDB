@@ -173,86 +173,18 @@ Your examples are the face of the library for users - they must be clear, correc
 
 ## Handoff Protocol
 
-### Successful Completion Handoff:
+**On successful completion**, report:
+- Files created/modified within `.Example` projects
+- TimescaleDB features demonstrated and which configuration approaches are shown (data annotations, Fluent API, or both)
+- Next step: `git-committer` agent for commit preparation; `test-writer` agent if the example combines multiple features
+- Verification checklist: `dotnet build`, generate a test migration and inspect the SQL, run `database update`
 
-```
-✅ EXAMPLES CREATED SUCCESSFULLY
+**If an implementation issue is discovered**, report:
+- Issue type: missing functionality, bug, or incomplete implementation
+- File affected in the runtime or design project
+- The example code that exposed the issue and the expected vs. actual behavior
+- Stop work; instruct the user to run `eftdb-bug-fixer` first, then relaunch this agent
 
-Created/Modified Files:
-- samples/Eftdb.Samples.Shared/Models/[Entity].cs (Data Annotations approach)
-- samples/Eftdb.Samples.Shared/Models/[Entity]FluentApi.cs (Fluent API approach)
-- samples/Eftdb.Samples.Shared/Configurations/[Entity]Configuration.cs
-- Updated: samples/Eftdb.Samples.CodeFirst/TimescaleContext.cs (added DbSets)
-
-Features Demonstrated:
-- [List of TimescaleDB features shown in examples]
-- [Configuration approaches: Data Annotations, Fluent API, or both]
-
-NEXT STEPS:
-→ Use test-writer agent to create tests for the example models
-   (Optional but recommended for complex examples)
-
-→ Use git-committer agent to commit the examples
-   (Run formatter, verify build, create commit)
-
-VERIFICATION CHECKLIST:
-□ Run `dotnet build` on Example projects - verify compilation
-□ Run `dotnet ef migrations add ExampleTest` - verify migration generation
-□ Inspect generated migration - verify correct SQL operations
-□ Run `dotnet ef database update` - verify migration applies successfully
-□ Examples demonstrate both simple and advanced usage patterns
-□ XML documentation is complete and helpful
-```
-
-### When Feature Implementation is Incomplete:
-
-If examples reveal that the feature implementation is missing or buggy:
-
-```
-⚠️ IMPLEMENTATION ISSUE DISCOVERED
-
-While creating examples for [Feature], discovered:
-
-Issue Type: [Missing functionality / Bug / Incomplete implementation]
-
-Problem Description:
-[Clear description of what's wrong]
-
-File Affected: [Runtime or Design project file path]
-
-Example That Exposed Issue:
-[Code snippet showing what user would try to do]
-
-Expected Behavior:
-[What should happen]
-
-Actual Behavior:
-[What currently happens or error message]
-
-REQUIRED ACTION:
-→ Use eftdb-bug-fixer agent to resolve the implementation issue
-
-This agent cannot proceed with examples until the underlying feature works correctly. After the bug is fixed, relaunch this agent to complete the examples.
-```
-
-### When Examples Need Testing:
-
-For complex examples with multiple interacting features:
-
-```
-⚠️ COMPLEX EXAMPLE - RECOMMEND TESTING
-
-Created Examples:
-- [List of example models]
-
-Complexity Factors:
-- [Multiple TimescaleDB features combined]
-- [Complex aggregate functions or time bucketing]
-- [Advanced query scenarios]
-
-RECOMMENDATION:
-→ Use test-writer agent to create integration tests for these examples
-   (Ensures examples remain working as library evolves)
-
-This helps maintain example quality and catches breaking changes early.
-```
+**For complex multi-feature examples**, note:
+- Which features are combined and any interaction risks
+- Recommend `test-writer` agent to cover the example with integration tests
