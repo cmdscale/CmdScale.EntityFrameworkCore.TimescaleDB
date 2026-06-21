@@ -7,11 +7,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
     /// <summary>
     /// Prefers <see cref="TimescaleCSharpModelGenerator"/> over the built-in C# generator.
     /// </summary>
-    /// <remarks>
-    /// The design-time tooling registers provider services before the EF Core defaults, so the default
-    /// last-registration-wins selection would always pick the built-in <see cref="CSharpModelGenerator"/>
-    /// over the provider's. User T4 templates (<see cref="TemplatedModelGenerator"/>) keep priority.
-    /// </remarks>
     public class TimescaleModelCodeGeneratorSelector(IEnumerable<IModelCodeGenerator> services)
         : ModelCodeGeneratorSelector(services)
     {
@@ -20,7 +15,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
             IModelCodeGenerator selected = base.Select(options);
 
             return selected.GetType() == typeof(CSharpModelGenerator)
-                ? Services.OfType<TimescaleCSharpModelGenerator>().LastOrDefault() ?? selected
+                ? Services.OfType<TimescaleCSharpModelGenerator>().FirstOrDefault() ?? selected
                 : selected;
         }
     }
