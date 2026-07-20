@@ -1,5 +1,4 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.Linq.Expressions;
 
@@ -8,6 +7,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
     /// <summary>
     /// Provides a fluent API for configuring a TimescaleDB continuous aggregate.
     /// This builder is aware of both the aggregate entity type and the source hypertable entity type.
+    /// Annotation writing is delegated to <see cref="ContinuousAggregateBuilderCore"/>.
     /// </summary>
     /// <typeparam name="TEntity">The class representing the continuous aggregate view.</typeparam>
     /// <typeparam name="TSourceEntity">The class representing the source hypertable.</typeparam>
@@ -29,7 +29,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         /// <returns>The builder for method chaining.</returns>
         public ContinuousAggregateBuilder<TEntity, TSourceEntity> WithNoData(bool withNoData = true)
         {
-            EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WithNoData, withNoData);
+            ContinuousAggregateBuilderCore.WithNoData(EntityTypeBuilder, withNoData);
             return this;
         }
 
@@ -40,7 +40,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         /// <returns>The builder for method chaining.</returns>
         public ContinuousAggregateBuilder<TEntity, TSourceEntity> CreateGroupIndexes(bool createGroupIndexes = true)
         {
-            EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.CreateGroupIndexes, createGroupIndexes);
+            ContinuousAggregateBuilderCore.CreateGroupIndexes(EntityTypeBuilder, createGroupIndexes);
             return this;
         }
 
@@ -51,7 +51,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         /// <returns>The builder for method chaining.</returns>
         public ContinuousAggregateBuilder<TEntity, TSourceEntity> MaterializedOnly(bool materializedOnly = true)
         {
-            EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.MaterializedOnly, materializedOnly);
+            ContinuousAggregateBuilderCore.MaterializedOnly(EntityTypeBuilder, materializedOnly);
             return this;
         }
 
@@ -70,18 +70,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             EAggregateFunction function)
         {
             string propertyName = GetPropertyName(propertyExpression);
-            IAnnotation? annotation = EntityTypeBuilder.Metadata.FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions);
-            List<string> aggregateFunctions = annotation?.Value as List<string> ?? [];
-
-            if (aggregateFunctions.Any(x => x.StartsWith(propertyName + ":")))
-            {
-                return this;
-            }
-
             string sourceColumnName = GetPropertyName(sourceColumn);
-
-            aggregateFunctions.Add($"{propertyName}:{function}:{sourceColumnName}");
-            EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, aggregateFunctions);
+            ContinuousAggregateBuilderCore.AddAggregateFunction(EntityTypeBuilder, propertyName, sourceColumnName, function);
             return this;
         }
 
@@ -94,18 +84,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         public ContinuousAggregateBuilder<TEntity, TSourceEntity> AddGroupByColumn<TProperty>(
             Expression<Func<TSourceEntity, TProperty>> propertyExpression)
         {
-            string propertyName = GetPropertyName(propertyExpression);
-            IAnnotation? annotation = EntityTypeBuilder.Metadata.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns);
-            List<string> groupByColumns = annotation?.Value as List<string> ?? [];
-
-            if (groupByColumns.Contains(propertyName))
-            {
-                return this;
-            }
-
-            groupByColumns.Add(propertyName);
-
-            EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.GroupByColumns, groupByColumns);
+            ContinuousAggregateBuilderCore.AddGroupByColumn(EntityTypeBuilder, GetPropertyName(propertyExpression));
             return this;
         }
 
@@ -116,17 +95,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         /// <returns>The builder for method chaining.</returns>
         public ContinuousAggregateBuilder<TEntity, TSourceEntity> AddGroupByColumn(string groupByExpression)
         {
-            IAnnotation? annotation = EntityTypeBuilder.Metadata.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns);
-            List<string> groupByColumns = annotation?.Value as List<string> ?? [];
-
-            if (groupByColumns.Contains(groupByExpression))
-            {
-                return this;
-            }
-
-            groupByColumns.Add(groupByExpression);
-
-            EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.GroupByColumns, groupByColumns);
+            ContinuousAggregateBuilderCore.AddGroupByColumn(EntityTypeBuilder, groupByExpression);
             return this;
         }
 
@@ -137,7 +106,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         /// <returns>The builder for method chaining.</returns>
         public ContinuousAggregateBuilder<TEntity, TSourceEntity> Where(string whereClause)
         {
-            EntityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WhereClause, whereClause);
+            ContinuousAggregateBuilderCore.Where(EntityTypeBuilder, whereClause);
             return this;
         }
 

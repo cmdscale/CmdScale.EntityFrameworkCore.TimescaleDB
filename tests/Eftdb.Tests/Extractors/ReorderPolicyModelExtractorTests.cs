@@ -815,4 +815,47 @@ public class ReorderPolicyModelExtractorTests
     }
 
     #endregion
+
+    #region Should_Skip_Entity_When_IndexName_Is_Missing
+
+    private class MissingIndexNameMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MissingIndexNameContext : DbContext
+    {
+        public DbSet<MissingIndexNameMetric> Metrics => Set<MissingIndexNameMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MissingIndexNameMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("missing_idx_name_metrics");
+                entity.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_Entity_When_IndexName_Is_Missing()
+    {
+        // Arrange
+        using MissingIndexNameContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
 }

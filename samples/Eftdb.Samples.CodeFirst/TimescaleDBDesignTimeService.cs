@@ -1,4 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Design;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Migrations.Design;
 using Microsoft.EntityFrameworkCore.Scaffolding;
@@ -16,7 +17,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.CodeFirst
             // The reason for this is, because the CmdScale.EntityFrameworkCore.TimescaleDB.Design project only copies the required assembly-attribute when being packaged.
 
             services.AddSingleton<ICSharpMigrationOperationGenerator, TimescaleCSharpMigrationOperationGenerator>()
-                    .AddSingleton<IDatabaseModelFactory, TimescaleDatabaseModelFactory>();
+                    .AddSingleton<IDatabaseModelFactory, TimescaleDatabaseModelFactory>()
+                    .AddSingleton<IAnnotationCodeGenerator, TimescaleDbAnnotationCodeGenerator>();
         }
     }
 }

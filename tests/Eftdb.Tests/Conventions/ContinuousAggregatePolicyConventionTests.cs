@@ -848,4 +848,61 @@ public class ContinuousAggregatePolicyConventionTests
     }
 
     #endregion
+
+    #region Should_Not_Set_BucketsPerBatch_Annotation_When_Equal_To_Default_One
+
+    private class MetricEntity16
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_metrics_16", ParentName = "Metrics16")]
+    [ContinuousAggregatePolicy(StartOffset = "1 month", EndOffset = "1 hour", ScheduleInterval = "1 hour")]
+    private class AggregateEntity16
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class BucketsPerBatchDefaultContext16 : DbContext
+    {
+        public DbSet<MetricEntity16> Metrics => Set<MetricEntity16>();
+        public DbSet<AggregateEntity16> Aggregates => Set<AggregateEntity16>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity16>(entity =>
+            {
+                entity.ToTable("Metrics16");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<AggregateEntity16>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Set_BucketsPerBatch_Annotation_When_Equal_To_Default_One()
+    {
+        // Arrange
+        using BucketsPerBatchDefaultContext16 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateEntity16))!;
+
+        // Assert
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.BucketsPerBatch));
+    }
+
+    #endregion
 }

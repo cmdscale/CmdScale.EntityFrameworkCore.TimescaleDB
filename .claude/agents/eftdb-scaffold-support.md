@@ -1,6 +1,28 @@
 ---
 name: eftdb-scaffold-support
-description: Use this agent when implementing scaffolding support for TimescaleDB features from an existing database. This includes creating new scaffolding infrastructure, extractors, and appliers in the Design project. Examples:\n\n<example>\nContext: User wants to add scaffolding support for a new TimescaleDB feature like compression policies.\nuser: "I need to add scaffolding support for compression policies so that dotnet ef dbcontext scaffold generates the appropriate configuration code"\nassistant: "I'm going to use the Task tool to launch the eftdb-scaffold-support agent to implement the scaffolding infrastructure for compression policies."\n<agent tool call to eftdb-scaffold-support>\n</example>\n\n<example>\nContext: User notices that hypertable scaffolding isn't generating the chunk time interval configuration.\nuser: "The scaffolded code for hypertables is missing the chunk time interval configuration. Can you fix the extractor?"\nassistant: "I'll use the eftdb-scaffold-support agent to update the hypertable scaffolding extractor to include chunk time interval."\n<agent tool call to eftdb-scaffold-support>\n</example>\n\n<example>\nContext: User wants to improve the scaffolding for continuous aggregates.\nuser: "I need to enhance the continuous aggregate scaffolding to include the refresh policy configuration"\nassistant: "Let me use the eftdb-scaffold-support agent to add refresh policy extraction and application to the continuous aggregate scaffolding."\n<agent tool call to eftdb-scaffold-support>\n</example>
+description: |-
+  Use this agent when implementing scaffolding support for TimescaleDB features from an existing database. This includes creating new scaffolding infrastructure, extractors, and appliers in the Design project. Examples:
+
+  <example>
+  Context: User wants to add scaffolding support for a new TimescaleDB feature like compression policies.
+  user: "I need to add scaffolding support for compression policies so that dotnet ef dbcontext scaffold generates the appropriate configuration code"
+  assistant: "I'm going to use the Task tool to launch the eftdb-scaffold-support agent to implement the scaffolding infrastructure for compression policies."
+  <agent tool call to eftdb-scaffold-support>
+  </example>
+
+  <example>
+  Context: User notices that hypertable scaffolding isn't generating the chunk time interval configuration.
+  user: "The scaffolded code for hypertables is missing the chunk time interval configuration. Can you fix the extractor?"
+  assistant: "I'll use the eftdb-scaffold-support agent to update the hypertable scaffolding extractor to include chunk time interval."
+  <agent tool call to eftdb-scaffold-support>
+  </example>
+
+  <example>
+  Context: User wants to improve the scaffolding for continuous aggregates.
+  user: "I need to enhance the continuous aggregate scaffolding to include the refresh policy configuration"
+  assistant: "Let me use the eftdb-scaffold-support agent to add refresh policy extraction and application to the continuous aggregate scaffolding."
+  <agent tool call to eftdb-scaffold-support>
+  </example>
 model: sonnet
 color: yellow
 ---

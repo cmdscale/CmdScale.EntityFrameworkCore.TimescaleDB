@@ -1,4 +1,3 @@
-using CmdScale.EntityFrameworkCore.TimescaleDB;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Internals;

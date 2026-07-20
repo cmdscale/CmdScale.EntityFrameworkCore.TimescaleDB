@@ -1,4 +1,3 @@
-using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationRenderers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -325,6 +324,49 @@ public class AnnotationRendererHelperTests
 
         Assert.False(found);
         Assert.Equal("ghost_column", propertyName);
+    }
+
+    #endregion
+
+    #region TryResolvePropertyName_Fallback_FindProperty_When_No_StoreObject
+
+    private class NoMappingFallbackEntity
+    {
+        public int Timestamp { get; set; }
+        public double SomeValue { get; set; }
+    }
+
+    private class NoMappingFallbackContext : DbContext
+    {
+        public DbSet<NoMappingFallbackEntity> Items => Set<NoMappingFallbackEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoMappingFallbackEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToSqlQuery("SELECT 0 AS \"Timestamp\", 0.0 AS \"SomeValue\"");
+            });
+        }
+    }
+
+    [Fact]
+    public void TryResolvePropertyName_Fallback_FindProperty_When_No_StoreObject()
+    {
+        // Arrange
+        using NoMappingFallbackContext context = new();
+        IEntityType entityType = GetEntityType<NoMappingFallbackEntity>(context);
+
+        // Act
+        bool found = AnnotationRendererHelper.TryResolvePropertyName(entityType, "SomeValue", out string propertyName);
+
+        // Assert
+        Assert.True(found);
+        Assert.Equal("SomeValue", propertyName);
     }
 
     #endregion

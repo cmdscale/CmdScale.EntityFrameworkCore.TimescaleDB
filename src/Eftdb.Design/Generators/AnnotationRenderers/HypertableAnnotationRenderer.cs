@@ -122,6 +122,25 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 : [hypertable, .. GenerateDimensionAttributes(entityType, annotations)];
         }
 
+        public void ConsumeFeatureAnnotations(IEntityType entityType, IDictionary<string, IAnnotation> annotations)
+        {
+            if (Find(annotations, HypertableAnnotations.IsHypertable)?.Value is not true)
+            {
+                return;
+            }
+
+            Consume(annotations,
+                HypertableAnnotations.IsHypertable,
+                HypertableAnnotations.HypertableTimeColumn,
+                HypertableAnnotations.ChunkTimeInterval,
+                HypertableAnnotations.EnableCompression,
+                HypertableAnnotations.CompressionSegmentBy,
+                HypertableAnnotations.CompressionOrderBy,
+                HypertableAnnotations.ChunkSkipColumns,
+                HypertableAnnotations.MigrateData,
+                HypertableAnnotations.AdditionalDimensions);
+        }
+
         private static AttributeCodeFragment? GenerateHypertableAttribute(IEntityType entityType, IDictionary<string, IAnnotation> annotations)
         {
             if (Find(annotations, HypertableAnnotations.IsHypertable)?.Value is not true)

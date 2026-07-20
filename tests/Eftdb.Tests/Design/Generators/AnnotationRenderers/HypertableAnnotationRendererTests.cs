@@ -13,8 +13,8 @@ using System.Text.Json;
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators.AnnotationRenderers;
 
 /// <summary>
-/// Tests for <c>HypertableAnnotationRenderer</c> exercised through the public
-/// <see cref="TimescaleDbAnnotationCodeGenerator"/> surface (no InternalsVisibleTo on the design project).
+/// Tests for <c>HypertableAnnotationRenderer</c> exercised through the
+/// <see cref="TimescaleDbAnnotationCodeGenerator"/> surface.
 /// </summary>
 public class HypertableAnnotationRendererTests
 {
@@ -28,7 +28,11 @@ public class HypertableAnnotationRendererTests
         ServiceCollection services = new();
         services.AddEntityFrameworkDesignTimeServices();
         new TimescaleDBDesignTimeServices().ConfigureDesignTimeServices(services);
-        return services.BuildServiceProvider().GetRequiredService<IAnnotationCodeGenerator>();
+        TimescaleDbAnnotationCodeGenerator generator = (TimescaleDbAnnotationCodeGenerator)services
+            .BuildServiceProvider().GetRequiredService<IAnnotationCodeGenerator>();
+
+        generator.ScaffoldMode = true;
+        return generator;
     }
 
     private static IEntityType GetEntityType<T>(DbContext context)
@@ -1043,6 +1047,50 @@ public class HypertableAnnotationRendererTests
         IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
 
         Assert.DoesNotContain(result, f => CollectMethodChain(f).Contains(nameof(HypertableTypeBuilder.IsHypertable)));
+    }
+
+    #endregion
+
+    #region ConsumeFeatureAnnotations_Consumes_All_Hypertable_Annotations_In_DaMode
+
+    private class ConsumeDaEntity { public DateTime Ts { get; set; } public string Device { get; set; } = ""; }
+
+    private class ConsumeDaContext : DbContext
+    {
+        public DbSet<ConsumeDaEntity> Items => Set<ConsumeDaEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ConsumeDaEntity>(e => { e.HasNoKey(); e.ToTable("consume_da_ht"); });
+    }
+
+    [Fact]
+    public void ConsumeFeatureAnnotations_Consumes_All_Hypertable_Annotations_In_DaMode()
+    {
+        using ConsumeDaContext context = new();
+        IEntityType entityType = GetEntityType<ConsumeDaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.ChunkTimeInterval, "1 day"),
+            (HypertableAnnotations.EnableCompression, true),
+            (HypertableAnnotations.CompressionSegmentBy, "Device"),
+            (HypertableAnnotations.CompressionOrderBy, "Ts DESC"),
+            (HypertableAnnotations.ChunkSkipColumns, "Ts"),
+            (HypertableAnnotations.MigrateData, true),
+            (HypertableAnnotations.AdditionalDimensions, DimensionsJson(new Dimension
+            {
+                ColumnName = "Device",
+                Type = EDimensionType.Hash,
+                NumberOfPartitions = 4,
+            })));
+
+        TimescaleDbAnnotationCodeGenerator generator = (TimescaleDbAnnotationCodeGenerator)CreateAnnotationCodeGenerator();
+        generator.ScaffoldDataAnnotationsMode = true;
+        IReadOnlyList<MethodCallCodeFragment> result = generator.GenerateFluentApiCalls(entityType, annotations);
+
+        Assert.DoesNotContain(result, f => CollectMethodChain(f).Contains(nameof(HypertableTypeBuilder.IsHypertable)));
+        Assert.DoesNotContain(annotations.Keys, k => k.StartsWith("TimescaleDB:", StringComparison.Ordinal));
     }
 
     #endregion

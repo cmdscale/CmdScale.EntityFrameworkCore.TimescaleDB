@@ -32,11 +32,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 }
 
                 // Find the parent entity type
-                IEntityType? parentEntityType = relationalModel.Model.GetEntityTypes()
-                    .FirstOrDefault(e =>
-                        e.ClrType?.Name == parentModelName
-                        || e.ShortName() == parentModelName
-                        || e.GetTableName() == parentModelName);
+                IEntityType? parentEntityType = ParentEntityTypeResolver.Resolve(relationalModel.Model, parentModelName);
                 if (parentEntityType == null)
                 {
                     continue;

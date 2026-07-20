@@ -837,4 +837,127 @@ public class ContinuousAggregateConventionTests
     }
 
     #endregion
+
+    #region Should_Process_GroupByColumn_Attributes
+
+    [Hypertable("Timestamp")]
+    private class GroupBySourceEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public string Exchange { get; set; } = null!;
+        public string Region { get; set; } = null!;
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "group_by_attr_view", ParentName = "GroupBySourceEntity")]
+    [TimeBucket("1 hour", "Timestamp")]
+    private class GroupByAggregateEntity
+    {
+        public DateTime TimeBucket { get; set; }
+
+        [GroupByColumn]
+        public string Exchange { get; set; } = null!;
+
+        [GroupByColumn(nameof(GroupBySourceEntity.Region))]
+        public string SourceRegion { get; set; } = null!;
+
+        [Aggregate(EAggregateFunction.Avg, "Value")]
+        public double AvgValue { get; set; }
+    }
+
+    private class GroupByAttributeContext : DbContext
+    {
+        public DbSet<GroupBySourceEntity> Sources => Set<GroupBySourceEntity>();
+        public DbSet<GroupByAggregateEntity> Aggregates => Set<GroupByAggregateEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<GroupBySourceEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("group_by_attr_source");
+            });
+
+            modelBuilder.Entity<GroupByAggregateEntity>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Process_GroupByColumn_Attributes()
+    {
+        using GroupByAttributeContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(GroupByAggregateEntity))!;
+
+        List<string>? groupByColumns = entityType.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns)?.Value as List<string>;
+
+        Assert.NotNull(groupByColumns);
+        Assert.Equal(2, groupByColumns.Count);
+        Assert.Contains("Exchange", groupByColumns);
+        Assert.Contains("Region", groupByColumns);
+    }
+
+    #endregion
+
+    #region Should_Not_Set_GroupByColumns_Annotation_Without_Attributes
+
+    [Hypertable("Timestamp")]
+    private class NoGroupBySourceEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "no_group_by_view", ParentName = "NoGroupBySourceEntity")]
+    [TimeBucket("1 hour", "Timestamp")]
+    private class NoGroupByAggregateEntity
+    {
+        public DateTime TimeBucket { get; set; }
+
+        [Aggregate(EAggregateFunction.Avg, "Value")]
+        public double AvgValue { get; set; }
+    }
+
+    private class NoGroupByAttributeContext : DbContext
+    {
+        public DbSet<NoGroupBySourceEntity> Sources => Set<NoGroupBySourceEntity>();
+        public DbSet<NoGroupByAggregateEntity> Aggregates => Set<NoGroupByAggregateEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoGroupBySourceEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("no_group_by_source");
+            });
+
+            modelBuilder.Entity<NoGroupByAggregateEntity>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Set_GroupByColumns_Annotation_Without_Attributes()
+    {
+        using NoGroupByAttributeContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(NoGroupByAggregateEntity))!;
+
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns));
+    }
+
+    #endregion
 }

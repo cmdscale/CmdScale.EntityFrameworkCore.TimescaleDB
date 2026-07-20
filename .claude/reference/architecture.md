@@ -61,14 +61,17 @@ This document provides detailed architectural information for the CmdScale.Entit
 - `RetentionPolicyAnnotations.cs` - Annotation constants
 - `RetentionPolicyTypeBuilder.cs` - Fluent API: `WithRetentionPolicy()`
 
-#### ContinuousAggregate/ (8 files)
+#### ContinuousAggregate/ (11 files)
 - `ContinuousAggregateAttribute.cs` - Entity-level attribute defining materialized view
 - `TimeBucketAttribute.cs` - Property-level attribute for time bucketing
 - `AggregateAttribute.cs` - Property-level attribute with `EAggregateFunction` enum
-- `ContinuousAggregateConvention.cs` - Processes all three attributes above
-- `ContinuousAggregateAnnotations.cs` - 13 annotation constants
-- `ContinuousAggregateBuilder<TEntity, TSourceEntity>.cs` - Type-safe generic builder
-- `ContinuousAggregateTypeBuilder.cs` - Fluent API extensions
+- `GroupByColumnAttribute.cs` - Property-level attribute marking a property as a GROUP BY column
+- `ContinuousAggregateConvention.cs` - Processes all attributes above
+- `ContinuousAggregateAnnotations.cs` - Annotation constants
+- `ContinuousAggregateBuilder<TEntity, TSourceEntity>.cs` - Type-safe generic builder for code-first configuration
+- `ContinuousAggregateStringBuilder<TEntity>.cs` - String-based builder used by scaffolded `OnModelCreating` code
+- `ContinuousAggregateBuilderCore.cs` - Internal shared annotation-writing logic for both builder types
+- `ContinuousAggregateTypeBuilder.cs` - Fluent API extensions (`IsContinuousAggregate`)
 
 #### ContinuousAggregatePolicy/ (5 files)
 - `ContinuousAggregatePolicyAttribute.cs` - Data annotation: `[ContinuousAggregatePolicy]`
@@ -144,6 +147,7 @@ Generated migrations call strongly-typed extension methods that construct a `Mig
 - `TimescaleMigrationsModelDiffer.cs` - Extends EF Core's MigrationsModelDiffer; orchestrates the feature differs, builds the `FeatureDiffContext`, implements `GetOperationPriority()`
 - `Features/IFeatureDiffer.cs` - Interface: `GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)`
 - `Features/FeatureDiffContext.cs` - Cross-cutting diff state passed to every feature differ
+- `ParentEntityTypeResolver.cs` - Resolves a continuous aggregate's parent `IEntityType` by matching CLR class name, EF Core short name, or database table name; handles both code-first and scaffolded models
 
 **Feature-specific:**
 - `Features/Hypertables/` - `HypertableDiffer.cs`, `HypertableModelExtractor.cs`
@@ -215,6 +219,7 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 | `TimescaleCSharpHelper.cs` | Extends `ICSharpHelper.UnknownLiteral` to render `NameOfCodeFragment` and mixed `object?[]` arrays |
 | `AnnotationRenderers/IFeatureAnnotationRenderer.cs` | Per-feature renderer interface: `GenerateFluentApiCalls` + `GenerateDataAnnotationAttributes` |
 | `AnnotationRenderers/HypertableAnnotationRenderer.cs` | Renders hypertable and dimension annotations to fluent API or data annotation attributes |
+| `AnnotationRenderers/ContinuousAggregateAnnotationRenderer.cs` | Renders continuous aggregate annotations; parses the stored view definition via `ViewDefinitionParser` to reconstruct structured configuration |
 | `AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName`, `ResolveColumns` |
 | `AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` record: renders as `nameof(Property)` or `$"{nameof(Property)} DESC"` |
 
@@ -234,6 +239,9 @@ EF Core's scaffolding pipeline calls `TimescaleDbAnnotationCodeGenerator` to con
 - When `UseDataAnnotations = true` → `GenerateDataAnnotationAttributes` → `[Attribute]` declarations on entity classes
 
 `TimescaleCSharpModelGenerator` wraps EF Core's standard model generator and post-processes the generated files to inject missing `using` directives for TimescaleDB attribute namespaces. `TimescaleModelCodeGeneratorSelector` ensures this custom generator is selected.
+
+**Additional Design-Time Utilities:**
+- `Scaffolding/ViewDefinitionParser.cs` - Parses a continuous aggregate's stored view definition SQL (best-effort, cached) to extract `TimeBucketWidth`, `TimeBucketSourceColumn`, aggregate functions, GROUP BY columns, and WHERE clause; used by `ContinuousAggregateAnnotationRenderer`
 
 **Scaffolding/ Interfaces:**
 - `ITimescaleFeatureExtractor.cs` - `Extract(DbConnection connection)` returns feature metadata

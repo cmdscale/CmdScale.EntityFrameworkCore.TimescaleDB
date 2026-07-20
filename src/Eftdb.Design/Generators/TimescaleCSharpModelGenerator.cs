@@ -31,29 +31,62 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
 
         public override ScaffoldedModel GenerateModel(IModel model, ModelCodeGenerationOptions options)
         {
-            ScaffoldedModel scaffoldedModel = base.GenerateModel(model, options);
+            TimescaleDbAnnotationCodeGenerator? tsGen = _annotationCodeGenerator as TimescaleDbAnnotationCodeGenerator;
 
-            if (!options.UseDataAnnotations)
+            try
             {
+                if (tsGen is not null)
+                {
+                    tsGen.ScaffoldMode = true;
+                    tsGen.ScaffoldDataAnnotationsMode = options.UseDataAnnotations;
+                }
+
+                ScaffoldedModel scaffoldedModel = base.GenerateModel(model, options);
+
+                scaffoldedModel.ContextFile.Code = RemoveDesignUsings(scaffoldedModel.ContextFile.Code);
+                foreach (ScaffoldedFile additionalFile in scaffoldedModel.AdditionalFiles)
+                {
+                    additionalFile.Code = RemoveDesignUsings(additionalFile.Code);
+                }
+
+                if (!options.UseDataAnnotations)
+                {
+                    return scaffoldedModel;
+                }
+
+                Dictionary<string, ScaffoldedFile> entityFiles = [];
+                foreach (ScaffoldedFile file in scaffoldedModel.AdditionalFiles)
+                {
+                    entityFiles.TryAdd(Path.GetFileNameWithoutExtension(file.Path), file);
+                }
+
+                foreach (IEntityType entityType in model.GetEntityTypes())
+                {
+                    List<string> namespaces = CollectAttributeNamespaces(entityType);
+                    if (namespaces.Count > 0 && entityFiles.TryGetValue(entityType.Name, out ScaffoldedFile? file))
+                    {
+                        file.Code = AddMissingUsings(file.Code, namespaces);
+                    }
+                }
+
                 return scaffoldedModel;
             }
-
-            Dictionary<string, ScaffoldedFile> entityFiles = [];
-            foreach (ScaffoldedFile file in scaffoldedModel.AdditionalFiles)
+            finally
             {
-                entityFiles.TryAdd(Path.GetFileNameWithoutExtension(file.Path), file);
+                tsGen?.ResetScaffoldState();
             }
+        }
 
-            foreach (IEntityType entityType in model.GetEntityTypes())
-            {
-                List<string> namespaces = CollectAttributeNamespaces(entityType);
-                if (namespaces.Count > 0 && entityFiles.TryGetValue(entityType.Name, out ScaffoldedFile? file))
-                {
-                    file.Code = AddMissingUsings(file.Code, namespaces);
-                }
-            }
+        private static string RemoveDesignUsings(string code)
+        {
+            const string designUsingPrefix = "using CmdScale.EntityFrameworkCore.TimescaleDB.Design";
 
-            return scaffoldedModel;
+            string newLine = code.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+            IEnumerable<string> kept = code.Split(newLine).Where(line =>
+                !line.StartsWith(designUsingPrefix + ";", StringComparison.Ordinal)
+                && !line.StartsWith(designUsingPrefix + ".", StringComparison.Ordinal));
+
+            return string.Join(newLine, kept);
         }
 
         /// <summary>
@@ -77,6 +110,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
                 foreach (object? argument in fragment.NamedArguments.Values)
                 {
                     AddArgumentNamespace(namespaces, argument);
+                }
+            }
+
+            foreach (IProperty property in entityType.GetProperties())
+            {
+                Dictionary<string, IAnnotation> propAnnotations = property.GetAnnotations().ToDictionary(a => a.Name, a => a);
+                foreach (AttributeCodeFragment fragment in _annotationCodeGenerator.GenerateDataAnnotationAttributes(property, propAnnotations))
+                {
+                    AddNamespace(namespaces, fragment.Type);
+                    foreach (object? argument in fragment.Arguments) AddArgumentNamespace(namespaces, argument);
+                    foreach (object? argument in fragment.NamedArguments.Values) AddArgumentNamespace(namespaces, argument);
                 }
             }
 

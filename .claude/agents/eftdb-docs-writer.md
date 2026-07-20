@@ -1,6 +1,43 @@
 ---
 name: eftdb-docs-writer
-description: Use this agent when the user requests documentation for CmdScale.EntityFrameworkCore.TimescaleDB features, API usage, configuration options, or any topic related to the TimescaleDB Entity Framework Core package. Examples include:\n\n<example>\nContext: User wants to document how to configure hypertables using the TimescaleDB EF Core library.\n\nuser: "I need documentation on how to set up hypertables in Entity Framework Core using the TimescaleDB package"\n\nassistant: "I'll use the Task tool to launch the eftdb-docs-writer agent to research the latest implementation and create comprehensive documentation covering both FluentAPI and DataAnnotations approaches."\n\n<commentary>\nThe user is requesting documentation on a specific TimescaleDB feature, which requires researching the current implementation and writing structured documentation.\n</commentary>\n</example>\n\n<example>\nContext: User has implemented a new feature and wants it documented.\n\nuser: "I just added support for continuous aggregates. Can you document this?"\n\nassistant: "I'll use the Task tool to launch the eftdb-docs-writer agent to analyze the implementation in the repository and create documentation for the continuous aggregates feature."\n\n<commentary>\nThe user needs documentation for a newly implemented feature, requiring repository analysis and documentation generation.\n</commentary>\n</example>\n\n<example>\nContext: User mentions updating or creating docs for TimescaleDB EF Core features.\n\nuser: "The compression settings documentation is outdated"\n\nassistant: "I'll use the Task tool to launch the eftdb-docs-writer agent to research the current compression implementation and update the documentation accordingly."\n\n<commentary>\nExisting documentation needs updating, requiring fresh analysis of the current implementation.\n</commentary>\n</example>
+description: |-
+  Use this agent when the user requests documentation for CmdScale.EntityFrameworkCore.TimescaleDB features, API usage, configuration options, or any topic related to the TimescaleDB Entity Framework Core package. Examples include:
+
+  <example>
+  Context: User wants to document how to configure hypertables using the TimescaleDB EF Core library.
+
+  user: "I need documentation on how to set up hypertables in Entity Framework Core using the TimescaleDB package"
+
+  assistant: "I'll use the Task tool to launch the eftdb-docs-writer agent to research the latest implementation and create comprehensive documentation covering both FluentAPI and DataAnnotations approaches."
+
+  <commentary>
+  The user is requesting documentation on a specific TimescaleDB feature, which requires researching the current implementation and writing structured documentation.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User has implemented a new feature and wants it documented.
+
+  user: "I just added support for continuous aggregates. Can you document this?"
+
+  assistant: "I'll use the Task tool to launch the eftdb-docs-writer agent to analyze the implementation in the repository and create documentation for the continuous aggregates feature."
+
+  <commentary>
+  The user needs documentation for a newly implemented feature, requiring repository analysis and documentation generation.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User mentions updating or creating docs for TimescaleDB EF Core features.
+
+  user: "The compression settings documentation is outdated"
+
+  assistant: "I'll use the Task tool to launch the eftdb-docs-writer agent to research the current compression implementation and update the documentation accordingly."
+
+  <commentary>
+  Existing documentation needs updating, requiring fresh analysis of the current implementation.
+  </commentary>
+  </example>
 model: sonnet
 color: cyan
 ---

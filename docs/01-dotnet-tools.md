@@ -109,7 +109,7 @@ This command will:
 
 
 ### Example
-The scaffolding process generates data annotations that represent the hypertable's configuration in the database. This allows your `DbContext` to be aware of the TimescaleDB features without manual configuration.
+The scaffolding process reconstructs the library's Fluent API configuration from the database. This allows your `DbContext` to be aware of the TimescaleDB features without manual configuration.
 
 ```csharp
 modelBuilder.HasPostgresExtension("timescaledb");
@@ -117,16 +117,28 @@ modelBuilder.Entity<DeviceReading>(entity =>
 {
     entity.HasKey(e => new { e.Id, e.Time });
 
-    entity
-        .HasAnnotation("TimescaleDB:ChunkSkipColumns", "Time")
-        .HasAnnotation("TimescaleDB:ChunkTimeInterval", "86400000")
-        .HasAnnotation("TimescaleDB:EnableCompression", true)
-        .HasAnnotation("TimescaleDB:HasReorderPolicy", true)
-        .HasAnnotation("TimescaleDB:IsHypertable", true)
-        .HasAnnotation("TimescaleDB:ReorderPolicy:IndexName", "DeviceReadings_Time_idx")
-        .HasAnnotation("TimescaleDB:ReorderPolicy:ScheduleInterval", "12:00:00")
-        .HasAnnotation("TimescaleDB:TimeColumnName", "Time");
-
-    entity.HasIndex(e => e.Time, "DeviceReadings_Time_idx").IsDescending();
+    entity.IsHypertable(x => x.Time)
+        .WithChunkTimeInterval("1 day")
+        .EnableCompression()
+        .WithChunkSkipping(x => x.Time);
 });
 ```
+
+With the `--data-annotations` flag, the configuration is expressed as attributes on the entity classes instead (`[Hypertable]`, `[Dimension]`, `[ContinuousAggregate]`, etc.).
+
+```bash
+dotnet ef dbcontext scaffold "<connection string>" CmdScale.EntityFrameworkCore.TimescaleDB.Design --data-annotations ...
+```
+
+### Scaffolding Limitations
+
+Some configuration cannot be recovered from the database catalog, and some values come back in a normalized form. A scaffolded model is functionally equivalent to the database, but does not always textually match the hand-written configuration that created it:
+
+- **`WithNoData` and `CreateGroupIndexes`** are creation-time options of a continuous aggregate and are not queryable from the catalog. They scaffold as their defaults.
+- **Implicitly enabled compression** is reported as explicit: enabling chunk skipping requires compression, so a hypertable configured only with chunk skipping scaffolds with `EnableCompression` set.
+- **Calendar intervals are stored normalized** by TimescaleDB: a chunk interval of `"1 month"` is stored as a fixed duration and scaffolds as `"30 days"`.
+- **Interval values are only humanized when exact**: `"01:00:00"` becomes `"1 hour"`, but a value that does not reduce to a single unit (e.g. `"01:30:00"`) is kept in its raw form rather than being rounded.
+- **WHERE clauses come back PostgreSQL-normalized**, including casts and parentheses (e.g. `"ticker" = 'MCRS'` scaffolds as `(ticker = 'MCRS'::text)`).
+- **TimescaleDB's auto-created indexes are suppressed**: the descending time index (`<table>_<timecol>_idx`) and the per-dimension composites (`<table>_<dimcol>_<timecol>_idx`) are recreated automatically by TimescaleDB and do not scaffold as explicit indexes. A user-defined, non-unique index that exactly matches this name and column pattern is indistinguishable from the auto-created one and is suppressed as well.
+- **Raw GROUP BY expressions have no data-annotations representation**: in `--data-annotations` mode, a GROUP BY entry that is not a plain column (e.g. `EXTRACT(HOUR FROM time)`) is reported as a warning and must be configured via the Fluent API's `AddGroupByColumn(...)`.
+- **Unparseable view definitions degrade gracefully**: when a continuous aggregate's view SQL cannot be parsed into the structured configuration, a warning is reported and the configuration is preserved as `.HasAnnotation(...)` calls; migrations recreate the view from the raw SQL definition.

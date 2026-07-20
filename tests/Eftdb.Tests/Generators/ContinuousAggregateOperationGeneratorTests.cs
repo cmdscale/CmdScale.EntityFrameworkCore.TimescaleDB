@@ -1,7 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 {

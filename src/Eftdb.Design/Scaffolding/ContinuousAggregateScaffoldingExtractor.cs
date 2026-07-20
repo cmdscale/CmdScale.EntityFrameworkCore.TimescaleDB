@@ -42,22 +42,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                             ca.hypertable_schema,
                             ca.hypertable_name,
                             ca.materialized_only,
-                            CASE
-                                WHEN d.interval_length IS NOT NULL THEN
-                                    (INTERVAL '1 microsecond' * d.interval_length)::text
-                                ELSE NULL
-                            END AS chunk_interval
+                            dim.time_interval::text AS chunk_interval
                         FROM timescaledb_information.continuous_aggregates ca
                         LEFT JOIN _timescaledb_catalog.continuous_agg cagg
                             ON ca.view_schema = cagg.user_view_schema
                             AND ca.view_name = cagg.user_view_name
-                        LEFT JOIN _timescaledb_catalog.dimension d
-                            ON cagg.mat_hypertable_id = d.hypertable_id
-                            AND d.id = (
-                                SELECT MIN(d2.id)
-                                FROM _timescaledb_catalog.dimension d2
-                                WHERE d2.hypertable_id = cagg.mat_hypertable_id
-                            );";
+                        LEFT JOIN _timescaledb_catalog.hypertable mat_ht
+                            ON cagg.mat_hypertable_id = mat_ht.id
+                        LEFT JOIN timescaledb_information.dimensions dim
+                            ON dim.hypertable_schema = mat_ht.schema_name
+                            AND dim.hypertable_name = mat_ht.table_name
+                            AND dim.dimension_number = 1;";
 
                     using DbDataReader reader = command.ExecuteReader();
                     while (reader.Read())

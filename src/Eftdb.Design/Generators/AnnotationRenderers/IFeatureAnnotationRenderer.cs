@@ -29,5 +29,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
         /// </summary>
         IReadOnlyList<AttributeCodeFragment> GenerateDataAnnotationAttributes(
             IEntityType entityType, IDictionary<string, IAnnotation> annotations);
+
+        /// <summary>
+        /// Consumes the feature's annotations without generating output. Used in data-annotations
+        /// scaffold mode where the feature is expressed as attributes on the entity file and must not
+        /// fall back to <c>.HasAnnotation(...)</c> in <c>OnModelCreating</c>. Annotations that cannot
+        /// be rendered (e.g. an unparseable view definition) are left in place so the fallback
+        /// preserves them.
+        /// </summary>
+        void ConsumeFeatureAnnotations(IEntityType entityType, IDictionary<string, IAnnotation> annotations);
     }
 }

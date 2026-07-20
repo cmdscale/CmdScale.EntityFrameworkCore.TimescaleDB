@@ -3,6 +3,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations.Design;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Moq;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
@@ -777,6 +778,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Contains("tableName:", result);
             Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        #endregion
+
+        #region Generate_StandardCreateTableOperation_Falls_Through_To_Base
+
+        [Fact]
+        public void Generate_StandardCreateTableOperation_Falls_Through_To_Base()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            CreateTableOperation operation = new()
+            {
+                Name = "standard_table",
+                Schema = "public",
+                Columns = { new AddColumnOperation { Name = "id", Schema = "public", Table = "standard_table", ClrType = typeof(int) } }
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".CreateTable(", result);
         }
 
         #endregion

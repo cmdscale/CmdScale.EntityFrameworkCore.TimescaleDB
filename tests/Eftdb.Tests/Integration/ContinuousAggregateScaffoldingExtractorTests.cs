@@ -381,7 +381,8 @@ public class ContinuousAggregateScaffoldingExtractorTests : MigrationTestBase, I
             (ContinuousAggregateScaffoldingExtractor.ContinuousAggregateInfo)result[("public", "hourly_metrics_chunk")];
 
         Assert.NotNull(info.ChunkInterval);
-        Assert.Contains("24:00:00", info.ChunkInterval);
+        Assert.True(IntervalParsingHelper.TryGetTotalMicroseconds(info.ChunkInterval, out long chunkMicroseconds));
+        Assert.Equal(86_400_000_000L, chunkMicroseconds);
     }
 
     #endregion
@@ -558,6 +559,82 @@ public class ContinuousAggregateScaffoldingExtractorTests : MigrationTestBase, I
             (ContinuousAggregateScaffoldingExtractor.ContinuousAggregateInfo)result[("public", "daily_metrics")];
         Assert.Equal("daily_metrics", dailyInfo.MaterializedViewName);
         Assert.Contains("1 day", dailyInfo.ViewDefinition);
+    }
+
+    #endregion
+
+    #region Should_Extract_MaterializedOnly_True_From_ContinuousAggregate
+
+    private class MaterializedOnlySourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MaterializedOnlyAggMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class MaterializedOnlyAggregateContext(string connectionString) : DbContext
+    {
+        public DbSet<MaterializedOnlySourceMetric> Metrics => Set<MaterializedOnlySourceMetric>();
+        public DbSet<MaterializedOnlyAggMetric> HourlyMetrics => Set<MaterializedOnlyAggMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MaterializedOnlySourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("mat_only_source");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MaterializedOnlyAggMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("mat_only_hourly");
+                entity.IsContinuousAggregate<MaterializedOnlyAggMetric, MaterializedOnlySourceMetric>(
+                    "mat_only_hourly",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(
+                    x => x.AvgValue,
+                    x => x.Value,
+                    EAggregateFunction.Avg
+                ).MaterializedOnly(true);
+            });
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task Should_Extract_MaterializedOnly_True_From_ContinuousAggregate()
+    {
+        // Arrange
+        string testConnectionString = await GetTestConnectionStringAsync();
+        await using MaterializedOnlyAggregateContext context = new(testConnectionString);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        ContinuousAggregateScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(testConnectionString);
+
+        // Act
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        Assert.True(result.ContainsKey(("public", "mat_only_hourly")),
+            "Expected 'mat_only_hourly' in extracted results");
+
+        ContinuousAggregateScaffoldingExtractor.ContinuousAggregateInfo info =
+            (ContinuousAggregateScaffoldingExtractor.ContinuousAggregateInfo)result[("public", "mat_only_hourly")];
+
+        Assert.True(info.MaterializedOnly,
+            "Expected MaterializedOnly=true but extractor returned false");
     }
 
     #endregion
