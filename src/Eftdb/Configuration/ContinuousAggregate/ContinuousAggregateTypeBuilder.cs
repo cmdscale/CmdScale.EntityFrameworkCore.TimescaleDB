@@ -116,6 +116,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             where TSourceEntity : class
             => IsContinuousAggregateCore(entityTypeBuilder, materializedViewName, timeBucketWidth, propertyExpression, timeBucketGroupBy, chunkInterval);
 
+        /// <summary>
+        /// Configures the entity as a TimescaleDB continuous aggregate using string column references.
+        /// </summary>
+        /// <typeparam name="TEntity">The continuous aggregate entity type.</typeparam>
+        /// <param name="entityTypeBuilder">The entity type builder.</param>
+        /// <param name="materializedViewName">The name of the materialized view.</param>
+        /// <param name="parentName">The name of the source hypertable entity or its database table name.</param>
+        /// <param name="timeBucketWidth">The time bucket width interval (e.g., "1 hour", "7 days").</param>
+        /// <param name="timeBucketSourceColumn">The source time column name on the source hypertable.</param>
+        /// <returns>A builder for further continuous aggregate configuration.</returns>
+        public static ContinuousAggregateStringBuilder<TEntity> IsContinuousAggregate<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string materializedViewName,
+            string parentName,
+            string timeBucketWidth,
+            string timeBucketSourceColumn)
+            where TEntity : class
+        {
+            // Preserve any schema already set on the entity (e.g., by EF Core's standard scaffolding before this call).
+            entityTypeBuilder.ToView(materializedViewName, entityTypeBuilder.Metadata.GetViewSchema());
+            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, materializedViewName);
+            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.ParentName, parentName);
+            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, timeBucketWidth);
+            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, timeBucketSourceColumn);
+            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketGroupBy, true);
+            return new ContinuousAggregateStringBuilder<TEntity>(entityTypeBuilder);
+        }
+
         private static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregateCore<TEntity, TSourceEntity, TProperty>(
             EntityTypeBuilder<TEntity> entityTypeBuilder,
             string materializedViewName,

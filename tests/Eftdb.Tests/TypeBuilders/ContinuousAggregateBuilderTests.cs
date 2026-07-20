@@ -1992,4 +1992,339 @@ public class ContinuousAggregateBuilderTests
     }
 
     #endregion
+
+    #region GetPropertyName_Should_Handle_UnaryExpression_Cast
+
+    private class CastExpressionMetricEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public int Value { get; set; }
+    }
+
+    private class CastExpressionAggEntity
+    {
+        public DateTime TimeBucket { get; set; }
+        public long LongValue { get; set; }
+    }
+
+    private class CastExpressionContext : DbContext
+    {
+        public DbSet<CastExpressionMetricEntity> Metrics => Set<CastExpressionMetricEntity>();
+        public DbSet<CastExpressionAggEntity> Aggregates => Set<CastExpressionAggEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CastExpressionMetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("cast_expr_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CastExpressionAggEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CastExpressionAggEntity, CastExpressionMetricEntity>(
+                    "cast_expr_hourly", "1 hour", x => x.Timestamp)
+                .AddAggregateFunction(x => x.LongValue, x => (object)x.Value, EAggregateFunction.Sum);
+            });
+        }
+    }
+
+    [Fact]
+    public void GetPropertyName_Should_Handle_UnaryExpression_Cast()
+    {
+        // Arrange
+        using CastExpressionContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CastExpressionAggEntity))!;
+
+        // Act
+        List<string>? aggregateFunctions = entityType.FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions)?.Value as List<string>;
+
+        // Assert
+        Assert.NotNull(aggregateFunctions);
+        Assert.Single(aggregateFunctions);
+        Assert.Contains("LongValue:Sum:Value", aggregateFunctions);
+    }
+
+    #endregion
+
+    #region GetPropertyName_Should_Throw_For_Non_Member_Expression
+
+    private class ThrowNonMemberMetricEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ThrowNonMemberAggEntity
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ThrowNonMemberContext : DbContext
+    {
+        public DbSet<ThrowNonMemberMetricEntity> Metrics => Set<ThrowNonMemberMetricEntity>();
+        public DbSet<ThrowNonMemberAggEntity> Aggregates => Set<ThrowNonMemberAggEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ThrowNonMemberMetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("throw_non_member_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ThrowNonMemberAggEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<ThrowNonMemberAggEntity, ThrowNonMemberMetricEntity>(
+                    "throw_non_member_hourly", "1 hour", x => x.Timestamp)
+                .AddAggregateFunction(x => x.AvgValue, x => (double)(object)42, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void GetPropertyName_Should_Throw_For_Non_Member_Expression()
+    {
+        // Arrange & Act
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+        {
+            using ThrowNonMemberContext context = new();
+            _ = GetModel(context);
+        });
+
+        // Assert
+        Assert.Contains("simple property access expression", exception.Message);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithChunkInterval_Should_Set_ChunkInterval_Annotation
+
+    private class StringBuilder_WithChunkInterval_MetricEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class StringBuilder_WithChunkInterval_AggEntity
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilder_WithChunkInterval_Context : DbContext
+    {
+        public DbSet<StringBuilder_WithChunkInterval_MetricEntity> Metrics => Set<StringBuilder_WithChunkInterval_MetricEntity>();
+        public DbSet<StringBuilder_WithChunkInterval_AggEntity> HourlyMetrics => Set<StringBuilder_WithChunkInterval_AggEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringBuilder_WithChunkInterval_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("sb_chunk_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<StringBuilder_WithChunkInterval_AggEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_chunk_hourly", "StringBuilder_WithChunkInterval_MetricEntity", "1 hour", "Timestamp")
+                    .AddAggregateFunction("AvgValue", "Value", EAggregateFunction.Avg)
+                    .WithChunkInterval("30 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithChunkInterval_Should_Set_ChunkInterval_Annotation()
+    {
+        // Arrange
+        using StringBuilder_WithChunkInterval_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(StringBuilder_WithChunkInterval_AggEntity))!;
+
+        // Act
+        object? annotationValue = entityType.FindAnnotation(ContinuousAggregateAnnotations.ChunkInterval)?.Value;
+
+        // Assert
+        Assert.Equal("30 days", annotationValue);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithNoData_Should_Set_WithNoData_Annotation
+
+    private class StringBuilder_WithNoData_MetricEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class StringBuilder_WithNoData_AggEntity
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilder_WithNoData_Context : DbContext
+    {
+        public DbSet<StringBuilder_WithNoData_MetricEntity> Metrics => Set<StringBuilder_WithNoData_MetricEntity>();
+        public DbSet<StringBuilder_WithNoData_AggEntity> HourlyMetrics => Set<StringBuilder_WithNoData_AggEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringBuilder_WithNoData_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("sb_nodata_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<StringBuilder_WithNoData_AggEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_nodata_hourly", "StringBuilder_WithNoData_MetricEntity", "1 hour", "Timestamp")
+                    .AddAggregateFunction("AvgValue", "Value", EAggregateFunction.Avg)
+                    .WithNoData(true);
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithNoData_Should_Set_WithNoData_Annotation()
+    {
+        // Arrange
+        using StringBuilder_WithNoData_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(StringBuilder_WithNoData_AggEntity))!;
+
+        // Act
+        object? annotationValue = entityType.FindAnnotation(ContinuousAggregateAnnotations.WithNoData)?.Value;
+
+        // Assert
+        Assert.Equal(true, annotationValue);
+    }
+
+    #endregion
+
+    #region GenericBuilder_And_StringBuilder_Should_Produce_Identical_Annotations
+
+    private class BuilderParity_MetricEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public string Region { get; set; } = null!;
+    }
+
+    private class BuilderParity_GenericAggregate
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class BuilderParity_StringAggregate
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class BuilderParity_Context : DbContext
+    {
+        public DbSet<BuilderParity_MetricEntity> Metrics => Set<BuilderParity_MetricEntity>();
+        public DbSet<BuilderParity_GenericAggregate> GenericAggregates => Set<BuilderParity_GenericAggregate>();
+        public DbSet<BuilderParity_StringAggregate> StringAggregates => Set<BuilderParity_StringAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BuilderParity_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("builder_parity_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<BuilderParity_GenericAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<BuilderParity_GenericAggregate, BuilderParity_MetricEntity>(
+                        "builder_parity_generic", "1 hour", x => x.Timestamp)
+                    .WithNoData()
+                    .CreateGroupIndexes(false)
+                    .MaterializedOnly()
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .AddGroupByColumn(x => x.Region)
+                    .Where("value > 0");
+            });
+
+            modelBuilder.Entity<BuilderParity_StringAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("builder_parity_string", "BuilderParity_MetricEntity", "1 hour", "Timestamp")
+                    .WithNoData()
+                    .CreateGroupIndexes(false)
+                    .MaterializedOnly()
+                    .AddAggregateFunction("AvgValue", "Value", EAggregateFunction.Avg)
+                    .AddGroupByColumn("Region")
+                    .Where("value > 0");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenericBuilder_And_StringBuilder_Should_Produce_Identical_Annotations()
+    {
+        using BuilderParity_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType genericEntity = model.FindEntityType(typeof(BuilderParity_GenericAggregate))!;
+        IEntityType stringEntity = model.FindEntityType(typeof(BuilderParity_StringAggregate))!;
+
+        string[] sharedAnnotations =
+        [
+            ContinuousAggregateAnnotations.WithNoData,
+            ContinuousAggregateAnnotations.CreateGroupIndexes,
+            ContinuousAggregateAnnotations.MaterializedOnly,
+            ContinuousAggregateAnnotations.WhereClause,
+        ];
+
+        foreach (string annotation in sharedAnnotations)
+        {
+            Assert.Equal(genericEntity.FindAnnotation(annotation)?.Value, stringEntity.FindAnnotation(annotation)?.Value);
+        }
+
+        Assert.Equal(
+            genericEntity.FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions)?.Value as List<string>,
+            stringEntity.FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions)?.Value as List<string>);
+        Assert.Equal(
+            genericEntity.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns)?.Value as List<string>,
+            stringEntity.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns)?.Value as List<string>);
+    }
+
+    #endregion
 }

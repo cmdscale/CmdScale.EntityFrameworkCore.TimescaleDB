@@ -1440,6 +1440,57 @@ public class HypertableTypeBuilderTests
 
     #endregion
 
+    #region WithCompressionOrderBy_ParamsFuncSelector_Should_Set_Annotation_With_Direction_Suffixes
+
+    private class ParamsFuncSelectorOrderByEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public int DeviceId { get; set; }
+    }
+
+    private class ParamsFuncSelectorOrderByContext : DbContext
+    {
+        public DbSet<ParamsFuncSelectorOrderByEntity> Metrics => Set<ParamsFuncSelectorOrderByEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ParamsFuncSelectorOrderByEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("params_func_selector_metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(
+                          s => s.ByDescending(x => x.Timestamp),
+                          s => s.ByAscending(x => x.DeviceId));
+            });
+        }
+    }
+
+    [Fact]
+    public void WithCompressionOrderBy_ParamsFuncSelector_Should_Set_Annotation_With_Direction_Suffixes()
+    {
+        // Arrange
+        using ParamsFuncSelectorOrderByContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ParamsFuncSelectorOrderByEntity))!;
+
+        // Act
+        string? annotationValue = entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy)?.Value as string;
+
+        // Assert
+        Assert.NotNull(annotationValue);
+        Assert.Contains("Timestamp DESC", annotationValue);
+        Assert.Contains("DeviceId ASC", annotationValue);
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
+    }
+
+    #endregion
+
     #region HasRangeDimension_And_HasHashDimension_Can_Be_Combined
 
     private class CombinedDimensionEntity

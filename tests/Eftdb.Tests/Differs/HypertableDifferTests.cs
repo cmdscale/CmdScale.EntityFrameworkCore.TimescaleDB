@@ -1652,4 +1652,80 @@ public class HypertableDifferTests
     }
 
     #endregion
+
+    #region Should_Detect_AdditionalDimensions_ColumnName_Changed
+
+    private class MetricEntity23
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public int DeviceId { get; set; }
+        public int WarehouseId { get; set; }
+    }
+
+    private class DimensionColumnOldContext23 : DbContext
+    {
+        public DbSet<MetricEntity23> Metrics => Set<MetricEntity23>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity23>(entity =>
+            {
+                entity.ToTable("dim_colname_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasDimension(Dimension.CreateHash("DeviceId", 4));
+            });
+        }
+    }
+
+    private class DimensionColumnNewContext23 : DbContext
+    {
+        public DbSet<MetricEntity23> Metrics => Set<MetricEntity23>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity23>(entity =>
+            {
+                entity.ToTable("dim_colname_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasDimension(Dimension.CreateHash("WarehouseId", 4));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Detect_AdditionalDimensions_ColumnName_Changed()
+    {
+        // Arrange
+        using DimensionColumnOldContext23 sourceContext = new();
+        using DimensionColumnNewContext23 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert 
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+        Assert.NotNull(alterOp);
+        Assert.NotNull(alterOp.OldAdditionalDimensions);
+        Assert.NotNull(alterOp.AdditionalDimensions);
+        Assert.Equal("DeviceId", alterOp.OldAdditionalDimensions![0].ColumnName);
+        Assert.Equal("WarehouseId", alterOp.AdditionalDimensions![0].ColumnName);
+    }
+
+    #endregion
 }

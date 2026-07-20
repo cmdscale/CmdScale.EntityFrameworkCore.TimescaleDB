@@ -1184,4 +1184,55 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
     }
 
     #endregion
+
+    #region Should_Extract_BigInt_ChunkTimeInterval_For_Integer_TimeColumn
+
+    private class BigIntTimeMetric
+    {
+        public long EventTime { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class BigIntHypertableContext(string connectionString) : DbContext
+    {
+        public DbSet<BigIntTimeMetric> Metrics => Set<BigIntTimeMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BigIntTimeMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("bigint_time_metrics");
+                entity.IsHypertable(x => x.EventTime).WithChunkTimeInterval("86400000000");
+            });
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task Should_Extract_BigInt_ChunkTimeInterval_For_Integer_TimeColumn()
+    {
+        // Arrange
+        await using BigIntHypertableContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        // Act
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        Assert.True(result.ContainsKey(("public", "bigint_time_metrics")));
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "bigint_time_metrics")];
+
+        Assert.True(long.TryParse(info.ChunkTimeInterval, out _),
+            $"Expected an integer chunk interval; got '{info.ChunkTimeInterval}'");
+    }
+
+    #endregion
 }

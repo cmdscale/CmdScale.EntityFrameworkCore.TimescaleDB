@@ -1497,4 +1497,91 @@ public class HypertableModelExtractorTests
     }
 
     #endregion
+
+    #region Should_Skip_Entity_When_TimeColumn_Annotation_Is_Missing
+
+    private class NoTimeColumnAnnotationMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NoTimeColumnAnnotationContext : DbContext
+    {
+        public DbSet<NoTimeColumnAnnotationMetric> Metrics => Set<NoTimeColumnAnnotationMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoTimeColumnAnnotationMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("no_time_col_ann_metrics");
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_Entity_When_TimeColumn_Annotation_Is_Missing()
+    {
+        // Arrange
+        using NoTimeColumnAnnotationContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Skip_Entity_When_TimeColumn_Cannot_Be_Resolved
+
+    private class UnresolvableColumnMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class UnresolvableColumnContext : DbContext
+    {
+        public DbSet<UnresolvableColumnMetric> Metrics => Set<UnresolvableColumnMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UnresolvableColumnMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("unresolvable_col_metrics");
+                entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                entity.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "ghost_column");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_Entity_When_TimeColumn_Cannot_Be_Resolved()
+    {
+        // Arrange
+        using UnresolvableColumnContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
 }

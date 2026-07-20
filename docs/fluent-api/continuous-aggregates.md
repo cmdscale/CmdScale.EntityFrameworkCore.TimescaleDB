@@ -88,7 +88,7 @@ public void Configure(EntityTypeBuilder<TradeAggregate> builder)
 
 ## Grouping Data
 
-Beyond the time bucket, continuous aggregates can group data by additional columns from the source hypertable.
+Beyond the time bucket, continuous aggregates can group data by additional columns from the source hypertable. In Data Annotations configuration, the same is expressed with the property-level [`[GroupByColumn]` attribute](../data-annotations/continuous-aggregates#grouping-by-additional-columns); raw SQL expressions are Fluent-API-only.
 
 ### Group By Column
 

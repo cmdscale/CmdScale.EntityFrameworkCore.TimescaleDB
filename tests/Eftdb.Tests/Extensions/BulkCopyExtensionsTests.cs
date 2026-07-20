@@ -1,7 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using NpgsqlTypes;
 using Testcontainers.PostgreSql;
 

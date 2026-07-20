@@ -1,6 +1,43 @@
 ---
 name: eftdb-feature-implementer
-description: Use this agent when the user requests implementation of TimescaleDB feature support in the CmdScale.EntityFrameworkCore.TimescaleDB library, specifically for migration-related code. This includes:\n\n<example>\nContext: User wants to add support for a new TimescaleDB feature that already has operation classes defined.\n\nuser: "I need to implement migration support for the compression policy feature. The operations already exist."\n\nassistant: "I'm going to use the Task tool to launch the eftdb-feature-implementer agent to implement the migration support for compression policies."\n\n<commentary>\nThe user is requesting implementation of migration support for an existing feature with operations already defined. Use the eftdb-feature-implementer agent to implement the Differ, Extractor, Generator, and update the necessary migration files.\n</commentary>\n</example>\n\n<example>\nContext: User is working on TimescaleDB features and mentions implementing a new feature's migration logic.\n\nuser: "Can you help me add the data retention policy migration support? I've already created the operation classes."\n\nassistant: "I'm going to use the Task tool to launch the eftdb-feature-implementer agent to implement the complete migration support stack for data retention policies."\n\n<commentary>\nThe user has operations ready and needs the full migration implementation. Use the eftdb-feature-implementer agent to create the Differ, Extractor, Generator classes and update migration generators.\n</commentary>\n</example>\n\n<example>\nContext: User mentions needing to add a feature but hasn't created operations yet.\n\nuser: "I want to add support for TimescaleDB jobs in migrations."\n\nassistant: "I'm going to use the Task tool to launch the eftdb-feature-implementer agent to check if operations exist and either implement the feature or provide a plan."\n\n<commentary>\nThe user wants feature support but may not have operations defined. The agent will check and either implement or abort with a plan for creating operations first.\n</commentary>\n</example>
+description: |-
+  Use this agent when the user requests implementation of TimescaleDB feature support in the CmdScale.EntityFrameworkCore.TimescaleDB library, specifically for migration-related code. This includes:
+
+  <example>
+  Context: User wants to add support for a new TimescaleDB feature that already has operation classes defined.
+
+  user: "I need to implement migration support for the compression policy feature. The operations already exist."
+
+  assistant: "I'm going to use the Task tool to launch the eftdb-feature-implementer agent to implement the migration support for compression policies."
+
+  <commentary>
+  The user is requesting implementation of migration support for an existing feature with operations already defined. Use the eftdb-feature-implementer agent to implement the Differ, Extractor, Generator, and update the necessary migration files.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User is working on TimescaleDB features and mentions implementing a new feature's migration logic.
+
+  user: "Can you help me add the data retention policy migration support? I've already created the operation classes."
+
+  assistant: "I'm going to use the Task tool to launch the eftdb-feature-implementer agent to implement the complete migration support stack for data retention policies."
+
+  <commentary>
+  The user has operations ready and needs the full migration implementation. Use the eftdb-feature-implementer agent to create the Differ, Extractor, Generator classes and update migration generators.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User mentions needing to add a feature but hasn't created operations yet.
+
+  user: "I want to add support for TimescaleDB jobs in migrations."
+
+  assistant: "I'm going to use the Task tool to launch the eftdb-feature-implementer agent to check if operations exist and either implement the feature or provide a plan."
+
+  <commentary>
+  The user wants feature support but may not have operations defined. The agent will check and either implement or abort with a plan for creating operations first.
+  </commentary>
+  </example>
 model: sonnet
 color: green
 ---

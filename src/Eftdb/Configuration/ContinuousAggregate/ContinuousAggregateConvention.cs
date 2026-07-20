@@ -43,6 +43,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
 
             // Discover property-level configurations
             List<string> aggregateFunctions = [];
+            List<string> groupByColumns = [];
 
             foreach (IConventionProperty property in entityType.GetProperties())
             {
@@ -59,12 +60,23 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
                     string sourceColumn = aggregateAttr.SourceColumn ?? property.Name;
                     aggregateFunctions.Add($"{property.Name}:{aggregateAttr.Function}:{sourceColumn}");
                 }
+
+                GroupByColumnAttribute? groupByAttr = propertyInfo.GetCustomAttribute<GroupByColumnAttribute>();
+                if (groupByAttr != null)
+                {
+                    groupByColumns.Add(groupByAttr.SourceColumn ?? property.Name);
+                }
             }
 
             // Apply the discovered property-level annotations
             if (aggregateFunctions.Count != 0)
             {
                 entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, aggregateFunctions);
+            }
+
+            if (groupByColumns.Count != 0)
+            {
+                entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.GroupByColumns, groupByColumns);
             }
         }
     }

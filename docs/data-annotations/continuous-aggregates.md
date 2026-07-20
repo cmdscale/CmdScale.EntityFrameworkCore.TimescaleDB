@@ -244,7 +244,30 @@ public class TradeHourlyAggregate
 
 ## Grouping by Additional Columns
 
-Data Annotations do not support GROUP BY configuration beyond the time bucket. For grouping by additional columns from the source hypertable, use the [Fluent API](../fluent-api/continuous-aggregates#grouping-data) approach.
+Use the `[GroupByColumn]` attribute on a property of the aggregate entity to add it to the GROUP BY clause. Without an argument, the property's own name is used as the source column; pass a source column explicitly when the names differ:
+
+```csharp
+[Keyless]
+[ContinuousAggregate(
+    MaterializedViewName = "trade_hourly_stats",
+    ParentName = nameof(Trade))]
+[TimeBucket("1 hour", nameof(Trade.Timestamp))]
+public class TradeHourlyAggregate
+{
+    // Grouped by the parent's Exchange column (same name as this property).
+    [GroupByColumn]
+    public string Exchange { get; set; } = string.Empty;
+
+    // Grouped by the parent's Ticker column, exposed under a different property name.
+    [GroupByColumn(nameof(Trade.Ticker))]
+    public string Symbol { get; set; } = string.Empty;
+
+    [Aggregate(EAggregateFunction.Avg, nameof(Trade.Price))]
+    public decimal AveragePrice { get; set; }
+}
+```
+
+> :warning: **Note:** Raw SQL GROUP BY expressions (e.g. `EXTRACT(HOUR FROM time)`) cannot be expressed as an attribute. Use the [Fluent API](../fluent-api/continuous-aggregates#grouping-data)'s `AddGroupByColumn(string)` overload for those.
 
 ## Refresh Policies
 

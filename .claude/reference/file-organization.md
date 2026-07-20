@@ -66,15 +66,19 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 
 | File | Purpose |
 |------|---------|
-| `Configuration/ContinuousAggregate/ContinuousAggregateBuilder.cs` | Type-safe builder |
+| `Configuration/ContinuousAggregate/ContinuousAggregateBuilder.cs` | Type-safe generic builder |
+| `Configuration/ContinuousAggregate/ContinuousAggregateBuilderCore.cs` | Shared annotation-writing logic for both builder types |
+| `Configuration/ContinuousAggregate/ContinuousAggregateStringBuilder.cs` | String-based builder used in scaffolded code |
 | `Configuration/ContinuousAggregate/ContinuousAggregateTypeBuilder.cs` | Fluent API extensions |
 | `Configuration/ContinuousAggregate/ContinuousAggregateAnnotations.cs` | Annotation constants |
 | `Configuration/ContinuousAggregate/ContinuousAggregateAttribute.cs` | Entity-level attribute |
 | `Configuration/ContinuousAggregate/TimeBucketAttribute.cs` | Property-level attribute |
 | `Configuration/ContinuousAggregate/AggregateAttribute.cs` | Property-level attribute |
+| `Configuration/ContinuousAggregate/GroupByColumnAttribute.cs` | Property-level attribute for GROUP BY columns |
 | `Configuration/ContinuousAggregate/ContinuousAggregateConvention.cs` | Convention processing |
 | `Internals/Features/ContinuousAggregates/ContinuousAggregateDiffer.cs` | Diffing logic |
 | `Internals/Features/ContinuousAggregates/ContinuousAggregateModelExtractor.cs` | Model extraction |
+| `Internals/ParentEntityTypeResolver.cs` | Resolves a continuous aggregate's parent entity type by CLR name, EF short name, or table name |
 | `Generators/ContinuousAggregateSqlGenerator.cs` | Runtime SQL generation |
 | `MigrationExtensions/ContinuousAggregateMigrationExtensions.cs` | Typed migrationBuilder methods |
 | `Abstractions/ContinuousAggregateFunction.cs` | Typed aggregate-function value |
@@ -149,6 +153,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Generators/TimescaleCSharpHelper.cs` | Extends `ICSharpHelper.UnknownLiteral` for `NameOfCodeFragment` and mixed arrays |
 | `Generators/AnnotationRenderers/IFeatureAnnotationRenderer.cs` | Per-feature renderer interface |
 | `Generators/AnnotationRenderers/HypertableAnnotationRenderer.cs` | Renders hypertable annotations to fluent API or data annotation C# |
+| `Generators/AnnotationRenderers/ContinuousAggregateAnnotationRenderer.cs` | Renders continuous aggregate annotations by parsing the view definition |
 | `Generators/AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName` |
 | `Generators/AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` producing `nameof(X)` or `$"{nameof(X)} DESC"` |
 
@@ -167,6 +172,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Scaffolding/RetentionPolicyAnnotationApplier.cs` | Apply retention policy annotations |
 | `Scaffolding/ContinuousAggregateScaffoldingExtractor.cs` | Query continuous aggregates |
 | `Scaffolding/ContinuousAggregateAnnotationApplier.cs` | Apply continuous aggregate annotations |
+| `Scaffolding/ViewDefinitionParser.cs` | Parses continuous aggregate view SQL to extract structured configuration for code generation |
 | `build/CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets` | MSBuild integration |
 
 ## Test Files

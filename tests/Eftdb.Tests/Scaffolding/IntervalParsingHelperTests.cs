@@ -362,6 +362,41 @@ public class IntervalParsingHelperTests
 
     #endregion
 
+    #region Should_Convert_Oversize_Hours_To_Days
+
+    [Theory]
+    [InlineData("24:00:00", "1 day")]
+    [InlineData("48:00:00", "2 days")]
+    [InlineData("168:00:00", "7 days")]
+    [InlineData("240:00:00", "10 days")]
+    [InlineData("720:00:00", "30 days")]
+    public void Should_Convert_Oversize_Hours_To_Days(string input, string expected)
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region Should_Convert_Oversize_Non_Day_Aligned_Hours
+
+    [Theory]
+    [InlineData("25:00:00", "25 hours")]
+    [InlineData("36:00:00", "36 hours")]
+    public void Should_Convert_Oversize_Non_Day_Aligned_Hours(string input, string expected)
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
     #region Should_Use_Singular_For_One_Unit
 
     [Theory]
@@ -442,9 +477,7 @@ public class IntervalParsingHelperTests
         string result = IntervalParsingHelper.NormalizeInterval(input);
 
         // Assert
-        // When timespan has only seconds (no minutes or hours), it doesn't match any condition
-        // so it should return the normalized string (with "mon" replaced if any, otherwise trimmed original)
-        Assert.Equal("00:00:30", result);
+        Assert.Equal("30 seconds", result);
     }
 
     #endregion
@@ -461,8 +494,7 @@ public class IntervalParsingHelperTests
         string result = IntervalParsingHelper.NormalizeInterval(input);
 
         // Assert
-        // When timespan has both hours and minutes, hours take precedence if totalHours < 24
-        Assert.Equal("1 hour", result);
+        Assert.Equal("90 minutes", result);
     }
 
     #endregion
@@ -496,8 +528,7 @@ public class IntervalParsingHelperTests
         string result = IntervalParsingHelper.NormalizeInterval(input);
 
         // Assert
-        // Minutes is 0, so the minutes condition won't match
-        Assert.Equal("00:00:45", result);
+        Assert.Equal("45 seconds", result);
     }
 
     #endregion
@@ -532,11 +563,210 @@ public class IntervalParsingHelperTests
         string result = IntervalParsingHelper.NormalizeInterval(input);
 
         // Assert
-        // Days > 0, so it should return days only
-        Assert.Equal("1 day", result);
+        Assert.Equal("1770 minutes", result);
     }
 
     #endregion
+
+    #region Should_Keep_Fractional_Seconds_Raw
+
+    [Theory]
+    [InlineData("48:00:00.5")]
+    [InlineData("168:00:00.5")]
+    [InlineData("01:00:00.000001")]
+    public void Should_Keep_Fractional_Seconds_Raw(string input)
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal(input, result);
+    }
+
+    #endregion
+
+    #region Should_Humanize_When_Fraction_Is_Zero
+
+    [Fact]
+    public void Should_Humanize_When_Fraction_Is_Zero()
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval("48:00:00.000000");
+
+        // Assert
+        Assert.Equal("2 days", result);
+    }
+
+    #endregion
+
+    #region Should_Expand_Mons_TokenSafe
+
+    [Theory]
+    [InlineData("2 mons", "2 months")]
+    [InlineData("1 mon", "1 month")]
+    [InlineData("1 month", "1 month")]
+    [InlineData("6 months", "6 months")]
+    public void Should_Expand_Mons_TokenSafe(string input, string expected)
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region Should_Keep_Composite_Interval_Raw
+
+    [Fact]
+    public void Should_Keep_Composite_Interval_Raw()
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval("2 days 03:00:00");
+
+        // Assert
+        Assert.Equal("2 days 03:00:00", result);
+    }
+
+    #endregion
+
+    // ── TryGetTotalMicroseconds ─────────────────────────────────────────────
+
+    #region TryGetTotalMicroseconds_Parses_FixedDuration_Units
+
+    [Theory]
+    [InlineData("1 day", 86_400_000_000L)]
+    [InlineData("7 days", 604_800_000_000L)]
+    [InlineData("30 minutes", 1_800_000_000L)]
+    [InlineData("1 hour", 3_600_000_000L)]
+    [InlineData("2 weeks", 1_209_600_000_000L)]
+    [InlineData("500 milliseconds", 500_000L)]
+    [InlineData("10 seconds", 10_000_000L)]
+    public void TryGetTotalMicroseconds_Parses_FixedDuration_Units(string input, long expected)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Parses_TimeOfDay_Form
+
+    [Theory]
+    [InlineData("01:00:00", 3_600_000_000L)]
+    [InlineData("168:00:00", 604_800_000_000L)]
+    [InlineData("00:00:30.5", 30_500_000L)]
+    [InlineData("1.00:00:00", 86_400_000_000L)]
+    public void TryGetTotalMicroseconds_Parses_TimeOfDay_Form(string input, long expected)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Rejects_NonFixed_Durations
+
+    [Theory]
+    [InlineData("1 month")]
+    [InlineData("2 years")]
+    [InlineData("2 days 03:00:00")]
+    [InlineData("12345")]
+    [InlineData("")]
+    [InlineData("garbage")]
+    public void TryGetTotalMicroseconds_Rejects_NonFixed_Durations(string input)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, result);
+    }
+
+    #endregion
+
+    #endregion
+
+    // ── Additional edge cases ───────────────────────────────────────────────
+
+    #region NormalizeInterval_Returns_Unchanged_For_Zero_Time
+
+    [Fact]
+    public void NormalizeInterval_Returns_Unchanged_For_Zero_Time()
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval("00:00:00");
+
+        // Assert
+        Assert.Equal("00:00:00", result);
+    }
+
+    #endregion
+
+    #region NormalizeInterval_Returns_Correct_Value_For_Negative_Day_Prefix
+
+    [Fact]
+    public void NormalizeInterval_Returns_Correct_Value_For_Negative_Day_Prefix()
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval("-1.00:00:00");
+
+        // Assert — cannot be parsed; returned unchanged
+        Assert.Equal("-1.00:00:00", result);
+    }
+
+    #endregion
+
+    #region TryParseTimeParts_Returns_False_For_Minutes_Out_Of_Range
+
+    [Fact]
+    public void TryParseTimeParts_Returns_False_For_Minutes_Out_Of_Range()
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval("01:75:00");
+
+        // Assert
+        Assert.Equal("01:75:00", result);
+    }
+
+    #endregion
+
+    #region TryParseTimeParts_Returns_False_For_Non_Digit_Fraction
+
+    [Fact]
+    public void TryParseTimeParts_Returns_False_For_Non_Digit_Fraction()
+    {
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval("00:00:01.abc");
+
+        // Assert
+        Assert.Equal("00:00:01.abc", result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Parses_Week_Unit
+
+    [Fact]
+    public void TryGetTotalMicroseconds_Parses_Week_Unit()
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds("2 weeks", out long microseconds);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(2L * 604_800L * 1_000_000L, microseconds);
+    }
 
     #endregion
 }

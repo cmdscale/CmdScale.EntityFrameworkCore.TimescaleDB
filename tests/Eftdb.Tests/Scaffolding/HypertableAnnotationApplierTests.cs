@@ -688,4 +688,121 @@ public class HypertableAnnotationApplierTests
     }
 
     #endregion
+
+    // ── Auto-created index suppression ──────────────────────────────────────
+
+    private static HypertableInfo MinimalInfo(string timeColumn = "time", List<Dimension>? dimensions = null) => new(
+        TimeColumnName: timeColumn,
+        ChunkTimeInterval: "604800000000",
+        CompressionEnabled: false,
+        CompressionSegmentBy: [],
+        CompressionOrderBy: [],
+        ChunkSkipColumns: [],
+        AdditionalDimensions: dimensions ?? []
+    );
+
+    private static DatabaseIndex AddIndex(DatabaseTable table, string name, bool isUnique, params string[] columns)
+    {
+        DatabaseIndex index = new() { Name = name, Table = table, IsUnique = isUnique };
+        foreach (string column in columns)
+        {
+            index.Columns.Add(new DatabaseColumn { Name = column, Table = table, StoreType = "timestamptz" });
+        }
+
+        table.Indexes.Add(index);
+        return index;
+    }
+
+    #region Should_Remove_AutoCreated_Time_Index
+
+    [Fact]
+    public void Should_Remove_AutoCreated_Time_Index()
+    {
+        // Arrange
+        DatabaseTable table = CreateTable("weather_data");
+        AddIndex(table, "weather_data_time_idx", isUnique: false, "time");
+
+        // Act
+        _applier.ApplyAnnotations(table, MinimalInfo());
+
+        // Assert
+        Assert.Empty(table.Indexes);
+    }
+
+    #endregion
+
+    #region Should_Remove_AutoCreated_Dimension_Index
+
+    [Fact]
+    public void Should_Remove_AutoCreated_Dimension_Index()
+    {
+        // Arrange
+        DatabaseTable table = CreateTable("order_events");
+        AddIndex(table, "order_events_time_idx", isUnique: false, "time");
+        AddIndex(table, "order_events_region_time_idx", isUnique: false, "region", "time");
+        HypertableInfo info = MinimalInfo(dimensions:
+            [new Dimension { ColumnName = "region", Type = EDimensionType.Hash, NumberOfPartitions = 4 }]);
+
+        // Act
+        _applier.ApplyAnnotations(table, info);
+
+        // Assert
+        Assert.Empty(table.Indexes);
+    }
+
+    #endregion
+
+    #region Should_Keep_UserDefined_Index_On_Time_Column
+
+    [Fact]
+    public void Should_Keep_UserDefined_Index_On_Time_Column()
+    {
+        // Arrange
+        DatabaseTable table = CreateTable("weather_data");
+        AddIndex(table, "ix_weather_by_time", isUnique: false, "time");
+
+        // Act
+        _applier.ApplyAnnotations(table, MinimalInfo());
+
+        // Assert
+        Assert.Single(table.Indexes);
+    }
+
+    #endregion
+
+    #region Should_Keep_Unique_Index_Even_When_Name_Matches
+
+    [Fact]
+    public void Should_Keep_Unique_Index_Even_When_Name_Matches()
+    {
+        // Arrange
+        DatabaseTable table = CreateTable("weather_data");
+        AddIndex(table, "weather_data_time_idx", isUnique: true, "time");
+
+        // Act
+        _applier.ApplyAnnotations(table, MinimalInfo());
+
+        // Assert
+        Assert.Single(table.Indexes);
+    }
+
+    #endregion
+
+    #region Should_Keep_Index_When_Columns_Do_Not_Match_Pattern
+
+    [Fact]
+    public void Should_Keep_Index_When_Columns_Do_Not_Match_Pattern()
+    {
+        // Arrange
+        DatabaseTable table = CreateTable("weather_data");
+        AddIndex(table, "weather_data_time_idx", isUnique: false, "time", "station_id");
+
+        // Act
+        _applier.ApplyAnnotations(table, MinimalInfo());
+
+        // Assert
+        Assert.Single(table.Indexes);
+    }
+
+    #endregion
 }

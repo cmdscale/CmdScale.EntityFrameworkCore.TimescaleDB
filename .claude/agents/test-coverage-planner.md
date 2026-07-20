@@ -1,6 +1,34 @@
 ---
 name: test-coverage-planner
-description: Use this agent when you need to analyze test coverage and create a comprehensive testing strategy for the CmdScale.EntityFrameworkCore.TimescaleDB and CmdScale.EntityFrameworkCore.TimescaleDB.Design packages. This agent should be used:\n\n1. **After implementing new features** - Example:\n   - user: "I've just finished implementing the compression policy feature"\n   - assistant: "Let me use the test-coverage-planner agent to analyze what tests are needed for this new feature"\n   - <uses Agent tool to launch test-coverage-planner>\n\n2. **After bug fixes** - Example:\n   - user: "Fixed the issue with continuous aggregate diffing"\n   - assistant: "I'll use the test-coverage-planner agent to ensure we have regression tests and full coverage for this fix"\n   - <uses Agent tool to launch test-coverage-planner>\n\n3. **Before releases** - Example:\n   - user: "We're preparing for the 2.0 release"\n   - assistant: "Let me launch the test-coverage-planner agent to verify our test coverage is comprehensive before release"\n   - <uses Agent tool to launch test-coverage-planner>\n\n4. **When explicitly requested** - Example:\n   - user: "Can you check our test coverage?"\n   - assistant: "I'll use the test-coverage-planner agent to analyze coverage and create a testing plan"\n   - <uses Agent tool to launch test-coverage-planner>\n\n5. **Proactively during development cycles** - Example:\n   - user: "What should we work on next?"\n   - assistant: "Let me use the test-coverage-planner agent to identify any coverage gaps that need attention"\n   - <uses Agent tool to launch test-coverage-planner>\n\nThis agent focuses ONLY on planning and does NOT write or implement any tests. It produces a detailed testing strategy document that other agents (like test-writer) can use to implement the actual tests.
+description: |-
+  Use this agent when you need to analyze test coverage and create a comprehensive testing strategy for the CmdScale.EntityFrameworkCore.TimescaleDB and CmdScale.EntityFrameworkCore.TimescaleDB.Design packages. This agent should be used:
+
+  1. **After implementing new features** - Example:
+     - user: "I've just finished implementing the compression policy feature"
+     - assistant: "Let me use the test-coverage-planner agent to analyze what tests are needed for this new feature"
+     - <uses Agent tool to launch test-coverage-planner>
+
+  2. **After bug fixes** - Example:
+     - user: "Fixed the issue with continuous aggregate diffing"
+     - assistant: "I'll use the test-coverage-planner agent to ensure we have regression tests and full coverage for this fix"
+     - <uses Agent tool to launch test-coverage-planner>
+
+  3. **Before releases** - Example:
+     - user: "We're preparing for the 2.0 release"
+     - assistant: "Let me launch the test-coverage-planner agent to verify our test coverage is comprehensive before release"
+     - <uses Agent tool to launch test-coverage-planner>
+
+  4. **When explicitly requested** - Example:
+     - user: "Can you check our test coverage?"
+     - assistant: "I'll use the test-coverage-planner agent to analyze coverage and create a testing plan"
+     - <uses Agent tool to launch test-coverage-planner>
+
+  5. **Proactively during development cycles** - Example:
+     - user: "What should we work on next?"
+     - assistant: "Let me use the test-coverage-planner agent to identify any coverage gaps that need attention"
+     - <uses Agent tool to launch test-coverage-planner>
+
+  This agent focuses ONLY on planning and does NOT write or implement any tests. It produces a detailed testing strategy document that other agents (like test-writer) can use to implement the actual tests.
 tools: Bash, Glob, Grep, Read, WebSearch, AskUserQuestion
 model: sonnet
 color: green

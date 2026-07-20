@@ -35,6 +35,22 @@ This command will:
 
 > **Note**: When scaffolding your `DbContext`, use the `--schema` flag to target only your data schema (usually `public`). This prevents the tool from unintentionally including TimescaleDB's internal management tables from schemas like `_timescaledb_internal`.
 
+### Data Annotations Variant
+
+Add `--data-annotations` to express the TimescaleDB configuration as attributes on the entity classes (`[Hypertable]`, `[ContinuousAggregate]`, `[TimeBucket]`, `[Aggregate]`, `[GroupByColumn]`, ...) instead of Fluent API calls in `OnModelCreating`:
+
+```bash
+dotnet ef dbcontext scaffold \
+  "Host=localhost;Database=cmdscale-ef-timescaledb;Username=timescale_admin;Password=R#!kro#GP43ra8Ae" \
+  CmdScale.EntityFrameworkCore.TimescaleDB.Design \
+  --data-annotations \
+  --output-dir Models \
+  --schema public \
+  --context-dir . \
+  --context MyTimescaleDbContext \
+  --project samples/Eftdb.Samples.DatabaseFirst
+```
+
 ---
 
 ## Project Structure

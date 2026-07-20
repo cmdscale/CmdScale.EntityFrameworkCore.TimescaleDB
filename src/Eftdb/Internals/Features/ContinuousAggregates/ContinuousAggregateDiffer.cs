@@ -116,7 +116,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             if (list1 == null || list2 == null) return false;
             if (list1.Count != list2.Count) return false;
 
-            return list1.SequenceEqual(list2);
+            return list1.ToHashSet().SetEquals(list2);
         }
     }
 }

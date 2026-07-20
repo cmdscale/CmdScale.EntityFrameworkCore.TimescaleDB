@@ -77,7 +77,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     column_name,
                     dimension_number,
                     num_partitions,
-                    EXTRACT(EPOCH FROM time_interval) * 1000000 AS time_interval_microseconds,
+                    time_interval::text AS time_interval_text,
                     integer_interval
                 FROM timescaledb_information.dimensions
                 ORDER BY hypertable_schema, hypertable_name, dimension_number;";
@@ -98,7 +98,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     string chunkTimeInterval;
                     if (!reader.IsDBNull(5))
                     {
-                        chunkTimeInterval = HumanizeMicroseconds((long)reader.GetDouble(5));
+                        chunkTimeInterval = IntervalParsingHelper.NormalizeInterval(reader.GetString(5));
                     }
                     else if (!reader.IsDBNull(6))
                     {
@@ -135,7 +135,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         }
                         else if (!reader.IsDBNull(5))
                         {
-                            dimension = Dimension.CreateRange(columnName, HumanizeMicroseconds((long)reader.GetDouble(5)));
+                            dimension = Dimension.CreateRange(columnName, IntervalParsingHelper.NormalizeInterval(reader.GetString(5)));
                         }
                         else if (!reader.IsDBNull(6))
                         {
@@ -229,32 +229,5 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             }
         }
 
-        /// <summary>
-        /// Converts a microsecond chunk interval to the equivalent PostgreSQL interval string when it
-        /// divides cleanly into days, hours, minutes, or seconds (e.g. <c>86400000000</c> becomes
-        /// <c>"1 day"</c>), matching the hand-written configuration style. Uneven values keep the raw
-        /// microsecond form, which round-trips identically.
-        /// </summary>
-        private static string HumanizeMicroseconds(long microseconds)
-        {
-            (long Factor, string Unit)[] units =
-            [
-                (86_400_000_000L, "day"),
-                (3_600_000_000L, "hour"),
-                (60_000_000L, "minute"),
-                (1_000_000L, "second"),
-            ];
-
-            foreach ((long factor, string unit) in units)
-            {
-                if (microseconds >= factor && microseconds % factor == 0)
-                {
-                    long count = microseconds / factor;
-                    return count == 1 ? $"1 {unit}" : $"{count} {unit}s";
-                }
-            }
-
-            return microseconds.ToString();
-        }
     }
 }

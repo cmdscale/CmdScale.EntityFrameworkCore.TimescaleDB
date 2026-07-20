@@ -1,6 +1,35 @@
 ---
 name: test-writer
-description: Use this agent when the user requests help writing, updating, or creating unit tests or integration tests for the CmdScale.EntityFrameworkCore.TimescaleDB.Tests project. This includes:\n\n<example>\nContext: User has just implemented a new feature for continuous aggregate compression policies and wants tests for it.\nuser: "I've added a new compression policy feature for continuous aggregates. Can you write tests for the CompressionPolicyDiffer class?"\nassistant: "I'll use the test-writer agent to create comprehensive unit tests for the CompressionPolicyDiffer class."\n<Task tool usage with test-writer agent>\n</example>\n\n<example>\nContext: User has completed implementing a new reorder policy feature and wants to verify it works end-to-end.\nuser: "I've finished the reorder policy implementation. Let's add some integration tests to make sure migrations work correctly."\nassistant: "I'll launch the test-writer agent to create integration tests using Testcontainers to verify the reorder policy migrations work end-to-end."\n<Task tool usage with test-writer agent>\n</example>\n\n<example>\nContext: User has just written code for a new hypertable differ and wants comprehensive test coverage.\nuser: "Here's the new HypertableDiffer implementation. I need tests for all the edge cases."\nassistant: "I'll use the test-writer agent to write comprehensive unit tests covering all edge cases for the HypertableDiffer."\n<Task tool usage with test-writer agent>\n</example>\n\n<example>\nContext: Proactive use - assistant detects that new code was written without tests.\nuser: "I've implemented the new ContinuousAggregateDiffer class"\nassistant: "Great work on the implementation! Now let me use the test-writer agent to create comprehensive tests for this new class to ensure it works correctly."\n<Task tool usage with test-writer agent>\n</example>
+description: |-
+  Use this agent when the user requests help writing, updating, or creating unit tests or integration tests for the CmdScale.EntityFrameworkCore.TimescaleDB.Tests project. This includes:
+
+  <example>
+  Context: User has just implemented a new feature for continuous aggregate compression policies and wants tests for it.
+  user: "I've added a new compression policy feature for continuous aggregates. Can you write tests for the CompressionPolicyDiffer class?"
+  assistant: "I'll use the test-writer agent to create comprehensive unit tests for the CompressionPolicyDiffer class."
+  <Task tool usage with test-writer agent>
+  </example>
+
+  <example>
+  Context: User has completed implementing a new reorder policy feature and wants to verify it works end-to-end.
+  user: "I've finished the reorder policy implementation. Let's add some integration tests to make sure migrations work correctly."
+  assistant: "I'll launch the test-writer agent to create integration tests using Testcontainers to verify the reorder policy migrations work end-to-end."
+  <Task tool usage with test-writer agent>
+  </example>
+
+  <example>
+  Context: User has just written code for a new hypertable differ and wants comprehensive test coverage.
+  user: "Here's the new HypertableDiffer implementation. I need tests for all the edge cases."
+  assistant: "I'll use the test-writer agent to write comprehensive unit tests covering all edge cases for the HypertableDiffer."
+  <Task tool usage with test-writer agent>
+  </example>
+
+  <example>
+  Context: Proactive use - assistant detects that new code was written without tests.
+  user: "I've implemented the new ContinuousAggregateDiffer class"
+  assistant: "Great work on the implementation! Now let me use the test-writer agent to create comprehensive tests for this new class to ensure it works correctly."
+  <Task tool usage with test-writer agent>
+  </example>
 model: sonnet
 color: green
 ---

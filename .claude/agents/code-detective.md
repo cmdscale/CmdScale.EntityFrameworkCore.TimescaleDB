@@ -1,6 +1,57 @@
 ---
 name: code-detective
-description: Use this agent when the user needs to understand the root cause of a bug, trace when it was introduced, identify the last working commit, or analyze code behavior without making any changes. This agent is for investigation and analysis only, not for fixing bugs.\n\nExamples:\n\n<example>\nContext: User is investigating why HypertableDiffer is not detecting chunk time interval changes.\n\nuser: "The HypertableDiffer doesn't seem to detect when I change the chunk time interval from 7 days to 1 day. Can you investigate when this broke?"\n\nassistant: "I'll use the code-detective agent to analyze the HypertableDiffer implementation and trace through the git history to find when this regression was introduced."\n\n<commentary>\nThe user is asking to investigate a bug's root cause and history, which is exactly what code-detective does. Use the Agent tool to launch code-detective for deep analysis of the differ logic and git history.\n</commentary>\n</example>\n\n<example>\nContext: User wants to understand why continuous aggregate scaffolding is generating incorrect column names.\n\nuser: "I scaffolded a continuous aggregate from the database and the column names in the generated entity don't match what's in the database. What's going on?"\n\nassistant: "Let me use the code-detective agent to trace through the scaffolding pipeline and identify where the column name resolution is going wrong."\n\n<commentary>\nThis is an investigation task to understand existing behavior and identify the issue source. Code-detective should analyze ContinuousAggregateScaffoldingExtractor, AnnotationApplier, and related naming convention handling without making changes.\n</commentary>\n</example>\n\n<example>\nContext: User is trying to understand when a feature stopped working.\n\nuser: "Reorder policies worked in version 1.2.0 but now in 1.3.0 they're not being applied during migrations. Can you find out what changed?"\n\nassistant: "I'll launch the code-detective agent to compare the git history between versions 1.2.0 and 1.3.0, focusing on ReorderPolicyDiffer and related migration code."\n\n<commentary>\nThe user needs historical analysis across versions to identify a regression. Code-detective should examine git commits, diffs, and potentially GitHub issues between the two versions.\n</commentary>\n</example>\n\n<example>\nContext: User wants to understand complex code flow before making changes.\n\nuser: "Before I add support for compression policies, I want to understand how the existing reorder policy implementation works end-to-end."\n\nassistant: "I'll use the code-detective agent to trace the complete flow of reorder policies from attribute/fluent API configuration through conventions, differs, generators, and scaffolding."\n\n<commentary>\nThis is a code comprehension task requiring deep analysis of implementation patterns. Code-detective should provide a detailed walkthrough without modifying anything.\n</commentary>\n</example>
+description: |-
+  Use this agent when the user needs to understand the root cause of a bug, trace when it was introduced, identify the last working commit, or analyze code behavior without making any changes. This agent is for investigation and analysis only, not for fixing bugs.
+
+  Examples:
+
+  <example>
+  Context: User is investigating why HypertableDiffer is not detecting chunk time interval changes.
+
+  user: "The HypertableDiffer doesn't seem to detect when I change the chunk time interval from 7 days to 1 day. Can you investigate when this broke?"
+
+  assistant: "I'll use the code-detective agent to analyze the HypertableDiffer implementation and trace through the git history to find when this regression was introduced."
+
+  <commentary>
+  The user is asking to investigate a bug's root cause and history, which is exactly what code-detective does. Use the Agent tool to launch code-detective for deep analysis of the differ logic and git history.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User wants to understand why continuous aggregate scaffolding is generating incorrect column names.
+
+  user: "I scaffolded a continuous aggregate from the database and the column names in the generated entity don't match what's in the database. What's going on?"
+
+  assistant: "Let me use the code-detective agent to trace through the scaffolding pipeline and identify where the column name resolution is going wrong."
+
+  <commentary>
+  This is an investigation task to understand existing behavior and identify the issue source. Code-detective should analyze ContinuousAggregateScaffoldingExtractor, AnnotationApplier, and related naming convention handling without making changes.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User is trying to understand when a feature stopped working.
+
+  user: "Reorder policies worked in version 1.2.0 but now in 1.3.0 they're not being applied during migrations. Can you find out what changed?"
+
+  assistant: "I'll launch the code-detective agent to compare the git history between versions 1.2.0 and 1.3.0, focusing on ReorderPolicyDiffer and related migration code."
+
+  <commentary>
+  The user needs historical analysis across versions to identify a regression. Code-detective should examine git commits, diffs, and potentially GitHub issues between the two versions.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User wants to understand complex code flow before making changes.
+
+  user: "Before I add support for compression policies, I want to understand how the existing reorder policy implementation works end-to-end."
+
+  assistant: "I'll use the code-detective agent to trace the complete flow of reorder policies from attribute/fluent API configuration through conventions, differs, generators, and scaffolding."
+
+  <commentary>
+  This is a code comprehension task requiring deep analysis of implementation patterns. Code-detective should provide a detailed walkthrough without modifying anything.
+  </commentary>
+  </example>
 tools: Bash, Glob, Grep, Read, WebSearch, AskUserQuestion
 model: sonnet
 color: red

@@ -39,6 +39,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="CmdScale.EntityFrameworkCore.TimescaleDB.Tests" />
+    <InternalsVisibleTo Include="CmdScale.EntityFrameworkCore.TimescaleDB.Design" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />

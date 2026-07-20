@@ -1,4 +1,6 @@
 #pragma warning disable EF1001
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
@@ -131,6 +133,99 @@ public class TimescaleCSharpModelGeneratorTests
         bool found = result.AdditionalFiles.Any(f =>
             f.Code.Contains("using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;"));
         Assert.True(found);
+    }
+
+    #endregion
+
+    // ── DA mode: suppress hypertable fluent API in context file ───────────────
+
+    #region GenerateModel_UseDataAnnotations_True_DoesNotEmitHypertableFluentApiCalls
+
+    [Hypertable(nameof(Ts))]
+    private class HypertableWithChunkEntity { public DateTime Ts { get; set; } }
+
+    private class HtChunkContext : DbContext
+    {
+        public DbSet<HypertableWithChunkEntity> Items => Set<HypertableWithChunkEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<HypertableWithChunkEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("ht_chunk_da_test");
+                e.WithChunkTimeInterval("1 day");
+            });
+    }
+
+    [Fact]
+    public void GenerateModel_UseDataAnnotations_True_DoesNotEmitHypertableFluentApiCalls()
+    {
+        using HtChunkContext context = new();
+        IModel model = context.GetService<IDesignTimeModel>().Model;
+        IModelCodeGeneratorSelector selector = CreateSelector();
+        ModelCodeGenerationOptions options = DefaultOptions(useDataAnnotations: true);
+        IModelCodeGenerator generator = selector.Select(options);
+
+        ScaffoldedModel result = generator.GenerateModel(model, options);
+        Assert.DoesNotContain("WithChunkTimeInterval", result.ContextFile.Code);
+    }
+
+    #endregion
+
+    // ── Property-level namespace injection for CA entities ────────────────────
+
+    #region GenerateModel_UseDataAnnotations_True_Injects_Aggregate_Namespaces
+
+    private class CaAggSourceEntity { public DateTime Time { get; set; } public double Price { get; set; } }
+
+    private class CaAggViewEntity { public double MaxPrice { get; set; } }
+
+    private class CaAggNamespaceContext : DbContext
+    {
+        public DbSet<CaAggSourceEntity> Sources => Set<CaAggSourceEntity>();
+        public DbSet<CaAggViewEntity> Views => Set<CaAggViewEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaAggSourceEntity>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("ca_agg_ns_source");
+                e.Property(x => x.Price).HasColumnName("price");
+            });
+            modelBuilder.Entity<CaAggViewEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("ca_agg_ns_view");
+                e.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "ca_agg_ns_view");
+                e.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "ca_agg_ns_source");
+                e.HasAnnotation(ContinuousAggregateAnnotations.AggregateFunctions,
+                    new List<string> { "MaxPrice:Max:Price" });
+                e.Property(x => x.MaxPrice).HasColumnName("max_price");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateModel_UseDataAnnotations_True_Injects_Aggregate_Namespaces()
+    {
+        using CaAggNamespaceContext context = new();
+        IModel model = context.GetService<IDesignTimeModel>().Model;
+        IModelCodeGeneratorSelector selector = CreateSelector();
+        ModelCodeGenerationOptions options = DefaultOptions(useDataAnnotations: true);
+        IModelCodeGenerator generator = selector.Select(options);
+
+        ScaffoldedModel result = generator.GenerateModel(model, options);
+
+        bool hasAbstractionsNs = result.AdditionalFiles.Any(f =>
+            f.Code.Contains($"using {typeof(EAggregateFunction).Namespace};"));
+        bool hasAggregateAttrNs = result.AdditionalFiles.Any(f =>
+            f.Code.Contains($"using {typeof(AggregateAttribute).Namespace};"));
+
+        Assert.True(hasAbstractionsNs, "Expected EAggregateFunction namespace in entity file");
+        Assert.True(hasAggregateAttrNs, "Expected AggregateAttribute namespace in entity file");
     }
 
     #endregion

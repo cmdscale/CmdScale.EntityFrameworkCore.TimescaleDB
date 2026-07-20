@@ -1,6 +1,28 @@
 ---
 name: example-feature-generator
-description: Use this agent when the user requests to add new examples, showcase specific TimescaleDB features, create sample models, or extend the Example.DataAccess project with demonstrations of library capabilities. This agent should be used proactively when:\n\n<example>\nContext: User has just implemented a new TimescaleDB feature and wants to showcase it.\nuser: "I've added support for retention policies in the core library. Can you create an example showing how to use it?"\nassistant: "I'll use the Task tool to launch the example-feature-generator agent to create a comprehensive example of the retention policy feature."\n<uses Agent tool to invoke example-feature-generator>\n</example>\n\n<example>\nContext: User is working on documentation and needs practical examples.\nuser: "We need to add an example of a continuous aggregate with multiple aggregate functions for the README"\nassistant: "Let me use the example-feature-generator agent to create this example in the Example.DataAccess project."\n<uses Agent tool to invoke example-feature-generator>\n</example>\n\n<example>\nContext: User wants to demonstrate a specific use case.\nuser: "Can you show how to configure a hypertable with compression and reorder policies together?"\nassistant: "I'm going to use the example-feature-generator agent to create a comprehensive example demonstrating this configuration."\n<uses Agent tool to invoke example-feature-generator>\n</example>
+description: |-
+  Use this agent when the user requests to add new examples, showcase specific TimescaleDB features, create sample models, or extend the Example.DataAccess project with demonstrations of library capabilities. This agent should be used proactively when:
+
+  <example>
+  Context: User has just implemented a new TimescaleDB feature and wants to showcase it.
+  user: "I've added support for retention policies in the core library. Can you create an example showing how to use it?"
+  assistant: "I'll use the Task tool to launch the example-feature-generator agent to create a comprehensive example of the retention policy feature."
+  <uses Agent tool to invoke example-feature-generator>
+  </example>
+
+  <example>
+  Context: User is working on documentation and needs practical examples.
+  user: "We need to add an example of a continuous aggregate with multiple aggregate functions for the README"
+  assistant: "Let me use the example-feature-generator agent to create this example in the Example.DataAccess project."
+  <uses Agent tool to invoke example-feature-generator>
+  </example>
+
+  <example>
+  Context: User wants to demonstrate a specific use case.
+  user: "Can you show how to configure a hypertable with compression and reorder policies together?"
+  assistant: "I'm going to use the example-feature-generator agent to create a comprehensive example demonstrating this configuration."
+  <uses Agent tool to invoke example-feature-generator>
+  </example>
 model: sonnet
 color: orange
 ---

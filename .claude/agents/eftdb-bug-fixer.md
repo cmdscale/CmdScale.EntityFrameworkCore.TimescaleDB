@@ -1,6 +1,35 @@
 ---
 name: eftdb-bug-fixer
-description: Use this agent when bugs are discovered in existing runtime or design-time code within the CmdScale.EntityFrameworkCore.TimescaleDB library. This includes:\n\n<example>\nContext: User discovers a bug in the HypertableDiffer.\nuser: "The HypertableDiffer is not detecting changes to chunk time interval"\nassistant: "I'll use the eftdb-bug-fixer agent to analyze and fix the HypertableDiffer issue."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>\n\n<example>\nContext: SQL generation is incorrect for reorder policies.\nuser: "The ReorderPolicySqlGenerator is generating invalid SQL with wrong schema qualification"\nassistant: "I'll launch the eftdb-bug-fixer agent to fix the SQL generation bug in ReorderPolicySqlGenerator."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>\n\n<example>\nContext: Scaffolding extractor query is failing.\nuser: "The ContinuousAggregateScaffoldingExtractor is throwing NullReferenceException when extracting aggregate functions"\nassistant: "Let me use the eftdb-bug-fixer agent to debug and fix the scaffolding extractor."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>\n\n<example>\nContext: Another agent reports a bug during its work.\nuser: "The eftdb-scaffold-support agent reported a mismatch between runtime annotations and scaffolding expectations"\nassistant: "I'll use the eftdb-bug-fixer agent to resolve the annotation mismatch issue reported by the scaffolding agent."\n<uses Task tool to invoke eftdb-bug-fixer>\n</example>
+description: |-
+  Use this agent when bugs are discovered in existing runtime or design-time code within the CmdScale.EntityFrameworkCore.TimescaleDB library. This includes:
+
+  <example>
+  Context: User discovers a bug in the HypertableDiffer.
+  user: "The HypertableDiffer is not detecting changes to chunk time interval"
+  assistant: "I'll use the eftdb-bug-fixer agent to analyze and fix the HypertableDiffer issue."
+  <uses Task tool to invoke eftdb-bug-fixer>
+  </example>
+
+  <example>
+  Context: SQL generation is incorrect for reorder policies.
+  user: "The ReorderPolicySqlGenerator is generating invalid SQL with wrong schema qualification"
+  assistant: "I'll launch the eftdb-bug-fixer agent to fix the SQL generation bug in ReorderPolicySqlGenerator."
+  <uses Task tool to invoke eftdb-bug-fixer>
+  </example>
+
+  <example>
+  Context: Scaffolding extractor query is failing.
+  user: "The ContinuousAggregateScaffoldingExtractor is throwing NullReferenceException when extracting aggregate functions"
+  assistant: "Let me use the eftdb-bug-fixer agent to debug and fix the scaffolding extractor."
+  <uses Task tool to invoke eftdb-bug-fixer>
+  </example>
+
+  <example>
+  Context: Another agent reports a bug during its work.
+  user: "The eftdb-scaffold-support agent reported a mismatch between runtime annotations and scaffolding expectations"
+  assistant: "I'll use the eftdb-bug-fixer agent to resolve the annotation mismatch issue reported by the scaffolding agent."
+  <uses Task tool to invoke eftdb-bug-fixer>
+  </example>
 model: sonnet
 color: red
 ---

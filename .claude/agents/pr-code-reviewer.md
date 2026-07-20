@@ -1,6 +1,43 @@
 ---
 name: pr-code-reviewer
-description: Use this agent when the user has completed a logical chunk of work on a feature branch and wants to review their changes before merging to main. This agent should be triggered proactively when:\n\n<example>\nContext: User has just finished implementing a new TimescaleDB feature with all required components (operations, differ, generator, tests).\n\nuser: "I've finished implementing the compression policy feature. Can you review my changes?"\n\nassistant: "I'll use the pr-code-reviewer agent to analyze all changes on your current branch compared to main and provide feedback on adherence to coding standards and architectural patterns."\n\n<commentary>\nThe user is explicitly requesting a review of their completed work. Use the pr-code-reviewer agent to compare the current branch against main and provide comprehensive feedback.\n</commentary>\n</example>\n\n<example>\nContext: User has committed several changes and mentions they're ready for review.\n\nuser: "Just committed the last of the scaffolding support. Ready for review."\n\nassistant: "Let me use the pr-code-reviewer agent to review all your branch changes against main and check compliance with the project's coding standards."\n\n<commentary>\nThe user indicates completion and readiness for review. Launch pr-code-reviewer to analyze the entire PR.\n</commentary>\n</example>\n\n<example>\nContext: User asks if their implementation follows the guidelines after making changes.\n\nuser: "Does my implementation of the retention policy differ follow the established patterns?"\n\nassistant: "I'll use the pr-code-reviewer agent to analyze your changes and verify they align with the architectural patterns and coding standards defined in CLAUDE.md."\n\n<commentary>\nThe user is seeking validation of their implementation. Use pr-code-reviewer to provide detailed feedback on pattern compliance.\n</commentary>\n</example>
+description: |-
+  Use this agent when the user has completed a logical chunk of work on a feature branch and wants to review their changes before merging to main. This agent should be triggered proactively when:
+
+  <example>
+  Context: User has just finished implementing a new TimescaleDB feature with all required components (operations, differ, generator, tests).
+
+  user: "I've finished implementing the compression policy feature. Can you review my changes?"
+
+  assistant: "I'll use the pr-code-reviewer agent to analyze all changes on your current branch compared to main and provide feedback on adherence to coding standards and architectural patterns."
+
+  <commentary>
+  The user is explicitly requesting a review of their completed work. Use the pr-code-reviewer agent to compare the current branch against main and provide comprehensive feedback.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User has committed several changes and mentions they're ready for review.
+
+  user: "Just committed the last of the scaffolding support. Ready for review."
+
+  assistant: "Let me use the pr-code-reviewer agent to review all your branch changes against main and check compliance with the project's coding standards."
+
+  <commentary>
+  The user indicates completion and readiness for review. Launch pr-code-reviewer to analyze the entire PR.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User asks if their implementation follows the guidelines after making changes.
+
+  user: "Does my implementation of the retention policy differ follow the established patterns?"
+
+  assistant: "I'll use the pr-code-reviewer agent to analyze your changes and verify they align with the architectural patterns and coding standards defined in CLAUDE.md."
+
+  <commentary>
+  The user is seeking validation of their implementation. Use pr-code-reviewer to provide detailed feedback on pattern compliance.
+  </commentary>
+  </example>
 tools: Bash, Glob, Grep, Read, WebSearch, AskUserQuestion
 model: sonnet
 color: cyan

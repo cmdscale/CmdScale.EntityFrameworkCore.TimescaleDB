@@ -110,7 +110,7 @@ New Feature → [1] eftdb-feature-initializer
 | `test-writer` | Creates unit and integration tests | |
 | `test-coverage-planner` | Analyzes test coverage gaps | `/coverage-plan` |
 | `example-feature-generator` | Creates usage examples | |
-| `git-committer` | Formats, tests, stages, generates commit message | `/prepare-commit` |
+| `git-committer` | Formats, tests, generates commit message (does not stage) | `/prepare-commit` |
 | `code-detective` | Investigates bugs, traces history | |
 | `pr-code-reviewer` | Reviews PR changes against patterns | `/review` |
 | `eftdb-docs-writer` | Writes and updates documentation | |

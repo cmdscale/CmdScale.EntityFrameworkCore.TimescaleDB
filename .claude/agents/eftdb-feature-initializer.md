@@ -1,6 +1,25 @@
 ---
 name: eftdb-feature-initializer
-description: Use this agent when the user requests implementation of a new TimescaleDB feature or capability that needs to be integrated into the CmdScale.EntityFrameworkCore.TimescaleDB library. This includes features like compression policies, retention policies, data retention, jobs, background workers, or any other TimescaleDB-specific functionality that requires EF Core integration.\n\nExamples of when to use this agent:\n\n- User: "I want to add support for TimescaleDB compression policies"\n  Assistant: "I'm going to use the Task tool to launch the eftdb-feature-initializer agent to create the initial setup for compression policy support."\n  <The agent would then analyze compression policy requirements and create the necessary operation classes, FluentAPI configuration, data attributes, and conventions>\n\n- User: "Can we implement retention policies for hypertables?"\n  Assistant: "Let me use the eftdb-feature-initializer agent to set up the foundation for retention policy support."\n  <The agent would create the required files for retention policy operations and configuration>\n\n- User: "We need to add support for TimescaleDB's data retention features"\n  Assistant: "I'll launch the eftdb-feature-initializer agent to establish the initial structure for data retention functionality."\n  <The agent would analyze the feature and create the initial scaffolding>\n\n- User: "Let's add support for TimescaleDB jobs and scheduled policies"\n  Assistant: "I'm using the eftdb-feature-initializer agent to create the foundational files for job and policy scheduling support."\n  <The agent would create operations and configuration files for job management>
+description: |-
+  Use this agent when the user requests implementation of a new TimescaleDB feature or capability that needs to be integrated into the CmdScale.EntityFrameworkCore.TimescaleDB library. This includes features like compression policies, retention policies, data retention, jobs, background workers, or any other TimescaleDB-specific functionality that requires EF Core integration.
+
+  Examples of when to use this agent:
+
+  - User: "I want to add support for TimescaleDB compression policies"
+    Assistant: "I'm going to use the Task tool to launch the eftdb-feature-initializer agent to create the initial setup for compression policy support."
+    <The agent would then analyze compression policy requirements and create the necessary operation classes, FluentAPI configuration, data attributes, and conventions>
+
+  - User: "Can we implement retention policies for hypertables?"
+    Assistant: "Let me use the eftdb-feature-initializer agent to set up the foundation for retention policy support."
+    <The agent would create the required files for retention policy operations and configuration>
+
+  - User: "We need to add support for TimescaleDB's data retention features"
+    Assistant: "I'll launch the eftdb-feature-initializer agent to establish the initial structure for data retention functionality."
+    <The agent would analyze the feature and create the initial scaffolding>
+
+  - User: "Let's add support for TimescaleDB jobs and scheduled policies"
+    Assistant: "I'm using the eftdb-feature-initializer agent to create the foundational files for job and policy scheduling support."
+    <The agent would create operations and configuration files for job management>
 model: sonnet
 color: pink
 ---
