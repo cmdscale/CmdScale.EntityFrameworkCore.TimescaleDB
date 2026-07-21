@@ -34,7 +34,8 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 
 | File | Purpose |
 |------|---------|
-| `Configuration/ReorderPolicy/ReorderPolicyTypeBuilder.cs` | Fluent API |
+| `Configuration/ReorderPolicy/ReorderPolicyTypeBuilder.cs` | Fluent API (including scaffold-targeting overload) |
+| `Configuration/ReorderPolicy/ReorderPolicyStringBuilder.cs` | String-based builder used in scaffolded code |
 | `Configuration/ReorderPolicy/ReorderPolicyAnnotations.cs` | Annotation constants |
 | `Configuration/ReorderPolicy/ReorderPolicyAttribute.cs` | Data annotation |
 | `Configuration/ReorderPolicy/ReorderPolicyConvention.cs` | Convention processing |
@@ -160,6 +161,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Generators/AnnotationRenderers/ContinuousAggregateAnnotationRenderer.cs` | Renders continuous aggregate annotations by parsing the view definition |
 | `Generators/AnnotationRenderers/ContinuousAggregatePolicyAnnotationRenderer.cs` | Renders continuous aggregate policy annotations to `WithRefreshPolicy(...)` fluent API or `[ContinuousAggregatePolicy]` attribute |
 | `Generators/AnnotationRenderers/RetentionPolicyAnnotationRenderer.cs` | Renders retention policy annotations to `WithRetentionPolicy(...)` fluent API or `[RetentionPolicy]` attribute; registered after parent renderers (hypertable and continuous aggregate) |
+| `Generators/AnnotationRenderers/ReorderPolicyAnnotationRenderer.cs` | Renders reorder policy annotations to `WithReorderPolicy(...)` fluent API or `[ReorderPolicy]` attribute; registered after the hypertable renderer |
 | `Generators/AnnotationRenderers/PolicyJobRendererHelper.cs` | Shared helpers for emitting policy-job optional arguments (`InitialStart`, `WithScheduleInterval`, etc.) |
 | `Generators/AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName` |
 | `Generators/AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` producing `nameof(X)` or `$"{nameof(X)} DESC"` |
