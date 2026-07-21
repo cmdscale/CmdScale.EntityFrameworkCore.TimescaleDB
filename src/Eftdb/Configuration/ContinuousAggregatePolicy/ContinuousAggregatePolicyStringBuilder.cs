@@ -1,4 +1,5 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy
 {
@@ -11,6 +12,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
     public sealed class ContinuousAggregatePolicyStringBuilder<TEntity> where TEntity : class
     {
         private readonly ContinuousAggregateStringBuilder<TEntity> _builder;
+
+        internal EntityTypeBuilder<TEntity> EntityTypeBuilder => _builder.EntityTypeBuilder;
 
         internal ContinuousAggregatePolicyStringBuilder(ContinuousAggregateStringBuilder<TEntity> builder)
         {

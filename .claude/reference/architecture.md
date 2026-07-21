@@ -55,11 +55,12 @@ This document provides detailed architectural information for the CmdScale.Entit
 - `ReorderPolicyAnnotations.cs` - Annotation constants
 - `ReorderPolicyTypeBuilder.cs` - Fluent API: `WithReorderPolicy()`
 
-#### RetentionPolicy/ (4 files)
+#### RetentionPolicy/ (5 files)
 - `RetentionPolicyAttribute.cs` - Data annotation: `[RetentionPolicy(DropAfter = "30 days")]`
 - `RetentionPolicyConvention.cs` - IEntityTypeAddedConvention implementation
 - `RetentionPolicyAnnotations.cs` - Annotation constants
-- `RetentionPolicyTypeBuilder.cs` - Fluent API: `WithRetentionPolicy()`
+- `RetentionPolicyTypeBuilder.cs` - Fluent API: `WithRetentionPolicy()`; includes a scaffold-targeting overload that takes 6 positional string parameters and returns `RetentionPolicyStringBuilder<TEntity>`
+- `RetentionPolicyStringBuilder.cs` - String-based builder used by scaffolded `OnModelCreating` code; exposes `WithInitialStart(DateTime)` as a chained method (DateTime cannot be rendered as a positional literal via `MethodCallCodeFragment`)
 
 #### ContinuousAggregate/ (11 files)
 - `ContinuousAggregateAttribute.cs` - Entity-level attribute defining materialized view
@@ -226,6 +227,7 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 | `AnnotationRenderers/HypertableAnnotationRenderer.cs` | Renders hypertable and dimension annotations to fluent API or data annotation attributes |
 | `AnnotationRenderers/ContinuousAggregateAnnotationRenderer.cs` | Renders continuous aggregate annotations; parses the stored view definition via `ViewDefinitionParser` to reconstruct structured configuration |
 | `AnnotationRenderers/ContinuousAggregatePolicyAnnotationRenderer.cs` | Renders continuous aggregate policy annotations to `WithRefreshPolicy(...)` fluent API or `[ContinuousAggregatePolicy]` attribute |
+| `AnnotationRenderers/RetentionPolicyAnnotationRenderer.cs` | Renders retention policy annotations to `WithRetentionPolicy(...)` fluent API or `[RetentionPolicy]` attribute; `ShouldRender` guard requires the parent renderer (hypertable or continuous aggregate) to have already consumed its annotation |
 | `AnnotationRenderers/PolicyJobRendererHelper.cs` | Shared static helpers for rendering optional policy-job fields (InitialStart, ScheduleInterval, MaxRuntime, etc.) shared across all policy renderers |
 | `AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName`, `ResolveColumns` |
 | `AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` record: renders as `nameof(Property)` or `$"{nameof(Property)} DESC"` |
@@ -247,7 +249,7 @@ EF Core's scaffolding pipeline calls `TimescaleDbAnnotationCodeGenerator` to con
 - When `UseDataAnnotations = false` → `GenerateFluentApiCalls` → fluent API method chains in `OnModelCreating`
 - When `UseDataAnnotations = true` → `GenerateDataAnnotationAttributes` → `[Attribute]` declarations on entity classes
 
-Registered renderers: `HypertableAnnotationRenderer`, `ContinuousAggregateAnnotationRenderer`, `ContinuousAggregatePolicyAnnotationRenderer`.
+Registered renderers: `HypertableAnnotationRenderer`, `ContinuousAggregateAnnotationRenderer`, `ContinuousAggregatePolicyAnnotationRenderer`, `RetentionPolicyAnnotationRenderer`. Registration order matters: child renderers (`ContinuousAggregatePolicyAnnotationRenderer`, `RetentionPolicyAnnotationRenderer`) must run after their respective parent renderers so the `ShouldRender` guard can verify the parent annotation was consumed.
 
 `TimescaleCSharpModelGenerator` wraps EF Core's standard model generator and post-processes the generated files to inject missing `using` directives for TimescaleDB attribute namespaces. `TimescaleModelCodeGeneratorSelector` ensures this custom generator is selected.
 
