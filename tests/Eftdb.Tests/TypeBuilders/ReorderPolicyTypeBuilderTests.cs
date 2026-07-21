@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -613,6 +614,668 @@ public class ReorderPolicyTypeBuilderTests
         Assert.Equal("Timestamp", entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value);
         Assert.Equal(true, entityType.FindAnnotation(ReorderPolicyAnnotations.HasReorderPolicy)?.Value);
         Assert.Equal("metrics_time_idx", entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value);
+    }
+
+    #endregion
+
+    // ── EntityTypeBuilder-receiver scaffold overload ───────────────────────────
+
+    #region ScaffoldOverload_EntityTypeBuilder_Sets_HasReorderPolicy_And_IndexName
+
+    private class ScaffoldEtbBaseEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldEtbBaseContext : DbContext
+    {
+        public DbSet<ScaffoldEtbBaseEntity> Items => Set<ScaffoldEtbBaseEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldEtbBaseEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_etb_base");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy("ix_scaffold_etb_base", (string?)null, (string?)null, (int?)null, (string?)null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_EntityTypeBuilder_Sets_HasReorderPolicy_And_IndexName()
+    {
+        // Arrange
+        using ScaffoldEtbBaseContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldEtbBaseEntity))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(ReorderPolicyAnnotations.HasReorderPolicy)?.Value);
+        Assert.Equal("ix_scaffold_etb_base", entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value);
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_EntityTypeBuilder_Sets_All_Optional_Annotations_When_Provided
+
+    private class ScaffoldEtbFullEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldEtbFullContext : DbContext
+    {
+        public DbSet<ScaffoldEtbFullEntity> Items => Set<ScaffoldEtbFullEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldEtbFullEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_etb_full");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy("ix_scaffold_etb_full", "2 days", "01:00:00", 3, "00:10:00");
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_EntityTypeBuilder_Sets_All_Optional_Annotations_When_Provided()
+    {
+        // Arrange
+        using ScaffoldEtbFullContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldEtbFullEntity))!;
+
+        // Assert
+        Assert.Equal("2 days", entityType.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval)?.Value);
+        Assert.Equal("01:00:00", entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRuntime)?.Value);
+        Assert.Equal(3, entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRetries)?.Value);
+        Assert.Equal("00:10:00", entityType.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod)?.Value);
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_EntityTypeBuilder_Does_Not_Set_Optionals_When_All_Null
+
+    private class ScaffoldEtbNullsEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldEtbNullsContext : DbContext
+    {
+        public DbSet<ScaffoldEtbNullsEntity> Items => Set<ScaffoldEtbNullsEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldEtbNullsEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_etb_nulls");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy("ix_scaffold_etb_nulls", (string?)null, (string?)null, (int?)null, (string?)null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_EntityTypeBuilder_Does_Not_Set_Optionals_When_All_Null()
+    {
+        // Arrange
+        using ScaffoldEtbNullsContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldEtbNullsEntity))!;
+
+        // Assert
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval));
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRuntime));
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRetries));
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod));
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_EntityTypeBuilder_Returns_ReorderPolicyStringBuilder_Enabling_Chaining
+
+    private class ScaffoldEtbChainEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldEtbChainContext : DbContext
+    {
+        public DbSet<ScaffoldEtbChainEntity> Items => Set<ScaffoldEtbChainEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldEtbChainEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_etb_chain");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy("ix_scaffold_etb_chain", (string?)null, (string?)null, (int?)null, (string?)null)
+                      .WithInitialStart(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_EntityTypeBuilder_Returns_ReorderPolicyStringBuilder_Enabling_Chaining()
+    {
+        // Arrange
+        using ScaffoldEtbChainContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldEtbChainEntity))!;
+
+        // Assert
+        Assert.NotNull(entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart));
+        Assert.Equal(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart)!.Value);
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_EntityTypeBuilder_Does_Not_Write_InitialStart_Itself
+
+    private class ScaffoldEtbNoStartEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldEtbNoStartContext : DbContext
+    {
+        public DbSet<ScaffoldEtbNoStartEntity> Items => Set<ScaffoldEtbNoStartEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldEtbNoStartEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_etb_no_start");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy("ix_scaffold_etb_no_start", "1 day", (string?)null, (int?)null, (string?)null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_EntityTypeBuilder_Does_Not_Write_InitialStart_Itself()
+    {
+        // Arrange
+        using ScaffoldEtbNoStartContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldEtbNoStartEntity))!;
+
+        // Assert
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart));
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_EntityTypeBuilder_Parity_With_UserFacing_Overload
+
+    private class ScaffoldEtbParityUserEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldEtbParityScaffoldEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldEtbParityUserContext : DbContext
+    {
+        public DbSet<ScaffoldEtbParityUserEntity> Items => Set<ScaffoldEtbParityUserEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldEtbParityUserEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_etb_parity_user");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy(
+                    "ix_scaffold_etb_parity",
+                    scheduleInterval: "2 days",
+                    maxRuntime: "01:00:00",
+                    maxRetries: 3,
+                    retryPeriod: "00:10:00");
+            });
+        }
+    }
+
+    private class ScaffoldEtbParityScaffoldContext : DbContext
+    {
+        public DbSet<ScaffoldEtbParityScaffoldEntity> Items => Set<ScaffoldEtbParityScaffoldEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldEtbParityScaffoldEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_etb_parity_scaffold");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy("ix_scaffold_etb_parity", "2 days", "01:00:00", 3, "00:10:00");
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_EntityTypeBuilder_Parity_With_UserFacing_Overload()
+    {
+        // Arrange
+        using ScaffoldEtbParityUserContext userContext = new();
+        using ScaffoldEtbParityScaffoldContext scaffoldContext = new();
+
+        // Act
+        IEntityType userEntity = GetModel(userContext).FindEntityType(typeof(ScaffoldEtbParityUserEntity))!;
+        IEntityType scaffoldEntity = GetModel(scaffoldContext).FindEntityType(typeof(ScaffoldEtbParityScaffoldEntity))!;
+
+        // Assert
+        Assert.Equal(
+            userEntity.FindAnnotation(ReorderPolicyAnnotations.HasReorderPolicy)?.Value,
+            scaffoldEntity.FindAnnotation(ReorderPolicyAnnotations.HasReorderPolicy)?.Value);
+        Assert.Equal(
+            userEntity.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value,
+            scaffoldEntity.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value);
+        Assert.Equal(
+            userEntity.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval)?.Value,
+            scaffoldEntity.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval)?.Value);
+        Assert.Equal(
+            userEntity.FindAnnotation(ReorderPolicyAnnotations.MaxRuntime)?.Value,
+            scaffoldEntity.FindAnnotation(ReorderPolicyAnnotations.MaxRuntime)?.Value);
+        Assert.Equal(
+            userEntity.FindAnnotation(ReorderPolicyAnnotations.MaxRetries)?.Value,
+            scaffoldEntity.FindAnnotation(ReorderPolicyAnnotations.MaxRetries)?.Value);
+        Assert.Equal(
+            userEntity.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod)?.Value,
+            scaffoldEntity.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod)?.Value);
+    }
+
+    #endregion
+
+    // ── RetentionPolicyStringBuilder-receiver scaffold overload ───────────────
+
+    #region ScaffoldOverload_RetentionBuilder_Sets_Both_HasRetentionPolicy_And_HasReorderPolicy
+
+    private class ScaffoldRpRpEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldRpRpContext : DbContext
+    {
+        public DbSet<ScaffoldRpRpEntity> Items => Set<ScaffoldRpRpEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldRpRpEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_rp_rp");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithRetentionPolicy("7 days", (string?)null, (string?)null, (string?)null, (int?)null, (string?)null)
+                      .WithReorderPolicy("ix_scaffold_rp_rp", (string?)null, (string?)null, (int?)null, (string?)null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_RetentionBuilder_Sets_Both_HasRetentionPolicy_And_HasReorderPolicy()
+    {
+        // Arrange
+        using ScaffoldRpRpContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldRpRpEntity))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(ReorderPolicyAnnotations.HasReorderPolicy)?.Value);
+        Assert.Equal("ix_scaffold_rp_rp", entityType.FindAnnotation(ReorderPolicyAnnotations.IndexName)?.Value);
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_RetentionBuilder_Preserves_DropAfter
+
+    private class ScaffoldRpDropAfterEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldRpDropAfterContext : DbContext
+    {
+        public DbSet<ScaffoldRpDropAfterEntity> Items => Set<ScaffoldRpDropAfterEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldRpDropAfterEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_rp_drop_after");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithRetentionPolicy("30 days", (string?)null, (string?)null, (string?)null, (int?)null, (string?)null)
+                      .WithReorderPolicy("ix_scaffold_rp_drop_after", (string?)null, (string?)null, (int?)null, (string?)null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_RetentionBuilder_Preserves_DropAfter()
+    {
+        // Arrange
+        using ScaffoldRpDropAfterContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldRpDropAfterEntity))!;
+
+        // Assert
+        Assert.Equal("30 days", entityType.FindAnnotation(RetentionPolicyAnnotations.DropAfter)?.Value);
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_RetentionBuilder_Returns_ReorderPolicyStringBuilder_Enabling_WithInitialStart
+
+    private class ScaffoldRpStartEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldRpStartContext : DbContext
+    {
+        public DbSet<ScaffoldRpStartEntity> Items => Set<ScaffoldRpStartEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldRpStartEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_rp_start");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithRetentionPolicy("7 days", (string?)null, (string?)null, (string?)null, (int?)null, (string?)null)
+                      .WithReorderPolicy("ix_scaffold_rp_start", (string?)null, (string?)null, (int?)null, (string?)null)
+                      .WithInitialStart(new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_RetentionBuilder_Returns_ReorderPolicyStringBuilder_Enabling_WithInitialStart()
+    {
+        // Arrange
+        using ScaffoldRpStartContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldRpStartEntity))!;
+
+        // Assert
+        Assert.Equal(
+            new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+            entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart)?.Value);
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_RetentionBuilder_No_Optional_Reorder_Annotations_When_Null
+
+    private class ScaffoldRpNullsEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldRpNullsContext : DbContext
+    {
+        public DbSet<ScaffoldRpNullsEntity> Items => Set<ScaffoldRpNullsEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldRpNullsEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_rp_nulls");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithRetentionPolicy("7 days", (string?)null, (string?)null, (string?)null, (int?)null, (string?)null)
+                      .WithReorderPolicy("ix_scaffold_rp_nulls", (string?)null, (string?)null, (int?)null, (string?)null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_RetentionBuilder_No_Optional_Reorder_Annotations_When_Null()
+    {
+        // Arrange
+        using ScaffoldRpNullsContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldRpNullsEntity))!;
+
+        // Assert
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.ScheduleInterval));
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRuntime));
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.MaxRetries));
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.RetryPeriod));
+        Assert.Null(entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart));
+    }
+
+    #endregion
+
+    // ── ReorderPolicyStringBuilder ────────────────────────────────────────────
+
+    #region ReorderPolicyStringBuilder_WithInitialStart_Sets_InitialStart_Annotation
+
+    private class StringBuilderStartEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class StringBuilderStartContext : DbContext
+    {
+        public DbSet<StringBuilderStartEntity> Items => Set<StringBuilderStartEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringBuilderStartEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("sb_start");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy("ix_sb_start", (string?)null, (string?)null, (int?)null, (string?)null)
+                      .WithInitialStart(new DateTime(2025, 5, 15, 12, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void ReorderPolicyStringBuilder_WithInitialStart_Sets_InitialStart_Annotation()
+    {
+        // Arrange
+        using StringBuilderStartContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(StringBuilderStartEntity))!;
+
+        // Assert
+        Assert.Equal(
+            new DateTime(2025, 5, 15, 12, 0, 0, DateTimeKind.Utc),
+            entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart)?.Value);
+    }
+
+    #endregion
+
+    #region ReorderPolicyStringBuilder_WithInitialStart_Returns_Same_Instance
+
+    private class StringBuilderSameInstanceEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private (ReorderPolicyStringBuilder<StringBuilderSameInstanceEntity>? Original,
+             ReorderPolicyStringBuilder<StringBuilderSameInstanceEntity>? Returned) _sbSameInstanceCapture;
+
+    private class StringBuilderSameInstanceContext(ReorderPolicyTypeBuilderTests outer) : DbContext
+    {
+        public DbSet<StringBuilderSameInstanceEntity> Items => Set<StringBuilderSameInstanceEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringBuilderSameInstanceEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("sb_same_instance");
+                entity.IsHypertable(x => x.Timestamp);
+                ReorderPolicyStringBuilder<StringBuilderSameInstanceEntity> original =
+                    entity.WithReorderPolicy("ix_sb_same", (string?)null, (string?)null, (int?)null, (string?)null);
+                ReorderPolicyStringBuilder<StringBuilderSameInstanceEntity> returned =
+                    original.WithInitialStart(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+                outer._sbSameInstanceCapture = (original, returned);
+            });
+        }
+    }
+
+    [Fact]
+    public void ReorderPolicyStringBuilder_WithInitialStart_Returns_Same_Instance()
+    {
+        // Arrange & Act
+        using StringBuilderSameInstanceContext context = new(this);
+        _ = GetModel(context);
+
+        // Assert
+        Assert.NotNull(_sbSameInstanceCapture.Original);
+        Assert.Same(_sbSameInstanceCapture.Original, _sbSameInstanceCapture.Returned);
+    }
+
+    #endregion
+
+    #region ReorderPolicyStringBuilder_WithInitialStart_Repeated_Call_Uses_Latest_Value
+
+    private class StringBuilderRepeatEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class StringBuilderRepeatContext : DbContext
+    {
+        public DbSet<StringBuilderRepeatEntity> Items => Set<StringBuilderRepeatEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringBuilderRepeatEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("sb_repeat");
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy("ix_sb_repeat", (string?)null, (string?)null, (int?)null, (string?)null)
+                      .WithInitialStart(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                      .WithInitialStart(new DateTime(2026, 7, 4, 8, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void ReorderPolicyStringBuilder_WithInitialStart_Repeated_Call_Uses_Latest_Value()
+    {
+        // Arrange
+        using StringBuilderRepeatContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(StringBuilderRepeatEntity))!;
+
+        // Assert
+        Assert.Equal(
+            new DateTime(2026, 7, 4, 8, 0, 0, DateTimeKind.Utc),
+            entityType.FindAnnotation(ReorderPolicyAnnotations.InitialStart)?.Value);
     }
 
     #endregion

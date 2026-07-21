@@ -2,6 +2,7 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design;
 using Microsoft.EntityFrameworkCore;
@@ -1151,6 +1152,424 @@ public class ScaffoldedModelRenderingTests
 
         // Assert
         Assert.DoesNotContain("[RetentionPolicy(", entityFile.Code);
+    }
+
+    #endregion
+
+    // ── Reorder policy rendering ──────────────────────────────────────────────
+
+    #region Should_Render_WithReorderPolicy_Chained_In_Fluent_Scaffold_For_Hypertable
+
+    private class RrpHtSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpHtContextA : DbContext
+    {
+        public DbSet<RrpHtSource> Items => Set<RrpHtSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpHtSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_ht_source_a");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_rrp_ht_source_a");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithReorderPolicy_Chained_In_Fluent_Scaffold_For_Hypertable()
+    {
+        // Arrange & Act
+        using RrpHtContextA context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithReorderPolicy(", code);
+    }
+
+    #endregion
+
+    #region Should_Render_WithReorderPolicy_With_IndexName_Only_Five_Nulls_In_Fluent_Scaffold
+
+    private class RrpFiveNullsSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpFiveNullsContext : DbContext
+    {
+        public DbSet<RrpFiveNullsSource> Items => Set<RrpFiveNullsSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpFiveNullsSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_five_nulls_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_t");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithReorderPolicy_With_IndexName_Only_Five_Nulls_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RrpFiveNullsContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithReorderPolicy(\"ix_t\", null, null, null, null)", code);
+    }
+
+    #endregion
+
+    #region Should_Render_WithReorderPolicy_With_ScheduleInterval_In_Fluent_Scaffold
+
+    private class RrpScheduleIntervalSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpScheduleIntervalContext : DbContext
+    {
+        public DbSet<RrpScheduleIntervalSource> Items => Set<RrpScheduleIntervalSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpScheduleIntervalSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_schedule_interval_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_t");
+                e.HasAnnotation(ReorderPolicyAnnotations.ScheduleInterval, "2 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithReorderPolicy_With_ScheduleInterval_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RrpScheduleIntervalContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithReorderPolicy(\"ix_t\", \"2 days\", null, null, null)", code);
+    }
+
+    #endregion
+
+    #region Should_Render_WithReorderPolicy_Five_Args_In_Fluent_Scaffold
+
+    private class RrpFiveArgsSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpFiveArgsContext : DbContext
+    {
+        public DbSet<RrpFiveArgsSource> Items => Set<RrpFiveArgsSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpFiveArgsSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_five_args_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_t");
+                e.HasAnnotation(ReorderPolicyAnnotations.ScheduleInterval, "2 days");
+                e.HasAnnotation(ReorderPolicyAnnotations.MaxRuntime, "01:00:00");
+                e.HasAnnotation(ReorderPolicyAnnotations.MaxRetries, 3);
+                e.HasAnnotation(ReorderPolicyAnnotations.RetryPeriod, "00:10:00");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithReorderPolicy_Five_Args_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RrpFiveArgsContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithReorderPolicy(\"ix_t\", \"2 days\", \"01:00:00\", 3, \"00:10:00\")", code);
+    }
+
+    #endregion
+
+    #region Should_Render_WithInitialStart_Chained_After_WithReorderPolicy_In_Fluent_Scaffold
+
+    private class RrpInitialStartSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpInitialStartContext : DbContext
+    {
+        public DbSet<RrpInitialStartSource> Items => Set<RrpInitialStartSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpInitialStartSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_initial_start_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_rrp_initial_start");
+                e.HasAnnotation(ReorderPolicyAnnotations.InitialStart,
+                    new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithInitialStart_Chained_After_WithReorderPolicy_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RrpInitialStartContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithReorderPolicy(", code);
+        Assert.Contains(".WithInitialStart(", code);
+        Assert.True(
+            code.IndexOf(".WithReorderPolicy(", StringComparison.Ordinal) <
+            code.IndexOf(".WithInitialStart(", StringComparison.Ordinal),
+            ".WithInitialStart( must follow .WithReorderPolicy(.");
+    }
+
+    #endregion
+
+    #region Should_Render_WithReorderPolicy_After_WithRetentionPolicy_In_Fluent_Scaffold
+
+    private class RrpChainOrderSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpChainOrderContext : DbContext
+    {
+        public DbSet<RrpChainOrderSource> Items => Set<RrpChainOrderSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpChainOrderSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_chain_order_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_rrp_chain_order");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithReorderPolicy_After_WithRetentionPolicy_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RrpChainOrderContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithRetentionPolicy(", code);
+        Assert.Contains(".WithReorderPolicy(", code);
+        Assert.True(
+            code.IndexOf(".WithRetentionPolicy(", StringComparison.Ordinal) <
+            code.IndexOf(".WithReorderPolicy(", StringComparison.Ordinal),
+            ".WithRetentionPolicy( must precede .WithReorderPolicy( in the chain.");
+    }
+
+    #endregion
+
+    #region Should_Not_Render_WithReorderPolicy_When_IsHypertable_Still_Present_In_Fluent_Scaffold
+
+    private class RrpGuardHtSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpGuardHtContext : DbContext
+    {
+        public DbSet<RrpGuardHtSource> Items => Set<RrpGuardHtSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpGuardHtSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_guard_ht_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_rrp_guard_ht");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Render_WithReorderPolicy_When_IsHypertable_Still_Present_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RrpGuardHtContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.DoesNotContain(".WithReorderPolicy(", code);
+    }
+
+    #endregion
+
+    #region Should_Render_ReorderPolicyAttribute_In_DataAnnotations_Scaffold
+
+    private class RrpDaSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpDaContext : DbContext
+    {
+        public DbSet<RrpDaSource> Items => Set<RrpDaSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpDaSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_da_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_rrp_da");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_ReorderPolicyAttribute_In_DataAnnotations_Scaffold()
+    {
+        // Arrange & Act
+        using RrpDaContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: true);
+
+        ScaffoldedFile? entityFile = result.AdditionalFiles.FirstOrDefault(f => f.Path.Contains(nameof(RrpDaSource)));
+        Assert.NotNull(entityFile);
+
+        // Assert
+        Assert.Contains("[ReorderPolicy(", entityFile.Code);
+        Assert.DoesNotContain(".WithReorderPolicy(", result.ContextFile.Code);
+    }
+
+    #endregion
+
+    #region Should_Render_ReorderPolicyAttribute_With_InitialStart_As_ISO8601_In_DataAnnotations_Scaffold
+
+    private class RrpDaInitialStartSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpDaInitialStartContext : DbContext
+    {
+        public DbSet<RrpDaInitialStartSource> Items => Set<RrpDaInitialStartSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpDaInitialStartSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_da_initial_start_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_rrp_da_initial_start");
+                e.HasAnnotation(ReorderPolicyAnnotations.InitialStart,
+                    new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_ReorderPolicyAttribute_With_InitialStart_As_ISO8601_In_DataAnnotations_Scaffold()
+    {
+        // Arrange & Act
+        using RrpDaInitialStartContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: true);
+
+        ScaffoldedFile? entityFile = result.AdditionalFiles.FirstOrDefault(f => f.Path.Contains(nameof(RrpDaInitialStartSource)));
+        Assert.NotNull(entityFile);
+
+        // Assert
+        Assert.Contains("InitialStart = \"2025-06-01T00:00:00", entityFile.Code);
+    }
+
+    #endregion
+
+    #region Should_Not_Render_ReorderPolicyAttribute_When_IsHypertable_Not_Consumed_In_DataAnnotations_Scaffold
+
+    private class RrpDaGuardSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RrpDaGuardContext : DbContext
+    {
+        public DbSet<RrpDaGuardSource> Items => Set<RrpDaGuardSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RrpDaGuardSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rrp_da_guard_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+                e.HasAnnotation(ReorderPolicyAnnotations.IndexName, "ix_rrp_da_guard");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Render_ReorderPolicyAttribute_When_IsHypertable_Not_Consumed_In_DataAnnotations_Scaffold()
+    {
+        // Arrange & Act
+        using RrpDaGuardContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: true);
+
+        ScaffoldedFile? entityFile = result.AdditionalFiles.FirstOrDefault(f => f.Path.Contains(nameof(RrpDaGuardSource)));
+        Assert.NotNull(entityFile);
+
+        // Assert
+        Assert.DoesNotContain("[ReorderPolicy(", entityFile.Code);
     }
 
     #endregion

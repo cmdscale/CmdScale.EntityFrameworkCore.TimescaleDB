@@ -55,7 +55,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
         {
             Dictionary<(string, string), bool> compressionSettings = [];
             using DbCommand command = connection.CreateCommand();
-            command.CommandText = "SELECT hypertable_schema, hypertable_name, compression_enabled FROM timescaledb_information.hypertables;";
+            command.CommandText = @"
+                SELECT hypertable_schema, hypertable_name, compression_enabled
+                FROM timescaledb_information.hypertables
+                WHERE hypertable_schema NOT IN (
+                    '_timescaledb_internal',
+                    '_timescaledb_catalog',
+                    '_timescaledb_config',
+                    '_timescaledb_cache'
+                );";
             using DbDataReader reader = command.ExecuteReader();
             while (reader.Read())
             {
@@ -80,6 +88,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     time_interval::text AS time_interval_text,
                     integer_interval
                 FROM timescaledb_information.dimensions
+                WHERE hypertable_schema NOT IN (
+                    '_timescaledb_internal',
+                    '_timescaledb_catalog',
+                    '_timescaledb_config',
+                    '_timescaledb_cache'
+                )
                 ORDER BY hypertable_schema, hypertable_name, dimension_number;";
 
             using DbDataReader reader = command.ExecuteReader();

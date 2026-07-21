@@ -49,6 +49,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
                     additionalFile.Code = RemoveDesignUsings(additionalFile.Code);
                 }
 
+                scaffoldedModel.ContextFile.Code = AddMissingUsings(
+                    scaffoldedModel.ContextFile.Code,
+                    [typeof(TimescaleDbContextOptionsBuilderExtensions).Namespace!]);
+
                 if (!options.UseDataAnnotations)
                 {
                     return scaffoldedModel;
