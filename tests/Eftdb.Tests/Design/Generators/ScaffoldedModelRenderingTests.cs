@@ -2,6 +2,7 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -635,6 +636,521 @@ public class ScaffoldedModelRenderingTests
             ".WithMaxBatchesPerExecution( must follow .WithRefreshPolicy(.");
         Assert.True(withRefreshPolicyIdx < code.IndexOf(".WithRefreshNewestFirst(", StringComparison.Ordinal),
             ".WithRefreshNewestFirst( must follow .WithRefreshPolicy(.");
+    }
+
+    #endregion
+
+    // ── Retention policy rendering ────────────────────────────────────────────
+
+    #region Should_Render_WithRetentionPolicy_Chained_In_Fluent_Scaffold_For_Hypertable
+
+    private class RpHtSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpHtContextA : DbContext
+    {
+        public DbSet<RpHtSource> Items => Set<RpHtSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpHtSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_ht_source_a");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithRetentionPolicy_Chained_In_Fluent_Scaffold_For_Hypertable()
+    {
+        // Arrange & Act
+        using RpHtContextA context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".IsHypertable(", code);
+        Assert.Contains(".WithRetentionPolicy(", code);
+    }
+
+    #endregion
+
+    #region Should_Render_WithRetentionPolicy_With_DropAfter_Only_In_Fluent_Scaffold
+
+    private class RpSingleArgSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpSingleArgContext : DbContext
+    {
+        public DbSet<RpSingleArgSource> Items => Set<RpSingleArgSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpSingleArgSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_single_arg_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithRetentionPolicy_With_DropAfter_Only_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RpSingleArgContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithRetentionPolicy(\"7 days\", null, null, null, null, null)", code);
+    }
+
+    #endregion
+
+    #region Should_Render_WithRetentionPolicy_With_ScheduleInterval_In_Fluent_Scaffold
+
+    private class RpThreeArgsSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpThreeArgsContext : DbContext
+    {
+        public DbSet<RpThreeArgsSource> Items => Set<RpThreeArgsSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpThreeArgsSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_three_args_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+                e.HasAnnotation(RetentionPolicyAnnotations.ScheduleInterval, "1 day");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithRetentionPolicy_With_ScheduleInterval_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RpThreeArgsContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithRetentionPolicy(\"7 days\", null, \"1 day\", null, null, null)", code);
+    }
+
+    #endregion
+
+    #region Should_Render_WithRetentionPolicy_Six_Args_In_Fluent_Scaffold
+
+    private class RpSixArgsSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpSixArgsContext : DbContext
+    {
+        public DbSet<RpSixArgsSource> Items => Set<RpSixArgsSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpSixArgsSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_six_args_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+                e.HasAnnotation(RetentionPolicyAnnotations.ScheduleInterval, "1 day");
+                e.HasAnnotation(RetentionPolicyAnnotations.MaxRuntime, "01:00:00");
+                e.HasAnnotation(RetentionPolicyAnnotations.MaxRetries, 3);
+                e.HasAnnotation(RetentionPolicyAnnotations.RetryPeriod, "00:10:00");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithRetentionPolicy_Six_Args_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RpSixArgsContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithRetentionPolicy(\"7 days\", null, \"1 day\", \"01:00:00\", 3, \"00:10:00\")", code);
+    }
+
+    #endregion
+
+    #region Should_Render_WithRetentionPolicy_With_DropCreatedBefore_In_Fluent_Scaffold
+
+    private class RpDropCreatedBeforeSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpDropCreatedBeforeContext : DbContext
+    {
+        public DbSet<RpDropCreatedBeforeSource> Items => Set<RpDropCreatedBeforeSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpDropCreatedBeforeSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_drop_created_before_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropCreatedBefore, "30 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithRetentionPolicy_With_DropCreatedBefore_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RpDropCreatedBeforeContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithRetentionPolicy(null, \"30 days\", null, null, null, null)", code);
+    }
+
+    #endregion
+
+    #region Should_Render_WithInitialStart_Chained_After_WithRetentionPolicy_In_Fluent_Scaffold
+
+    private class RpInitialStartSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpInitialStartContext : DbContext
+    {
+        public DbSet<RpInitialStartSource> Items => Set<RpInitialStartSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpInitialStartSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_initial_start_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+                e.HasAnnotation(RetentionPolicyAnnotations.InitialStart,
+                    new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithInitialStart_Chained_After_WithRetentionPolicy_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RpInitialStartContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".WithRetentionPolicy(", code);
+        Assert.Contains(".WithInitialStart(", code);
+        Assert.True(
+            code.IndexOf(".WithRetentionPolicy(", StringComparison.Ordinal) <
+            code.IndexOf(".WithInitialStart(", StringComparison.Ordinal),
+            ".WithInitialStart( must follow .WithRetentionPolicy(.");
+    }
+
+    #endregion
+
+    #region Should_Render_WithRetentionPolicy_For_ContinuousAggregate_In_Fluent_Scaffold
+
+    private class RpCaSourceEntity { public DateTime Time { get; set; } public double Value { get; set; } }
+    private class RpCaViewEntity { public DateTime Bucket { get; set; } public double AvgValue { get; set; } }
+
+    private class RpCaContext : DbContext
+    {
+        public DbSet<RpCaSourceEntity> Sources => Set<RpCaSourceEntity>();
+        public DbSet<RpCaViewEntity> Views => Set<RpCaViewEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpCaSourceEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_ca_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<RpCaViewEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("rp_ca_view");
+                e.Property(x => x.Bucket).HasColumnName("bucket");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+                e.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "rp_ca_view");
+                e.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "rp_ca_source");
+                e.HasAnnotation(ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('01:00:00'::interval, rp_ca_source.\"time\") AS bucket," +
+                    " avg(rp_ca_source.value) AS avg_value" +
+                    " FROM rp_ca_source" +
+                    " GROUP BY time_bucket('01:00:00'::interval, rp_ca_source.\"time\")");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "30 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_WithRetentionPolicy_For_ContinuousAggregate_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RpCaContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.Contains(".IsContinuousAggregate(", code);
+        Assert.Contains(".WithRetentionPolicy(", code);
+    }
+
+    #endregion
+
+    #region Should_Not_Render_WithRetentionPolicy_When_IsHypertable_Still_Present_In_Fluent_Scaffold
+
+    private class RpGuardHtSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpGuardHtContext : DbContext
+    {
+        public DbSet<RpGuardHtSource> Items => Set<RpGuardHtSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpGuardHtSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_guard_ht_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Render_WithRetentionPolicy_When_IsHypertable_Still_Present_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RpGuardHtContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.DoesNotContain(".WithRetentionPolicy(", code);
+    }
+
+    #endregion
+
+    #region Should_Not_Render_WithRetentionPolicy_When_MaterializedViewName_Still_Present_In_Fluent_Scaffold
+
+    private class RpGuardCaSource { public DateTime Time { get; set; } public double Value { get; set; } }
+    private class RpGuardCaView { public DateTime Bucket { get; set; } public double AvgValue { get; set; } }
+
+    private class RpGuardCaContext : DbContext
+    {
+        public DbSet<RpGuardCaSource> Sources => Set<RpGuardCaSource>();
+        public DbSet<RpGuardCaView> Views => Set<RpGuardCaView>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpGuardCaSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_guard_ca_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<RpGuardCaView>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("rp_guard_ca_view");
+                e.Property(x => x.Bucket).HasColumnName("bucket");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+                e.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "rp_guard_ca_view");
+                e.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "rp_guard_ca_source");
+                e.HasAnnotation(ContinuousAggregateAnnotations.ViewDefinition, "UNPARSEABLE SQL");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Render_WithRetentionPolicy_When_MaterializedViewName_Still_Present_In_Fluent_Scaffold()
+    {
+        // Arrange & Act
+        using RpGuardCaContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: false);
+        string code = result.ContextFile.Code;
+
+        // Assert
+        Assert.DoesNotContain(".WithRetentionPolicy(", code);
+    }
+
+    #endregion
+
+    #region Should_Render_RetentionPolicyAttribute_In_DataAnnotations_Scaffold
+
+    private class RpDaSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpDaContext : DbContext
+    {
+        public DbSet<RpDaSource> Items => Set<RpDaSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpDaSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_da_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_RetentionPolicyAttribute_In_DataAnnotations_Scaffold()
+    {
+        // Arrange & Act
+        using RpDaContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: true);
+
+        ScaffoldedFile? entityFile = result.AdditionalFiles.FirstOrDefault(f => f.Path.Contains(nameof(RpDaSource)));
+        Assert.NotNull(entityFile);
+
+        // Assert
+        Assert.Contains("[RetentionPolicy(", entityFile.Code);
+        Assert.DoesNotContain(".WithRetentionPolicy(", result.ContextFile.Code);
+    }
+
+    #endregion
+
+    #region Should_Render_RetentionPolicyAttribute_With_InitialStart_As_ISO8601_In_DataAnnotations_Scaffold
+
+    private class RpDaInitialStartSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpDaInitialStartContext : DbContext
+    {
+        public DbSet<RpDaInitialStartSource> Items => Set<RpDaInitialStartSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpDaInitialStartSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_da_initial_start_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+                e.HasAnnotation(RetentionPolicyAnnotations.InitialStart,
+                    new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Render_RetentionPolicyAttribute_With_InitialStart_As_ISO8601_In_DataAnnotations_Scaffold()
+    {
+        // Arrange & Act
+        using RpDaInitialStartContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: true);
+
+        ScaffoldedFile? entityFile = result.AdditionalFiles.FirstOrDefault(f => f.Path.Contains(nameof(RpDaInitialStartSource)));
+        Assert.NotNull(entityFile);
+
+        // Assert
+        Assert.Contains("InitialStart = \"2025-06-01T00:00:00", entityFile.Code);
+    }
+
+    #endregion
+
+    #region Should_Not_Render_RetentionPolicyAttribute_When_IsHypertable_Not_Consumed_In_DataAnnotations_Scaffold
+
+    private class RpDaGuardSource { public DateTime Time { get; set; } public double Value { get; set; } }
+
+    private class RpDaGuardContext : DbContext
+    {
+        public DbSet<RpDaGuardSource> Items => Set<RpDaGuardSource>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RpDaGuardSource>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("rp_da_guard_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.HasAnnotation(HypertableAnnotations.IsHypertable, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
+                e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Render_RetentionPolicyAttribute_When_IsHypertable_Not_Consumed_In_DataAnnotations_Scaffold()
+    {
+        // Arrange & Act
+        using RpDaGuardContext context = new();
+        ScaffoldedModel result = Generate(context, useDataAnnotations: true);
+
+        ScaffoldedFile? entityFile = result.AdditionalFiles.FirstOrDefault(f => f.Path.Contains(nameof(RpDaGuardSource)));
+        Assert.NotNull(entityFile);
+
+        // Assert
+        Assert.DoesNotContain("[RetentionPolicy(", entityFile.Code);
     }
 
     #endregion

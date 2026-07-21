@@ -734,4 +734,658 @@ public class RetentionPolicyTypeBuilderTests
     }
 
     #endregion
+
+    #region ScaffoldOverload_Should_Set_HasRetentionPolicy_And_DropAfter
+
+    private class ScaffoldDropAfterEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldDropAfterContext : DbContext
+    {
+        public DbSet<ScaffoldDropAfterEntity> Items => Set<ScaffoldDropAfterEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldDropAfterEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_drop_after");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    dropCreatedBefore: null,
+                    scheduleInterval: null,
+                    maxRuntime: null,
+                    maxRetries: null,
+                    retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_Should_Set_HasRetentionPolicy_And_DropAfter()
+    {
+        // Arrange & Act
+        using ScaffoldDropAfterContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldDropAfterEntity))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Equal("7 days", entityType.FindAnnotation(RetentionPolicyAnnotations.DropAfter)?.Value);
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.DropCreatedBefore));
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_Should_Set_HasRetentionPolicy_And_DropCreatedBefore
+
+    private class ScaffoldDropCreatedBeforeEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldDropCreatedBeforeContext : DbContext
+    {
+        public DbSet<ScaffoldDropCreatedBeforeEntity> Items => Set<ScaffoldDropCreatedBeforeEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldDropCreatedBeforeEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_drop_created_before");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: null,
+                    dropCreatedBefore: "30 days",
+                    scheduleInterval: null,
+                    maxRuntime: null,
+                    maxRetries: null,
+                    retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_Should_Set_HasRetentionPolicy_And_DropCreatedBefore()
+    {
+        // Arrange & Act
+        using ScaffoldDropCreatedBeforeContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldDropCreatedBeforeEntity))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Equal("30 days", entityType.FindAnnotation(RetentionPolicyAnnotations.DropCreatedBefore)?.Value);
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.DropAfter));
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_Should_Set_Optional_Annotations_When_Provided
+
+    private class ScaffoldAllParamsEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldAllParamsContext : DbContext
+    {
+        public DbSet<ScaffoldAllParamsEntity> Items => Set<ScaffoldAllParamsEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldAllParamsEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_all_params");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    dropCreatedBefore: null,
+                    scheduleInterval: "1 day",
+                    maxRuntime: "01:00:00",
+                    maxRetries: 3,
+                    retryPeriod: "00:10:00");
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_Should_Set_Optional_Annotations_When_Provided()
+    {
+        // Arrange & Act
+        using ScaffoldAllParamsContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldAllParamsEntity))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Equal("7 days", entityType.FindAnnotation(RetentionPolicyAnnotations.DropAfter)?.Value);
+        Assert.Equal("1 day", entityType.FindAnnotation(RetentionPolicyAnnotations.ScheduleInterval)?.Value);
+        Assert.Equal("01:00:00", entityType.FindAnnotation(RetentionPolicyAnnotations.MaxRuntime)?.Value);
+        Assert.Equal(3, entityType.FindAnnotation(RetentionPolicyAnnotations.MaxRetries)?.Value);
+        Assert.Equal("00:10:00", entityType.FindAnnotation(RetentionPolicyAnnotations.RetryPeriod)?.Value);
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_Should_Not_Set_Optional_Annotations_When_All_Null
+
+    private class ScaffoldMinimalParamsEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldMinimalParamsContext : DbContext
+    {
+        public DbSet<ScaffoldMinimalParamsEntity> Items => Set<ScaffoldMinimalParamsEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldMinimalParamsEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_minimal_params");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    dropCreatedBefore: null,
+                    scheduleInterval: null,
+                    maxRuntime: null,
+                    maxRetries: null,
+                    retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_Should_Not_Set_Optional_Annotations_When_All_Null()
+    {
+        // Arrange & Act
+        using ScaffoldMinimalParamsContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldMinimalParamsEntity))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.ScheduleInterval));
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.MaxRuntime));
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.MaxRetries));
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.RetryPeriod));
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.InitialStart));
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_Should_Throw_When_Both_DropAfter_And_DropCreatedBefore_Specified
+
+    private class ScaffoldBothEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldBothContext : DbContext
+    {
+        public DbSet<ScaffoldBothEntity> Items => Set<ScaffoldBothEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldBothEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_both");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    dropCreatedBefore: "30 days",
+                    scheduleInterval: null,
+                    maxRuntime: null,
+                    maxRetries: null,
+                    retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_Should_Throw_When_Both_DropAfter_And_DropCreatedBefore_Specified()
+    {
+        // Arrange
+        using ScaffoldBothContext context = new();
+
+        // Act & Assert
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => GetModel(context));
+        Assert.Contains("mutually exclusive", exception.Message);
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_Should_Throw_When_Neither_DropAfter_Nor_DropCreatedBefore_Specified
+
+    private class ScaffoldNeitherEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldNeitherContext : DbContext
+    {
+        public DbSet<ScaffoldNeitherEntity> Items => Set<ScaffoldNeitherEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldNeitherEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_neither");
+                entity.WithRetentionPolicy(
+                    dropAfter: null,
+                    dropCreatedBefore: null,
+                    scheduleInterval: null,
+                    maxRuntime: null,
+                    maxRetries: null,
+                    retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_Should_Throw_When_Neither_DropAfter_Nor_DropCreatedBefore_Specified()
+    {
+        // Arrange
+        using ScaffoldNeitherContext context = new();
+
+        // Act & Assert
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => GetModel(context));
+        Assert.Contains("Exactly one", exception.Message);
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_Should_Return_RetentionPolicyStringBuilder_For_Chaining
+
+    private class ScaffoldStringBuilderEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldStringBuilderContext : DbContext
+    {
+        public DbSet<ScaffoldStringBuilderEntity> Items => Set<ScaffoldStringBuilderEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldStringBuilderEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_string_builder");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    dropCreatedBefore: null,
+                    scheduleInterval: null,
+                    maxRuntime: null,
+                    maxRetries: null,
+                    retryPeriod: null)
+                    .WithInitialStart(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_Should_Return_RetentionPolicyStringBuilder_For_Chaining()
+    {
+        // Arrange & Act
+        using ScaffoldStringBuilderContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldStringBuilderEntity))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Equal("7 days", entityType.FindAnnotation(RetentionPolicyAnnotations.DropAfter)?.Value);
+        Assert.NotNull(entityType.FindAnnotation(RetentionPolicyAnnotations.InitialStart));
+    }
+
+    #endregion
+
+    #region ScaffoldOverload_Should_Not_Write_InitialStart_Without_StringBuilder_Chain
+
+    private class ScaffoldNoInitialStartEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ScaffoldNoInitialStartContext : DbContext
+    {
+        public DbSet<ScaffoldNoInitialStartEntity> Items => Set<ScaffoldNoInitialStartEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ScaffoldNoInitialStartEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("scaffold_no_initial_start");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    dropCreatedBefore: null,
+                    scheduleInterval: null,
+                    maxRuntime: null,
+                    maxRetries: null,
+                    retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_Should_Not_Write_InitialStart_Without_StringBuilder_Chain()
+    {
+        // Arrange & Act
+        using ScaffoldNoInitialStartContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ScaffoldNoInitialStartEntity))!;
+
+        // Assert
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.InitialStart));
+    }
+
+    #endregion
+
+    // ── RetentionPolicyStringBuilder tests ───────────────────────────────────
+
+    #region StringBuilder_WithInitialStart_Sets_Annotation
+
+    private class StringBuilderInitialStartEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class StringBuilderInitialStartContext : DbContext
+    {
+        public DbSet<StringBuilderInitialStartEntity> Items => Set<StringBuilderInitialStartEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringBuilderInitialStartEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("sb_initial_start");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    dropCreatedBefore: null,
+                    scheduleInterval: null,
+                    maxRuntime: null,
+                    maxRetries: null,
+                    retryPeriod: null)
+                    .WithInitialStart(new DateTime(2026, 3, 15, 8, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithInitialStart_Sets_Annotation()
+    {
+        // Arrange & Act
+        using StringBuilderInitialStartContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(StringBuilderInitialStartEntity))!;
+
+        // Assert
+        object? value = entityType.FindAnnotation(RetentionPolicyAnnotations.InitialStart)?.Value;
+        Assert.NotNull(value);
+        Assert.IsType<DateTime>(value);
+        Assert.Equal(new DateTime(2026, 3, 15, 8, 0, 0, DateTimeKind.Utc), (DateTime)value);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithInitialStart_Returns_Builder_For_Chaining
+
+    private class StringBuilderChainEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class StringBuilderChainContext : DbContext
+    {
+        public DbSet<StringBuilderChainEntity> Items => Set<StringBuilderChainEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringBuilderChainEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("sb_chain");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                RetentionPolicyStringBuilder<StringBuilderChainEntity> builder =
+                    entity.WithRetentionPolicy(
+                        dropAfter: "7 days",
+                        dropCreatedBefore: null,
+                        scheduleInterval: null,
+                        maxRuntime: null,
+                        maxRetries: null,
+                        retryPeriod: null);
+
+                RetentionPolicyStringBuilder<StringBuilderChainEntity> chainResult =
+                    builder.WithInitialStart(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+                Assert.Same(builder, chainResult);
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithInitialStart_Returns_Builder_For_Chaining()
+    {
+        // Arrange & Act
+        using StringBuilderChainContext context = new();
+        GetModel(context);
+    }
+
+    #endregion
+
+    #region StringBuilder_Repeated_WithInitialStart_Latest_Value_Wins
+
+    private class StringBuilderRepeatedEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class StringBuilderRepeatedContext : DbContext
+    {
+        public DbSet<StringBuilderRepeatedEntity> Items => Set<StringBuilderRepeatedEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringBuilderRepeatedEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("sb_repeated");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    dropCreatedBefore: null,
+                    scheduleInterval: null,
+                    maxRuntime: null,
+                    maxRetries: null,
+                    retryPeriod: null)
+                    .WithInitialStart(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                    .WithInitialStart(new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_Repeated_WithInitialStart_Latest_Value_Wins()
+    {
+        // Arrange & Act
+        using StringBuilderRepeatedContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(StringBuilderRepeatedEntity))!;
+
+        // Assert
+        object? value = entityType.FindAnnotation(RetentionPolicyAnnotations.InitialStart)?.Value;
+        Assert.NotNull(value);
+        Assert.Equal(new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc), (DateTime)value);
+    }
+
+    #endregion
+
+    // ── Parity test: scaffold overload vs. named-param overload ──────────────
+
+    #region ScaffoldOverload_Produces_Identical_Annotations_To_NamedParam_Overload
+
+    private class ParityNamedParamEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ParityScaffoldEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ParityNamedParamContext : DbContext
+    {
+        public DbSet<ParityNamedParamEntity> Items => Set<ParityNamedParamEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ParityNamedParamEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("parity_named");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    scheduleInterval: "1 day",
+                    maxRuntime: "01:00:00",
+                    maxRetries: 3,
+                    retryPeriod: "00:10:00");
+            });
+        }
+    }
+
+    private class ParityScaffoldContext : DbContext
+    {
+        public DbSet<ParityScaffoldEntity> Items => Set<ParityScaffoldEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ParityScaffoldEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("parity_scaffold");
+                entity.Property(x => x.Timestamp).HasColumnName("timestamp");
+                entity.WithRetentionPolicy(
+                    dropAfter: "7 days",
+                    dropCreatedBefore: null,
+                    scheduleInterval: "1 day",
+                    maxRuntime: "01:00:00",
+                    maxRetries: 3,
+                    retryPeriod: "00:10:00");
+            });
+        }
+    }
+
+    [Fact]
+    public void ScaffoldOverload_Produces_Identical_Annotations_To_NamedParam_Overload()
+    {
+        // Arrange & Act
+        using ParityNamedParamContext namedCtx = new();
+        using ParityScaffoldContext scaffoldCtx = new();
+
+        IModel namedModel = GetModel(namedCtx);
+        IModel scaffoldModel = GetModel(scaffoldCtx);
+
+        IEntityType namedEntity = namedModel.FindEntityType(typeof(ParityNamedParamEntity))!;
+        IEntityType scaffoldEntity = scaffoldModel.FindEntityType(typeof(ParityScaffoldEntity))!;
+
+        // Assert
+        string[] sharedAnnotationKeys =
+        [
+            RetentionPolicyAnnotations.HasRetentionPolicy,
+            RetentionPolicyAnnotations.DropAfter,
+            RetentionPolicyAnnotations.ScheduleInterval,
+            RetentionPolicyAnnotations.MaxRuntime,
+            RetentionPolicyAnnotations.MaxRetries,
+            RetentionPolicyAnnotations.RetryPeriod,
+        ];
+
+        foreach (string key in sharedAnnotationKeys)
+        {
+            object? namedValue = namedEntity.FindAnnotation(key)?.Value;
+            object? scaffoldValue = scaffoldEntity.FindAnnotation(key)?.Value;
+            Assert.Equal(namedValue, scaffoldValue);
+        }
+    }
+
+    #endregion
 }
