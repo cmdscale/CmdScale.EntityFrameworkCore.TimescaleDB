@@ -37,7 +37,7 @@ This command will:
 
 ### Data Annotations Variant
 
-Add `--data-annotations` to express the TimescaleDB configuration as attributes on the entity classes (`[Hypertable]`, `[ContinuousAggregate]`, `[TimeBucket]`, `[Aggregate]`, `[GroupByColumn]`, ...) instead of Fluent API calls in `OnModelCreating`:
+Add `--data-annotations` to express the TimescaleDB configuration as attributes on the entity classes (`[Hypertable]`, `[ContinuousAggregate]`, ...) instead of Fluent API calls in `OnModelCreating`:
 
 ```bash
 dotnet ef dbcontext scaffold \

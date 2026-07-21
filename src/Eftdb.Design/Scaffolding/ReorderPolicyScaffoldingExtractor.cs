@@ -51,10 +51,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         string indexName = reader.GetString(2);
                         DateTime? initialStart = reader.IsDBNull(3) ? null : reader.GetDateTime(3);
 
-                        string? scheduleInterval = reader.IsDBNull(4) ? null : reader.GetString(4);
-                        string? maxRuntime = reader.IsDBNull(5) ? null : reader.GetString(5);
+                        string? scheduleInterval = reader.IsDBNull(4) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(4));
+                        string? maxRuntime = reader.IsDBNull(5) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(5));
                         int? maxRetries = reader.IsDBNull(6) ? null : reader.GetInt32(6);
-                        string? retryPeriod = reader.IsDBNull(7) ? null : reader.GetString(7);
+                        string? retryPeriod = reader.IsDBNull(7) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(7));
 
                         if (!string.IsNullOrEmpty(indexName))
                         {

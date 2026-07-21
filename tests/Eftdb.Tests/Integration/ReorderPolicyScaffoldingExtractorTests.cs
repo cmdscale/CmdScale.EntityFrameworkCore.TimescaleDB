@@ -222,7 +222,7 @@ public class ReorderPolicyScaffoldingExtractorTests : MigrationTestBase, IAsyncL
 
         Assert.Single(result);
         ReorderPolicyScaffoldingExtractor.ReorderPolicyInfo info = (ReorderPolicyScaffoldingExtractor.ReorderPolicyInfo)result[("public", "Metrics")];
-        Assert.Equal("12:00:00", info.ScheduleInterval);
+        Assert.Equal("12 hours", info.ScheduleInterval);
     }
 
     #endregion
@@ -270,7 +270,7 @@ public class ReorderPolicyScaffoldingExtractorTests : MigrationTestBase, IAsyncL
 
         Assert.Single(result);
         ReorderPolicyScaffoldingExtractor.ReorderPolicyInfo info = (ReorderPolicyScaffoldingExtractor.ReorderPolicyInfo)result[("public", "Metrics")];
-        Assert.Equal("01:00:00", info.MaxRuntime);
+        Assert.Equal("1 hour", info.MaxRuntime);
     }
 
     #endregion
@@ -366,7 +366,7 @@ public class ReorderPolicyScaffoldingExtractorTests : MigrationTestBase, IAsyncL
 
         Assert.Single(result);
         ReorderPolicyScaffoldingExtractor.ReorderPolicyInfo info = (ReorderPolicyScaffoldingExtractor.ReorderPolicyInfo)result[("public", "Metrics")];
-        Assert.Equal("00:10:00", info.RetryPeriod);
+        Assert.Equal("10 minutes", info.RetryPeriod);
     }
 
     #endregion
@@ -490,10 +490,10 @@ public class ReorderPolicyScaffoldingExtractorTests : MigrationTestBase, IAsyncL
         Assert.NotNull(info.InitialStart);
         DateTime expectedDate = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         Assert.Equal(expectedDate, info.InitialStart.Value);
-        Assert.Equal("06:00:00", info.ScheduleInterval);
-        Assert.Equal("02:00:00", info.MaxRuntime);
+        Assert.Equal("6 hours", info.ScheduleInterval);
+        Assert.Equal("2 hours", info.MaxRuntime);
         Assert.Equal(3, info.MaxRetries);
-        Assert.Equal("00:15:00", info.RetryPeriod);
+        Assert.Equal("15 minutes", info.RetryPeriod);
     }
 
     #endregion

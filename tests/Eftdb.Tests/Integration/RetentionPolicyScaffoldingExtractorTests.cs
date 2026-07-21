@@ -178,9 +178,9 @@ public class RetentionPolicyScaffoldingExtractorTests : MigrationTestBase, IAsyn
         Assert.Equal("14 days", info.DropAfter);
         Assert.Null(info.DropCreatedBefore);
         Assert.Equal("1 day", info.ScheduleInterval);
-        Assert.Equal("02:00:00", info.MaxRuntime);
+        Assert.Equal("2 hours", info.MaxRuntime);
         Assert.Equal(5, info.MaxRetries);
-        Assert.Equal("00:15:00", info.RetryPeriod);
+        Assert.Equal("15 minutes", info.RetryPeriod);
     }
 
     #endregion
@@ -540,11 +540,10 @@ public class RetentionPolicyScaffoldingExtractorTests : MigrationTestBase, IAsyn
         Assert.Equal(true, table[RetentionPolicyAnnotations.HasRetentionPolicy]);
         Assert.Equal("14 days", table[RetentionPolicyAnnotations.DropAfter]);
         Assert.Null(table[RetentionPolicyAnnotations.DropCreatedBefore]);
-        // PostgreSQL normalizes sub-day intervals to HH:MM:SS form on the round-trip.
-        Assert.Equal("12:00:00", table[RetentionPolicyAnnotations.ScheduleInterval]);
-        Assert.Equal("01:00:00", table[RetentionPolicyAnnotations.MaxRuntime]);
+        Assert.Equal("12 hours", table[RetentionPolicyAnnotations.ScheduleInterval]);
+        Assert.Equal("1 hour", table[RetentionPolicyAnnotations.MaxRuntime]);
         Assert.Equal(3, table[RetentionPolicyAnnotations.MaxRetries]);
-        Assert.Equal("00:15:00", table[RetentionPolicyAnnotations.RetryPeriod]);
+        Assert.Equal("15 minutes", table[RetentionPolicyAnnotations.RetryPeriod]);
 
         DateTime expectedInitialStart = new(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
         DateTime actualInitialStart = Assert.IsType<DateTime>(table[RetentionPolicyAnnotations.InitialStart]);

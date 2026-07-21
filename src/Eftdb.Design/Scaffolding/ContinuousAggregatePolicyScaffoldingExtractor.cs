@@ -53,7 +53,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         string viewSchema = reader.GetString(0);
                         string viewName = reader.GetString(1);
                         string? configJson = reader.IsDBNull(2) ? null : reader.GetString(2);
-                        string? scheduleInterval = reader.IsDBNull(3) ? null : reader.GetString(3);
+                        string? scheduleInterval = reader.IsDBNull(3) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(3));
                         DateTime? initialStart = reader.IsDBNull(4) ? null : reader.GetDateTime(4);
 
                         // Parse the JSONB config to extract policy parameters

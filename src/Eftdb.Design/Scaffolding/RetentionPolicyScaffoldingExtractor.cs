@@ -53,10 +53,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         string name = reader.GetString(1);
                         string? configJson = reader.IsDBNull(2) ? null : reader.GetString(2);
                         DateTime? initialStart = reader.IsDBNull(3) ? null : reader.GetDateTime(3);
-                        string? scheduleInterval = reader.IsDBNull(4) ? null : reader.GetString(4);
-                        string? maxRuntime = reader.IsDBNull(5) ? null : reader.GetString(5);
+                        string? scheduleInterval = reader.IsDBNull(4) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(4));
+                        string? maxRuntime = reader.IsDBNull(5) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(5));
                         int? maxRetries = reader.IsDBNull(6) ? null : reader.GetInt32(6);
-                        string? retryPeriod = reader.IsDBNull(7) ? null : reader.GetString(7);
+                        string? retryPeriod = reader.IsDBNull(7) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(7));
 
                         // Parse the JSONB config to extract drop_after or drop_created_before
                         string? dropAfter = null;

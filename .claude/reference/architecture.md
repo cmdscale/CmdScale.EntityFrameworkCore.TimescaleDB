@@ -73,12 +73,17 @@ This document provides detailed architectural information for the CmdScale.Entit
 - `ContinuousAggregateBuilderCore.cs` - Internal shared annotation-writing logic for both builder types
 - `ContinuousAggregateTypeBuilder.cs` - Fluent API extensions (`IsContinuousAggregate`)
 
-#### ContinuousAggregatePolicy/ (5 files)
+#### ContinuousAggregatePolicy/ (7 files)
 - `ContinuousAggregatePolicyAttribute.cs` - Data annotation: `[ContinuousAggregatePolicy]`
 - `ContinuousAggregatePolicyConvention.cs` - IEntityTypeAddedConvention implementation
 - `ContinuousAggregatePolicyAnnotations.cs` - Annotation constants
-- `ContinuousAggregatePolicyBuilder.cs` - Fluent API builder
+- `ContinuousAggregatePolicyBuilder.cs` - Typed fluent API builder (code-first)
+- `ContinuousAggregatePolicyBuilderCore.cs` - Shared annotation-writing logic for both builder types (mirrors `ContinuousAggregateBuilderCore`)
+- `ContinuousAggregatePolicyStringBuilder.cs` - String-based builder used by scaffolded `OnModelCreating` code
 - `ContinuousAggregateBuilderPolicyExtensions.cs` - Extension methods for builder
+
+#### Cross-cutting (ContinuousAggregatePolicy + ReorderPolicy + RetentionPolicy)
+- `PolicyJobBuilderCore.cs` - Shared base class providing annotation helpers for policy-job fields common to all three policy builder cores (ScheduleInterval, MaxRuntime, MaxRetries, RetryPeriod, InitialStart)
 
 #### Cross-cutting
 - `TimeColumnStoreTypeValidationConvention.cs` - IModelFinalizedConvention validating that hypertable and continuous-aggregate time columns resolve to a PostgreSQL time-dimension store type (timestamp/timestamptz/date/integer); backed by `Internals/TimeColumnStoreTypeValidator.cs`
@@ -220,6 +225,8 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 | `AnnotationRenderers/IFeatureAnnotationRenderer.cs` | Per-feature renderer interface: `GenerateFluentApiCalls` + `GenerateDataAnnotationAttributes` |
 | `AnnotationRenderers/HypertableAnnotationRenderer.cs` | Renders hypertable and dimension annotations to fluent API or data annotation attributes |
 | `AnnotationRenderers/ContinuousAggregateAnnotationRenderer.cs` | Renders continuous aggregate annotations; parses the stored view definition via `ViewDefinitionParser` to reconstruct structured configuration |
+| `AnnotationRenderers/ContinuousAggregatePolicyAnnotationRenderer.cs` | Renders continuous aggregate policy annotations to `WithRefreshPolicy(...)` fluent API or `[ContinuousAggregatePolicy]` attribute |
+| `AnnotationRenderers/PolicyJobRendererHelper.cs` | Shared static helpers for rendering optional policy-job fields (InitialStart, ScheduleInterval, MaxRuntime, etc.) shared across all policy renderers |
 | `AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName`, `ResolveColumns` |
 | `AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` record: renders as `nameof(Property)` or `$"{nameof(Property)} DESC"` |
 
@@ -228,15 +235,19 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 `dotnet ef dbcontext scaffold` runs in two phases:
 
 **Phase 1 — Database extraction** (`TimescaleDatabaseModelFactory.cs` + `Scaffolding/`):
-`TimescaleDatabaseModelFactory` overrides NpgsqlDatabaseModelFactory. After the base factory builds the `DatabaseModel` from the database schema, it calls each extractor/applier pair to layer TimescaleDB metadata on top as annotations:
+`TimescaleDatabaseModelFactory` overrides NpgsqlDatabaseModelFactory. After the base factory builds the `DatabaseModel` from the database schema, it calls each extractor/applier pair to layer TimescaleDB metadata on top as annotations. All interval fields are normalized to humanized units (e.g. `"1 hour"`) via `IntervalParsingHelper.NormalizeInterval` to avoid phantom migrations from PostgreSQL's `HH:MM:SS` rendering:
 - `HypertableScaffoldingExtractor` + `HypertableAnnotationApplier` — hypertable config, dimensions, chunk time interval
 - `ReorderPolicyScaffoldingExtractor` + `ReorderPolicyAnnotationApplier`
+- `RetentionPolicyScaffoldingExtractor` + `RetentionPolicyAnnotationApplier`
 - `ContinuousAggregateScaffoldingExtractor` + `ContinuousAggregateAnnotationApplier`
+- `ContinuousAggregatePolicyScaffoldingExtractor` + `ContinuousAggregatePolicyAnnotationApplier`
 
 **Phase 2 — Annotation code generation** (`TimescaleDbAnnotationCodeGenerator` + `AnnotationRenderers/`):
 EF Core's scaffolding pipeline calls `TimescaleDbAnnotationCodeGenerator` to convert those annotations into C# code. The dispatcher iterates its registered `IFeatureAnnotationRenderer` implementations:
 - When `UseDataAnnotations = false` → `GenerateFluentApiCalls` → fluent API method chains in `OnModelCreating`
 - When `UseDataAnnotations = true` → `GenerateDataAnnotationAttributes` → `[Attribute]` declarations on entity classes
+
+Registered renderers: `HypertableAnnotationRenderer`, `ContinuousAggregateAnnotationRenderer`, `ContinuousAggregatePolicyAnnotationRenderer`.
 
 `TimescaleCSharpModelGenerator` wraps EF Core's standard model generator and post-processes the generated files to inject missing `using` directives for TimescaleDB attribute namespaces. `TimescaleModelCodeGeneratorSelector` ensures this custom generator is selected.
 
