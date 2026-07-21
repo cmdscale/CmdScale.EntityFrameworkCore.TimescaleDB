@@ -32,6 +32,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
         [
             new HypertableAnnotationRenderer(),
             new ContinuousAggregateAnnotationRenderer(reporter),
+            new ContinuousAggregatePolicyAnnotationRenderer(),
         ];
 
         private readonly Dictionary<IEntityType, IReadOnlyList<AttributeCodeFragment>> _entityAttributeCache = [];

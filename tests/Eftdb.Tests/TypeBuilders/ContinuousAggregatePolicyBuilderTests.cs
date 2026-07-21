@@ -716,4 +716,707 @@ public class ContinuousAggregatePolicyBuilderTests
     }
 
     #endregion
+
+    // ── String-context builder (ContinuousAggregateStringBuilder path) ─────
+
+    #region StringBuilder_WithRefreshPolicy_Should_Set_HasRefreshPolicy_Annotation
+
+    private class MetricSource13
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView13
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderRefreshPolicyContext13 : DbContext
+    {
+        public DbSet<MetricSource13> Metrics => Set<MetricSource13>();
+        public DbSet<AggregateView13> Aggregates => Set<AggregateView13>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource13>(entity =>
+            {
+                entity.ToTable("Metrics13");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView13>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_13", "MetricSource13", "1 hour", "Timestamp")
+                    .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour");
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithRefreshPolicy_Should_Set_HasRefreshPolicy_Annotation()
+    {
+        // Arrange
+        using StringBuilderRefreshPolicyContext13 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView13))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy)?.Value);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithRefreshPolicy_Should_Set_Offset_And_Schedule_Annotations
+
+    private class MetricSource14
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView14
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderOffsetsContext14 : DbContext
+    {
+        public DbSet<MetricSource14> Metrics => Set<MetricSource14>();
+        public DbSet<AggregateView14> Aggregates => Set<AggregateView14>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource14>(entity =>
+            {
+                entity.ToTable("Metrics14");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView14>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_14", "MetricSource14", "1 hour", "Timestamp")
+                    .WithRefreshPolicy(startOffset: "7 days", endOffset: "30 minutes", scheduleInterval: "2 hours");
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithRefreshPolicy_Should_Set_Offset_And_Schedule_Annotations()
+    {
+        // Arrange
+        using StringBuilderOffsetsContext14 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView14))!;
+
+        // Assert
+        Assert.Equal("7 days", entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset)?.Value);
+        Assert.Equal("30 minutes", entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.EndOffset)?.Value);
+        Assert.Equal("2 hours", entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval)?.Value);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithRefreshPolicy_Should_Not_Set_Null_Or_WhiteSpace_Offsets
+
+    private class MetricSource15
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView15
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderNullOffsetsContext15 : DbContext
+    {
+        public DbSet<MetricSource15> Metrics => Set<MetricSource15>();
+        public DbSet<AggregateView15> Aggregates => Set<AggregateView15>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource15>(entity =>
+            {
+                entity.ToTable("Metrics15");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView15>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_15", "MetricSource15", "1 hour", "Timestamp")
+                    .WithRefreshPolicy(startOffset: null, endOffset: " ", scheduleInterval: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithRefreshPolicy_Should_Not_Set_Null_Or_WhiteSpace_Offsets()
+    {
+        // Arrange
+        using StringBuilderNullOffsetsContext15 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView15))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy)?.Value);
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset));
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.EndOffset));
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval));
+    }
+
+    #endregion
+
+    #region StringBuilder_WithInitialStart_Should_Set_Annotation
+
+    private class MetricSource16
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView16
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderInitialStartContext16 : DbContext
+    {
+        public DbSet<MetricSource16> Metrics => Set<MetricSource16>();
+        public DbSet<AggregateView16> Aggregates => Set<AggregateView16>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource16>(entity =>
+            {
+                entity.ToTable("Metrics16");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView16>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_16", "MetricSource16", "1 hour", "Timestamp")
+                    .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour")
+                    .WithInitialStart(new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithInitialStart_Should_Set_Annotation()
+    {
+        // Arrange
+        using StringBuilderInitialStartContext16 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView16))!;
+
+        // Assert
+        object? value = entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.InitialStart)?.Value;
+        Assert.NotNull(value);
+        Assert.IsType<DateTime>(value);
+        Assert.Equal(new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc), (DateTime)value);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithIfNotExists_Should_Set_Annotation
+
+    private class MetricSource17
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView17
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderIfNotExistsContext17 : DbContext
+    {
+        public DbSet<MetricSource17> Metrics => Set<MetricSource17>();
+        public DbSet<AggregateView17> Aggregates => Set<AggregateView17>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource17>(entity =>
+            {
+                entity.ToTable("Metrics17");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView17>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_17", "MetricSource17", "1 hour", "Timestamp")
+                    .WithRefreshPolicy()
+                    .WithIfNotExists(true);
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithIfNotExists_Should_Set_Annotation()
+    {
+        // Arrange
+        using StringBuilderIfNotExistsContext17 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView17))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.IfNotExists)?.Value);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithIncludeTieredData_Should_Set_Annotation
+
+    private class MetricSource18
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView18
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderIncludeTieredDataContext18 : DbContext
+    {
+        public DbSet<MetricSource18> Metrics => Set<MetricSource18>();
+        public DbSet<AggregateView18> Aggregates => Set<AggregateView18>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource18>(entity =>
+            {
+                entity.ToTable("Metrics18");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView18>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_18", "MetricSource18", "1 hour", "Timestamp")
+                    .WithRefreshPolicy()
+                    .WithIncludeTieredData(false);
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithIncludeTieredData_Should_Set_Annotation()
+    {
+        // Arrange
+        using StringBuilderIncludeTieredDataContext18 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView18))!;
+
+        // Assert
+        Assert.Equal(false, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.IncludeTieredData)?.Value);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithRefreshNewestFirst_Should_Set_Annotation
+
+    private class MetricSource19
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView19
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderRefreshNewestFirstContext19 : DbContext
+    {
+        public DbSet<MetricSource19> Metrics => Set<MetricSource19>();
+        public DbSet<AggregateView19> Aggregates => Set<AggregateView19>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource19>(entity =>
+            {
+                entity.ToTable("Metrics19");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView19>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_19", "MetricSource19", "1 hour", "Timestamp")
+                    .WithRefreshPolicy()
+                    .WithRefreshNewestFirst(false);
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithRefreshNewestFirst_Should_Set_Annotation()
+    {
+        // Arrange
+        using StringBuilderRefreshNewestFirstContext19 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView19))!;
+
+        // Assert
+        Assert.Equal(false, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.RefreshNewestFirst)?.Value);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithBucketsPerBatch_Should_Set_Annotation_When_Valid
+
+    private class MetricSource20
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView20
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderBucketsPerBatchContext20 : DbContext
+    {
+        public DbSet<MetricSource20> Metrics => Set<MetricSource20>();
+        public DbSet<AggregateView20> Aggregates => Set<AggregateView20>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource20>(entity =>
+            {
+                entity.ToTable("Metrics20");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView20>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_20", "MetricSource20", "1 hour", "Timestamp")
+                    .WithRefreshPolicy()
+                    .WithBucketsPerBatch(3);
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithBucketsPerBatch_Should_Set_Annotation_When_Valid()
+    {
+        // Arrange
+        using StringBuilderBucketsPerBatchContext20 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView20))!;
+
+        // Assert
+        Assert.Equal(3, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.BucketsPerBatch)?.Value);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithMaxBatchesPerExecution_Should_Accept_Zero
+
+    private class MetricSource21
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView21
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderMaxBatchesZeroContext21 : DbContext
+    {
+        public DbSet<MetricSource21> Metrics => Set<MetricSource21>();
+        public DbSet<AggregateView21> Aggregates => Set<AggregateView21>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource21>(entity =>
+            {
+                entity.ToTable("Metrics21");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView21>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_21", "MetricSource21", "1 hour", "Timestamp")
+                    .WithRefreshPolicy()
+                    .WithMaxBatchesPerExecution(0);
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_WithMaxBatchesPerExecution_Should_Accept_Zero()
+    {
+        // Arrange
+        using StringBuilderMaxBatchesZeroContext21 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView21))!;
+
+        // Assert
+        Assert.Equal(0, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.MaxBatchesPerExecution)?.Value);
+    }
+
+    #endregion
+
+    #region StringBuilder_MethodChaining_Should_Support_All_Policy_Options
+
+    private class MetricSource22
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView22
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderFullChainContext22 : DbContext
+    {
+        public DbSet<MetricSource22> Metrics => Set<MetricSource22>();
+        public DbSet<AggregateView22> Aggregates => Set<AggregateView22>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource22>(entity =>
+            {
+                entity.ToTable("Metrics22");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView22>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_22", "MetricSource22", "1 hour", "Timestamp")
+                    .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "30 minutes")
+                    .WithInitialStart(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                    .WithIfNotExists(true)
+                    .WithIncludeTieredData(false)
+                    .WithBucketsPerBatch(3)
+                    .WithMaxBatchesPerExecution(10)
+                    .WithRefreshNewestFirst(false);
+            });
+        }
+    }
+
+    [Fact]
+    public void StringBuilder_MethodChaining_Should_Support_All_Policy_Options()
+    {
+        // Arrange
+        using StringBuilderFullChainContext22 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateView22))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy)?.Value);
+        Assert.Equal("7 days", entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset)?.Value);
+        Assert.Equal("1 hour", entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.EndOffset)?.Value);
+        Assert.Equal("30 minutes", entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval)?.Value);
+        Assert.Equal(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.InitialStart)?.Value);
+        Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.IfNotExists)?.Value);
+        Assert.Equal(false, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.IncludeTieredData)?.Value);
+        Assert.Equal(3, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.BucketsPerBatch)?.Value);
+        Assert.Equal(10, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.MaxBatchesPerExecution)?.Value);
+        Assert.Equal(false, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.RefreshNewestFirst)?.Value);
+    }
+
+    #endregion
+
+    #region StringBuilder_WithBucketsPerBatch_Should_Throw_When_Zero
+
+    private class MetricSource23
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView23
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderBucketsPerBatchInvalidContext23(int bucketsPerBatch) : DbContext
+    {
+        public DbSet<MetricSource23> Metrics => Set<MetricSource23>();
+        public DbSet<AggregateView23> Aggregates => Set<AggregateView23>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource23>(entity =>
+            {
+                entity.ToTable("Metrics23");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView23>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_23", "MetricSource23", "1 hour", "Timestamp")
+                    .WithRefreshPolicy()
+                    .WithBucketsPerBatch(bucketsPerBatch);
+            });
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void StringBuilder_WithBucketsPerBatch_Should_Throw_When_Zero(int bucketsPerBatch)
+    {
+        // Arrange, Act, Assert
+        Assert.Throws<ArgumentException>(() =>
+        {
+            using StringBuilderBucketsPerBatchInvalidContext23 context = new(bucketsPerBatch);
+            IModel model = GetModel(context);
+        });
+    }
+
+    #endregion
+
+    #region StringBuilder_WithMaxBatchesPerExecution_Should_Throw_When_Negative
+
+    private class MetricSource24
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateView24
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderMaxBatchesNegativeContext24(int maxBatches) : DbContext
+    {
+        public DbSet<MetricSource24> Metrics => Set<MetricSource24>();
+        public DbSet<AggregateView24> Aggregates => Set<AggregateView24>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricSource24>(entity =>
+            {
+                entity.ToTable("Metrics24");
+                entity.HasNoKey();
+            });
+
+            modelBuilder.Entity<AggregateView24>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate("sb_hourly_metrics_24", "MetricSource24", "1 hour", "Timestamp")
+                    .WithRefreshPolicy()
+                    .WithMaxBatchesPerExecution(maxBatches);
+            });
+        }
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(-100)]
+    public void StringBuilder_WithMaxBatchesPerExecution_Should_Throw_When_Negative(int maxBatches)
+    {
+        // Arrange, Act, Assert
+        Assert.Throws<ArgumentException>(() =>
+        {
+            using StringBuilderMaxBatchesNegativeContext24 context = new(maxBatches);
+            IModel model = GetModel(context);
+        });
+    }
+
+    #endregion
 }

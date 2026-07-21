@@ -13,6 +13,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
     {
         private readonly EntityTypeBuilder<TEntity> _builder;
 
+        internal EntityTypeBuilder<TEntity> EntityTypeBuilder => _builder;
+
         internal ContinuousAggregateStringBuilder(EntityTypeBuilder<TEntity> builder)
         {
             _builder = builder;

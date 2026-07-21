@@ -518,7 +518,7 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         Assert.NotNull(metricsTable);
 
         Assert.Equal(true, metricsTable[ReorderPolicyAnnotations.HasReorderPolicy]);
-        Assert.Equal("12:00:00", metricsTable[ReorderPolicyAnnotations.ScheduleInterval]);
+        Assert.Equal("12 hours", metricsTable[ReorderPolicyAnnotations.ScheduleInterval]);
         Assert.Equal(5, metricsTable[ReorderPolicyAnnotations.MaxRetries]);
     }
 

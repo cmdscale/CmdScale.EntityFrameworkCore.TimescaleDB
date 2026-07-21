@@ -93,8 +93,11 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Configuration/ContinuousAggregatePolicy/ContinuousAggregatePolicyAnnotations.cs` | Annotation constants |
 | `Configuration/ContinuousAggregatePolicy/ContinuousAggregatePolicyAttribute.cs` | Data annotation |
 | `Configuration/ContinuousAggregatePolicy/ContinuousAggregatePolicyConvention.cs` | Convention processing |
-| `Configuration/ContinuousAggregatePolicy/ContinuousAggregatePolicyBuilder.cs` | Fluent API builder |
+| `Configuration/ContinuousAggregatePolicy/ContinuousAggregatePolicyBuilder.cs` | Typed fluent API builder (code-first) |
+| `Configuration/ContinuousAggregatePolicy/ContinuousAggregatePolicyBuilderCore.cs` | Shared annotation-writing logic for both builder types |
+| `Configuration/ContinuousAggregatePolicy/ContinuousAggregatePolicyStringBuilder.cs` | String-based builder used in scaffolded code |
 | `Configuration/ContinuousAggregatePolicy/ContinuousAggregateBuilderPolicyExtensions.cs` | Builder extensions |
+| `Configuration/PolicyJobBuilderCore.cs` | Shared base class for policy job builder cores (reorder, retention, CA policy) |
 | `Internals/Features/ContinuousAggregatePolicies/ContinuousAggregatePolicyDiffer.cs` | Diffing logic |
 | `Internals/Features/ContinuousAggregatePolicies/ContinuousAggregatePolicyModelExtractor.cs` | Model extraction |
 | `Generators/ContinuousAggregatePolicySqlGenerator.cs` | Runtime SQL generation |
@@ -154,6 +157,8 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Generators/AnnotationRenderers/IFeatureAnnotationRenderer.cs` | Per-feature renderer interface |
 | `Generators/AnnotationRenderers/HypertableAnnotationRenderer.cs` | Renders hypertable annotations to fluent API or data annotation C# |
 | `Generators/AnnotationRenderers/ContinuousAggregateAnnotationRenderer.cs` | Renders continuous aggregate annotations by parsing the view definition |
+| `Generators/AnnotationRenderers/ContinuousAggregatePolicyAnnotationRenderer.cs` | Renders continuous aggregate policy annotations to `WithRefreshPolicy(...)` fluent API or `[ContinuousAggregatePolicy]` attribute |
+| `Generators/AnnotationRenderers/PolicyJobRendererHelper.cs` | Shared helpers for emitting policy-job optional arguments (`InitialStart`, `WithScheduleInterval`, etc.) |
 | `Generators/AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName` |
 | `Generators/AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` producing `nameof(X)` or `$"{nameof(X)} DESC"` |
 
@@ -172,6 +177,9 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Scaffolding/RetentionPolicyAnnotationApplier.cs` | Apply retention policy annotations |
 | `Scaffolding/ContinuousAggregateScaffoldingExtractor.cs` | Query continuous aggregates |
 | `Scaffolding/ContinuousAggregateAnnotationApplier.cs` | Apply continuous aggregate annotations |
+| `Scaffolding/ContinuousAggregatePolicyScaffoldingExtractor.cs` | Query continuous aggregate refresh policies from database |
+| `Scaffolding/ContinuousAggregatePolicyAnnotationApplier.cs` | Apply continuous aggregate policy annotations |
+| `Scaffolding/IntervalParsingHelper.cs` | Parses and normalizes PostgreSQL interval strings (e.g. `"01:00:00"` → `"1 hour"`) and integer offsets |
 | `Scaffolding/ViewDefinitionParser.cs` | Parses continuous aggregate view SQL to extract structured configuration for code generation |
 | `build/CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets` | MSBuild integration |
 

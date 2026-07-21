@@ -105,7 +105,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
 
         Assert.Equal("7 days", info.StartOffset);
         Assert.Equal("1 hour", info.EndOffset);
-        Assert.Equal("01:00:00", info.ScheduleInterval);
+        Assert.Equal("1 hour", info.ScheduleInterval);
         Assert.Null(info.InitialStart);
         Assert.Null(info.IncludeTieredData);
         Assert.Null(info.BucketsPerBatch);
@@ -191,7 +191,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
 
         Assert.Equal("1 month", info.StartOffset);
         Assert.Equal("1 hour", info.EndOffset);
-        Assert.Equal("00:30:00", info.ScheduleInterval);
+        Assert.Equal("30 minutes", info.ScheduleInterval);
         Assert.NotNull(info.InitialStart);
         DateTime expectedDate = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         Assert.Equal(expectedDate, info.InitialStart.Value);
