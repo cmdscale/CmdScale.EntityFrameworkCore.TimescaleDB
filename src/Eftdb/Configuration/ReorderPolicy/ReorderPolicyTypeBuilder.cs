@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy
 {
@@ -61,6 +62,77 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy
                 entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.RetryPeriod, retryPeriod);
 
             return entityTypeBuilder;
+        }
+
+        /// <summary>
+        /// Configures a TimescaleDB reorder policy for the entity.
+        /// </summary>
+        /// <typeparam name="TEntity">The type of the entity being configured.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
+        /// <param name="indexName">The name of the existing index that the reorder policy will use to sort the data.</param>
+        /// <param name="scheduleInterval">The interval at which the reorder policy job runs.</param>
+        /// <param name="maxRuntime">The maximum amount of time the job is allowed to run.</param>
+        /// <param name="maxRetries">The number of times the job is retried if it fails.</param>
+        /// <param name="retryPeriod">The amount of time the scheduler waits between retries.</param>
+        /// <returns>A builder for chaining optional parameters not representable as literal constructor arguments.</returns>
+        public static ReorderPolicyStringBuilder<TEntity> WithReorderPolicy<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string indexName,
+            string? scheduleInterval,
+            string? maxRuntime,
+            int? maxRetries,
+            string? retryPeriod) where TEntity : class
+        {
+            WriteReorderPolicy(entityTypeBuilder, indexName, scheduleInterval, maxRuntime, maxRetries, retryPeriod);
+            return new ReorderPolicyStringBuilder<TEntity>(entityTypeBuilder);
+        }
+
+        /// <summary>
+        /// Configures a TimescaleDB reorder policy for a hypertable that already has a retention policy
+        /// configured, chained after the retention policy configuration.
+        /// </summary>
+        /// <typeparam name="TEntity">The type of the entity being configured.</typeparam>
+        /// <param name="builder">The retention policy builder being configured.</param>
+        /// <param name="indexName">The name of the existing index that the reorder policy will use to sort the data.</param>
+        /// <param name="scheduleInterval">The interval at which the reorder policy job runs.</param>
+        /// <param name="maxRuntime">The maximum amount of time the job is allowed to run.</param>
+        /// <param name="maxRetries">The number of times the job is retried if it fails.</param>
+        /// <param name="retryPeriod">The amount of time the scheduler waits between retries.</param>
+        /// <returns>A builder for chaining optional parameters not representable as literal constructor arguments.</returns>
+        public static ReorderPolicyStringBuilder<TEntity> WithReorderPolicy<TEntity>(
+            this RetentionPolicyStringBuilder<TEntity> builder,
+            string indexName,
+            string? scheduleInterval,
+            string? maxRuntime,
+            int? maxRetries,
+            string? retryPeriod) where TEntity : class
+        {
+            WriteReorderPolicy(builder.EntityTypeBuilder, indexName, scheduleInterval, maxRuntime, maxRetries, retryPeriod);
+            return new ReorderPolicyStringBuilder<TEntity>(builder.EntityTypeBuilder);
+        }
+
+        private static void WriteReorderPolicy(
+            EntityTypeBuilder entityTypeBuilder,
+            string indexName,
+            string? scheduleInterval,
+            string? maxRuntime,
+            int? maxRetries,
+            string? retryPeriod)
+        {
+            entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
+            entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.IndexName, indexName);
+
+            if (!string.IsNullOrWhiteSpace(scheduleInterval))
+                entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.ScheduleInterval, scheduleInterval);
+
+            if (!string.IsNullOrWhiteSpace(maxRuntime))
+                entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.MaxRuntime, maxRuntime);
+
+            if (maxRetries.HasValue)
+                entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.MaxRetries, maxRetries.Value);
+
+            if (!string.IsNullOrWhiteSpace(retryPeriod))
+                entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.RetryPeriod, retryPeriod);
         }
     }
 }

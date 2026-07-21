@@ -34,7 +34,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     !AreChunkSkipColumnsEqual(x.Target.ChunkSkipColumns, x.Source.ChunkSkipColumns) ||
                     !AreDimensionsEqual(x.Target.AdditionalDimensions, x.Source.AdditionalDimensions) ||
                     !AreStringListsEqual(x.Target.CompressionSegmentBy, x.Source.CompressionSegmentBy) ||
-                    !AreStringListsEqual(x.Target.CompressionOrderBy, x.Source.CompressionOrderBy)
+                    !AreOrderByListsEqual(x.Target.CompressionOrderBy, x.Source.CompressionOrderBy)
                 );
 
             foreach (var hypertable in updatedHypertables)
@@ -121,6 +121,54 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
         private static bool AreStringListsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)
         {
             return (list1 ?? []).SequenceEqual(list2 ?? []);
+        }
+
+        /// <summary>
+        /// Compares two compression ORDER BY lists treating an implicit direction as ASC.
+        /// </summary>
+        private static bool AreOrderByListsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)
+        {
+            IReadOnlyList<string> l1 = list1 ?? [];
+            IReadOnlyList<string> l2 = list2 ?? [];
+
+            if (l1.Count != l2.Count)
+            {
+                return false;
+            }
+
+            return l1.Zip(l2).All(pair => NormalizeOrderByEntry(pair.First) == NormalizeOrderByEntry(pair.Second));
+        }
+
+        /// <summary>
+        /// Normalizes a compression ORDER BY entry to its canonical form with an explicit direction
+        /// keyword immediately after the column name.
+        /// Examples:
+        ///   "Value"              -> "Value ASC"
+        ///   "Value ASC"          -> "Value ASC"
+        ///   "Value DESC"         -> "Value DESC"
+        ///   "Value NULLS FIRST"  -> "Value ASC NULLS FIRST"
+        ///   "Value ASC NULLS FIRST" -> "Value ASC NULLS FIRST"
+        /// </summary>
+        private static string NormalizeOrderByEntry(string entry)
+        {
+            string trimmed = entry.Trim();
+            int spaceIndex = trimmed.IndexOf(' ');
+
+            if (spaceIndex < 0)
+            {
+                return trimmed + " ASC";
+            }
+
+            string columnPart = trimmed[..spaceIndex];
+            string suffix = trimmed[(spaceIndex + 1)..].TrimStart();
+
+            if (suffix.StartsWith("DESC", StringComparison.OrdinalIgnoreCase)
+                || suffix.StartsWith("ASC", StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed;
+            }
+
+            return $"{columnPart} ASC {suffix}";
         }
 
         private static bool AreChunkSkipColumnsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)

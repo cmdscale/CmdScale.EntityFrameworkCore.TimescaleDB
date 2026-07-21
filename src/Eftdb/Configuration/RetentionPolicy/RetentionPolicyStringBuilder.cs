@@ -12,6 +12,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
     {
         private readonly EntityTypeBuilder<TEntity> _builder;
 
+        internal EntityTypeBuilder<TEntity> EntityTypeBuilder => _builder;
+
         internal RetentionPolicyStringBuilder(EntityTypeBuilder<TEntity> builder)
         {
             _builder = builder;

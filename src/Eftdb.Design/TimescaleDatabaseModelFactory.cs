@@ -16,6 +16,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
     public class TimescaleDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
         : NpgsqlDatabaseModelFactory(logger)
     {
+        private static readonly HashSet<string> TimescaleInternalSchemas =
+        [
+            "_timescaledb_internal",
+            "_timescaledb_catalog",
+            "_timescaledb_config",
+            "_timescaledb_cache"
+        ];
+
         private readonly List<(ITimescaleFeatureExtractor Extractor, IAnnotationApplier Applier)> _features =
         [
             (new HypertableScaffoldingExtractor(), new HypertableAnnotationApplier()),
@@ -28,6 +36,26 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
         public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)
         {
             DatabaseModel databaseModel = base.Create(connection, options);
+
+            bool hasExplicitSchemaFilter = options.Schemas.Any();
+            if (!hasExplicitSchemaFilter)
+            {
+                List<DatabaseTable> internalTables = [.. databaseModel.Tables
+                    .Where(t => t.Schema != null && TimescaleInternalSchemas.Contains(t.Schema))];
+
+                foreach (DatabaseTable table in internalTables)
+                {
+                    databaseModel.Tables.Remove(table);
+                }
+
+                List<DatabaseSequence> internalSequences = [.. databaseModel.Sequences
+                    .Where(s => s.Schema != null && TimescaleInternalSchemas.Contains(s.Schema))];
+
+                foreach (DatabaseSequence sequence in internalSequences)
+                {
+                    databaseModel.Sequences.Remove(sequence);
+                }
+            }
 
             // Extract all TimescaleDB features from the database
             List<Dictionary<(string Schema, string TableName), object>> allFeatureData = [.. _features.Select(feature => feature.Extractor.Extract(connection))];
