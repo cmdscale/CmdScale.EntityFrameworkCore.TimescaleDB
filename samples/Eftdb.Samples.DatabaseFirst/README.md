@@ -2,19 +2,13 @@
 
 This project demonstrates how to use the **Database-First** approach with [TimescaleDB](https://www.timescale.com/) using the `CmdScale.EntityFrameworkCore.TimescaleDB` package.
 
----
-
-## Required NuGet Packages
-
-Ensure the following package is installed in your project:
-
-- `CmdScale.EntityFrameworkCore.TimescaleDB.Design`
+For command usage see [dotnet ef tools](../../docs/01-dotnet-tools.md); for the normalization contract and known limitations see [Scaffolding Behavior and Limitations](../../docs/03-scaffolding.md).
 
 ---
 
-## Scaffold DbContext and Models
+## Quick Start
 
-Use the following command to scaffold the `DbContext` and entity classes from an existing TimescaleDB database:
+Install the design-time package, then run:
 
 ```bash
 dotnet ef dbcontext scaffold \
@@ -27,29 +21,9 @@ dotnet ef dbcontext scaffold \
   --project samples/Eftdb.Samples.DatabaseFirst
 ```
 
-This command will:
+Add `--data-annotations` to generate attributes instead of Fluent API calls.
 
-- Generate entity models in the `Models/` directory
-- Place the `MyTimescaleDbContext` in the current directory
-- Use the specified connection string to connect to the TimescaleDB instance
-
-> **Note**: When scaffolding your `DbContext`, use the `--schema` flag to target only your data schema (usually `public`). This prevents the tool from unintentionally including TimescaleDB's internal management tables from schemas like `_timescaledb_internal`.
-
-### Data Annotations Variant
-
-Add `--data-annotations` to express the TimescaleDB configuration as attributes on the entity classes (`[Hypertable]`, `[ContinuousAggregate]`, ...) instead of Fluent API calls in `OnModelCreating`:
-
-```bash
-dotnet ef dbcontext scaffold \
-  "Host=localhost;Database=cmdscale-ef-timescaledb;Username=timescale_admin;Password=R#!kro#GP43ra8Ae" \
-  CmdScale.EntityFrameworkCore.TimescaleDB.Design \
-  --data-annotations \
-  --output-dir Models \
-  --schema public \
-  --context-dir . \
-  --context MyTimescaleDbContext \
-  --project samples/Eftdb.Samples.DatabaseFirst
-```
+> **Note**: Use `--schema public` to prevent the tool from including TimescaleDB's internal management schemas (`_timescaledb_internal`, etc.).
 
 ---
 
@@ -66,17 +40,18 @@ samples/Eftdb.Samples.DatabaseFirst/
 
 ## Docker
 
-- A `docker-compose.yml` file is available at the repository root to spin up a TimescaleDB container for local development:
+A `docker-compose.yml` file is available at the repository root to spin up a TimescaleDB container for local development:
 
-  ```bash
-  docker-compose up -d
-  ```
+```bash
+docker-compose up -d
+```
 
-- Connection string settings should match the configuration in your `docker-compose.yml`.
+Connection string settings should match the configuration in your `docker-compose.yml`.
 
 ---
 
 ## Resources
 
+- [Scaffolding Behavior and Limitations](../../docs/03-scaffolding.md)
 - [Entity Framework Core Documentation](https://learn.microsoft.com/en-us/ef/core/)
 - [TimescaleDB Documentation](https://docs.timescale.com/)
