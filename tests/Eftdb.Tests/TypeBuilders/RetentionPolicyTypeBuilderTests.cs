@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
 using Microsoft.EntityFrameworkCore;
@@ -1284,6 +1285,420 @@ public class RetentionPolicyTypeBuilderTests
         object? value = entityType.FindAnnotation(RetentionPolicyAnnotations.InitialStart)?.Value;
         Assert.NotNull(value);
         Assert.Equal(new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc), (DateTime)value);
+    }
+
+    #endregion
+
+    // ── ContinuousAggregateStringBuilder overload tests ─────────────────────
+
+    #region CaggStringBuilder_WithRetentionPolicy_Should_Set_HasRetentionPolicy_And_DropAfter
+
+    private class CaggDropAfterSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CaggDropAfterView
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CaggDropAfterContext : DbContext
+    {
+        public DbSet<CaggDropAfterSource> Metrics => Set<CaggDropAfterSource>();
+        public DbSet<CaggDropAfterView> HourlyMetrics => Set<CaggDropAfterView>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaggDropAfterSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("cagg_drop_after_source");
+            });
+
+            modelBuilder.Entity<CaggDropAfterView>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("cagg_drop_after_view");
+                entity.IsContinuousAggregate<CaggDropAfterView>(
+                    "cagg_drop_after_view",
+                    "cagg_drop_after_source",
+                    "1 hour",
+                    "Timestamp")
+                    .WithRetentionPolicy(
+                        dropAfter: "7 days",
+                        dropCreatedBefore: null,
+                        scheduleInterval: null,
+                        maxRuntime: null,
+                        maxRetries: null,
+                        retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void CaggStringBuilder_WithRetentionPolicy_Should_Set_HasRetentionPolicy_And_DropAfter()
+    {
+        // Arrange
+        using CaggDropAfterContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CaggDropAfterView))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Equal("7 days", entityType.FindAnnotation(RetentionPolicyAnnotations.DropAfter)?.Value);
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.DropCreatedBefore));
+    }
+
+    #endregion
+
+    #region CaggStringBuilder_WithRetentionPolicy_Should_Set_DropCreatedBefore
+
+    private class CaggDropCreatedBeforeSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CaggDropCreatedBeforeView
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CaggDropCreatedBeforeContext : DbContext
+    {
+        public DbSet<CaggDropCreatedBeforeSource> Metrics => Set<CaggDropCreatedBeforeSource>();
+        public DbSet<CaggDropCreatedBeforeView> HourlyMetrics => Set<CaggDropCreatedBeforeView>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaggDropCreatedBeforeSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("cagg_drop_created_before_source");
+            });
+
+            modelBuilder.Entity<CaggDropCreatedBeforeView>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("cagg_drop_created_before_view");
+                entity.IsContinuousAggregate<CaggDropCreatedBeforeView>(
+                    "cagg_drop_created_before_view",
+                    "cagg_drop_created_before_source",
+                    "1 hour",
+                    "Timestamp")
+                    .WithRetentionPolicy(
+                        dropAfter: null,
+                        dropCreatedBefore: "30 days",
+                        scheduleInterval: null,
+                        maxRuntime: null,
+                        maxRetries: null,
+                        retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void CaggStringBuilder_WithRetentionPolicy_Should_Set_DropCreatedBefore()
+    {
+        // Arrange
+        using CaggDropCreatedBeforeContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CaggDropCreatedBeforeView))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Equal("30 days", entityType.FindAnnotation(RetentionPolicyAnnotations.DropCreatedBefore)?.Value);
+        Assert.Null(entityType.FindAnnotation(RetentionPolicyAnnotations.DropAfter));
+    }
+
+    #endregion
+
+    #region CaggStringBuilder_WithRetentionPolicy_Should_Set_Optional_Intervals
+
+    private class CaggOptionalIntervalsSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CaggOptionalIntervalsView
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CaggOptionalIntervalsContext : DbContext
+    {
+        public DbSet<CaggOptionalIntervalsSource> Metrics => Set<CaggOptionalIntervalsSource>();
+        public DbSet<CaggOptionalIntervalsView> HourlyMetrics => Set<CaggOptionalIntervalsView>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaggOptionalIntervalsSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("cagg_optional_intervals_source");
+            });
+
+            modelBuilder.Entity<CaggOptionalIntervalsView>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("cagg_optional_intervals_view");
+                entity.IsContinuousAggregate<CaggOptionalIntervalsView>(
+                    "cagg_optional_intervals_view",
+                    "cagg_optional_intervals_source",
+                    "1 hour",
+                    "Timestamp")
+                    .WithRetentionPolicy(
+                        dropAfter: "14 days",
+                        dropCreatedBefore: null,
+                        scheduleInterval: "1 day",
+                        maxRuntime: "01:00:00",
+                        maxRetries: 3,
+                        retryPeriod: "00:10:00");
+            });
+        }
+    }
+
+    [Fact]
+    public void CaggStringBuilder_WithRetentionPolicy_Should_Set_Optional_Intervals()
+    {
+        // Arrange
+        using CaggOptionalIntervalsContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CaggOptionalIntervalsView))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Equal("14 days", entityType.FindAnnotation(RetentionPolicyAnnotations.DropAfter)?.Value);
+        Assert.Equal("1 day", entityType.FindAnnotation(RetentionPolicyAnnotations.ScheduleInterval)?.Value);
+        Assert.Equal("01:00:00", entityType.FindAnnotation(RetentionPolicyAnnotations.MaxRuntime)?.Value);
+        Assert.Equal(3, entityType.FindAnnotation(RetentionPolicyAnnotations.MaxRetries)?.Value);
+        Assert.Equal("00:10:00", entityType.FindAnnotation(RetentionPolicyAnnotations.RetryPeriod)?.Value);
+    }
+
+    #endregion
+
+    #region CaggStringBuilder_WithRetentionPolicy_Should_Return_RetentionPolicyStringBuilder_For_Chaining
+
+    private class CaggChainingSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CaggChainingView
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CaggChainingContext : DbContext
+    {
+        public DbSet<CaggChainingSource> Metrics => Set<CaggChainingSource>();
+        public DbSet<CaggChainingView> HourlyMetrics => Set<CaggChainingView>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaggChainingSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("cagg_chaining_source");
+            });
+
+            modelBuilder.Entity<CaggChainingView>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("cagg_chaining_view");
+                RetentionPolicyStringBuilder<CaggChainingView> builder =
+                    entity.IsContinuousAggregate<CaggChainingView>(
+                        "cagg_chaining_view",
+                        "cagg_chaining_source",
+                        "1 hour",
+                        "Timestamp")
+                        .WithRetentionPolicy(
+                            dropAfter: "7 days",
+                            dropCreatedBefore: null,
+                            scheduleInterval: null,
+                            maxRuntime: null,
+                            maxRetries: null,
+                            retryPeriod: null);
+
+                builder.WithInitialStart(new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+            });
+        }
+    }
+
+    [Fact]
+    public void CaggStringBuilder_WithRetentionPolicy_Should_Return_RetentionPolicyStringBuilder_For_Chaining()
+    {
+        // Arrange
+        using CaggChainingContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CaggChainingView))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy)?.Value);
+        Assert.Equal("7 days", entityType.FindAnnotation(RetentionPolicyAnnotations.DropAfter)?.Value);
+        Assert.NotNull(entityType.FindAnnotation(RetentionPolicyAnnotations.InitialStart));
+        Assert.Equal(new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
+            entityType.FindAnnotation(RetentionPolicyAnnotations.InitialStart)!.Value);
+    }
+
+    #endregion
+
+    #region CaggStringBuilder_WithRetentionPolicy_Should_Throw_When_Both_DropAfter_And_DropCreatedBefore
+
+    private class CaggBothSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CaggBothView
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CaggBothContext : DbContext
+    {
+        public DbSet<CaggBothSource> Metrics => Set<CaggBothSource>();
+        public DbSet<CaggBothView> HourlyMetrics => Set<CaggBothView>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaggBothSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("cagg_both_source");
+            });
+
+            modelBuilder.Entity<CaggBothView>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("cagg_both_view");
+                entity.IsContinuousAggregate<CaggBothView>(
+                    "cagg_both_view",
+                    "cagg_both_source",
+                    "1 hour",
+                    "Timestamp")
+                    .WithRetentionPolicy(
+                        dropAfter: "7 days",
+                        dropCreatedBefore: "30 days",
+                        scheduleInterval: null,
+                        maxRuntime: null,
+                        maxRetries: null,
+                        retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void CaggStringBuilder_WithRetentionPolicy_Should_Throw_When_Both_DropAfter_And_DropCreatedBefore()
+    {
+        // Arrange
+        using CaggBothContext context = new();
+
+        // Act & Assert
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => GetModel(context));
+        Assert.Contains("mutually exclusive", exception.Message);
+    }
+
+    #endregion
+
+    #region CaggStringBuilder_WithRetentionPolicy_Should_Throw_When_Neither_Specified
+
+    private class CaggNeitherSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CaggNeitherView
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CaggNeitherContext : DbContext
+    {
+        public DbSet<CaggNeitherSource> Metrics => Set<CaggNeitherSource>();
+        public DbSet<CaggNeitherView> HourlyMetrics => Set<CaggNeitherView>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaggNeitherSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("cagg_neither_source");
+            });
+
+            modelBuilder.Entity<CaggNeitherView>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("cagg_neither_view");
+                entity.IsContinuousAggregate<CaggNeitherView>(
+                    "cagg_neither_view",
+                    "cagg_neither_source",
+                    "1 hour",
+                    "Timestamp")
+                    .WithRetentionPolicy(
+                        dropAfter: null,
+                        dropCreatedBefore: null,
+                        scheduleInterval: null,
+                        maxRuntime: null,
+                        maxRetries: null,
+                        retryPeriod: null);
+            });
+        }
+    }
+
+    [Fact]
+    public void CaggStringBuilder_WithRetentionPolicy_Should_Throw_When_Neither_Specified()
+    {
+        // Arrange
+        using CaggNeitherContext context = new();
+
+        // Act & Assert
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => GetModel(context));
+        Assert.Contains("Exactly one", exception.Message);
     }
 
     #endregion

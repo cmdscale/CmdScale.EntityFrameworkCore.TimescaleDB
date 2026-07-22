@@ -33,11 +33,11 @@ jobs:
         run: dotnet build --no-restore
 
       - name: Run tests with coverage
-        run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+        run: dotnet test --no-build --verbosity normal --settings tests/Eftdb.Tests/coverlet.runsettings --collect:"XPlat Code Coverage" --results-directory ./coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./coverage
+          files: ./coverage/**/coverage.cobertura.xml
           fail_ci_if_error: true

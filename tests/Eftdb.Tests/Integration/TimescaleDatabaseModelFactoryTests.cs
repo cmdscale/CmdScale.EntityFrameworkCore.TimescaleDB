@@ -1166,6 +1166,183 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
 
     #endregion
 
+    #region Should_Remove_Internal_Sequences_When_No_Schema_Filter_Specified
+
+    private class InternalSeqHypertableMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class InternalSeqHypertableContext(string connectionString) : DbContext
+    {
+        public DbSet<InternalSeqHypertableMetric> Metrics => Set<InternalSeqHypertableMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<InternalSeqHypertableMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("InternalSeqMetrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Remove_Internal_Sequences_When_No_Schema_Filter_Specified()
+    {
+        // Arrange
+        string testConnectionString = await GetTestConnectionStringAsync();
+        await using InternalSeqHypertableContext context = new(testConnectionString);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        TimescaleDatabaseModelFactory factory = CreateFactory();
+        await using NpgsqlConnection connection = new(testConnectionString);
+
+        // Act
+        DatabaseModelFactoryOptions options = new(tables: [], schemas: []);
+        DatabaseModel model = factory.Create(connection, options);
+
+        // Assert
+        HashSet<string> internalSchemas =
+        [
+            "_timescaledb_internal",
+            "_timescaledb_catalog",
+            "_timescaledb_config",
+            "_timescaledb_cache"
+        ];
+
+        Assert.DoesNotContain(model.Sequences, s => s.Schema != null && internalSchemas.Contains(s.Schema));
+        Assert.DoesNotContain(model.Tables, t => t.Schema != null && internalSchemas.Contains(t.Schema));
+    }
+
+    #endregion
+
+    #region Should_Preserve_User_Sequences_When_No_Schema_Filter_Specified
+
+    private class UserSeqMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class UserSeqEntity
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class UserSeqContext(string connectionString) : DbContext
+    {
+        public DbSet<UserSeqMetric> Metrics => Set<UserSeqMetric>();
+        public DbSet<UserSeqEntity> Entities => Set<UserSeqEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UserSeqMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("UserSeqMetrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<UserSeqEntity>(entity =>
+            {
+                entity.HasKey(x => x.Id);
+                entity.ToTable("UserSeqEntities");
+            });
+
+            modelBuilder.HasSequence<int>("user_explicit_seq", "public");
+        }
+    }
+
+    [Fact]
+    public async Task Should_Preserve_User_Sequences_When_No_Schema_Filter_Specified()
+    {
+        // Arrange
+        string testConnectionString = await GetTestConnectionStringAsync();
+        await using UserSeqContext context = new(testConnectionString);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        TimescaleDatabaseModelFactory factory = CreateFactory();
+        await using NpgsqlConnection connection = new(testConnectionString);
+
+        // Act
+        DatabaseModelFactoryOptions options = new(tables: [], schemas: []);
+        DatabaseModel model = factory.Create(connection, options);
+
+        // Assert
+        HashSet<string> internalSchemas =
+        [
+            "_timescaledb_internal",
+            "_timescaledb_catalog",
+            "_timescaledb_config",
+            "_timescaledb_cache"
+        ];
+
+        Assert.DoesNotContain(model.Sequences, s => s.Schema != null && internalSchemas.Contains(s.Schema));
+        Assert.Contains(model.Sequences, s => s.Name == "user_explicit_seq" && s.Schema == "public");
+    }
+
+    #endregion
+
+    #region Should_Not_Filter_Tables_Or_Sequences_When_Explicit_Schema_Filter_Is_Set
+
+    private class SchemaFilterMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SchemaFilterContext(string connectionString) : DbContext
+    {
+        public DbSet<SchemaFilterMetric> Metrics => Set<SchemaFilterMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SchemaFilterMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("SchemaFilterMetrics", schema: "public");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Not_Filter_Tables_Or_Sequences_When_Explicit_Schema_Filter_Is_Set()
+    {
+        // Arrange
+        string testConnectionString = await GetTestConnectionStringAsync();
+        await using SchemaFilterContext context = new(testConnectionString);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        TimescaleDatabaseModelFactory factory = CreateFactory();
+        await using NpgsqlConnection connection = new(testConnectionString);
+
+        // Act
+        DatabaseModelFactoryOptions options = new(tables: [], schemas: ["public"]);
+        DatabaseModel model = factory.Create(connection, options);
+
+        // Assert
+        Assert.Contains(model.Tables, t => t.Name == "SchemaFilterMetrics" && t.Schema == "public");
+        DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "SchemaFilterMetrics");
+        Assert.NotNull(metricsTable);
+        Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
+    }
+
+    #endregion
+
     #region Should_Scaffold_Multiple_Continuous_Aggregates
 
     private class MultiCaggSource
