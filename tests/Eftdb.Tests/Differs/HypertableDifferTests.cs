@@ -1331,22 +1331,17 @@ public class HypertableDifferTests
         AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
         Assert.NotNull(alterOp);
 
-        // Ensure SegmentBy was detected
         Assert.Null(alterOp.OldCompressionSegmentBy);
         Assert.NotNull(alterOp.CompressionSegmentBy);
         Assert.Single(alterOp.CompressionSegmentBy);
         Assert.Equal("TenantId", alterOp.CompressionSegmentBy[0]);
 
-        // Ensure Compression was implicitly enabled
         Assert.True(alterOp.EnableCompression);
     }
 
     #endregion
 
     #region Should_Detect_Change_When_SegmentBy_Order_Different
-
-    // Unlike ChunkSkipColumns, SegmentBy order matters for physical storage layout.
-    // This test ensures the differ detects a change even if the set of columns is the same.
 
     private class MetricEntity20
     {
@@ -1567,7 +1562,6 @@ public class HypertableDifferTests
         AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
         Assert.NotNull(alterOp);
 
-        // Verify Old Values are present
         Assert.NotNull(alterOp.OldCompressionSegmentBy);
         Assert.NotNull(alterOp.OldCompressionOrderBy);
         Assert.NotEmpty(alterOp.OldCompressionSegmentBy);
@@ -1718,13 +1712,355 @@ public class HypertableDifferTests
         // Act
         IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
 
-        // Assert 
+        // Assert
         AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
         Assert.NotNull(alterOp);
         Assert.NotNull(alterOp.OldAdditionalDimensions);
         Assert.NotNull(alterOp.AdditionalDimensions);
         Assert.Equal("DeviceId", alterOp.OldAdditionalDimensions![0].ColumnName);
         Assert.Equal("WarehouseId", alterOp.AdditionalDimensions![0].ColumnName);
+    }
+
+    #endregion
+
+    #region Should_Not_Emit_Alter_When_ChunkSkipColumns_Both_Null
+
+    private class MetricEntity24
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class BasicHypertableContext24 : DbContext
+    {
+        public DbSet<MetricEntity24> Metrics => Set<MetricEntity24>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity24>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Emit_Alter_When_ChunkSkipColumns_Both_Null()
+    {
+        // Arrange
+        using BasicHypertableContext24 sourceContext = new();
+        using BasicHypertableContext24 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Empty(operations.OfType<AlterHypertableOperation>());
+    }
+
+    #endregion
+
+    #region Should_Detect_Alter_When_CompressionOrderBy_Count_Differs
+
+    private class MetricEntity25
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public int AnotherColumn { get; set; }
+    }
+
+    private class OneOrderByContext25 : DbContext
+    {
+        public DbSet<MetricEntity25> Metrics => Set<MetricEntity25>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity25>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [s.By(x => x.Value)]);
+            });
+        }
+    }
+
+    private class TwoOrderByContext25 : DbContext
+    {
+        public DbSet<MetricEntity25> Metrics => Set<MetricEntity25>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity25>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [
+                          s.By(x => x.Value),
+                          s.By(x => x.AnotherColumn)
+                      ]);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Detect_Alter_When_CompressionOrderBy_Count_Differs()
+    {
+        // Arrange
+        using OneOrderByContext25 sourceContext = new();
+        using TwoOrderByContext25 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+        Assert.NotNull(alterOp);
+        Assert.NotNull(alterOp.OldCompressionOrderBy);
+        Assert.NotNull(alterOp.CompressionOrderBy);
+        Assert.Single(alterOp.OldCompressionOrderBy!);
+        Assert.Equal(2, alterOp.CompressionOrderBy!.Count);
+    }
+
+    #endregion
+
+    #region Should_Treat_OrderBy_With_NullsFirst_As_Equal_To_Explicit_Asc_NullsFirst
+
+    private class MetricEntity27
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NullsFirstImplicitContext27 : DbContext
+    {
+        public DbSet<MetricEntity27> Metrics => Set<MetricEntity27>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity27>(entity =>
+            {
+                entity.ToTable("orderby_nulls_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [s.By(x => x.Value, nullsFirst: true)]);
+            });
+        }
+    }
+
+    private class NullsFirstExplicitContext27 : DbContext
+    {
+        public DbSet<MetricEntity27> Metrics => Set<MetricEntity27>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity27>(entity =>
+            {
+                entity.ToTable("orderby_nulls_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [s.ByAscending(x => x.Value, nullsFirst: true)]);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Treat_OrderBy_With_NullsFirst_As_Equal_To_Explicit_Asc_NullsFirst()
+    {
+        // Arrange
+        using NullsFirstImplicitContext27 sourceContext = new();
+        using NullsFirstExplicitContext27 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+        Assert.Null(alterOp);
+    }
+
+    #endregion
+
+    #region Should_Detect_Alter_When_Dimension_Interval_Changes
+
+    private class MetricEntity28
+    {
+        public DateTime Timestamp { get; set; }
+        public long SequenceId { get; set; }
+    }
+
+    private class SmallIntervalDimensionContext28 : DbContext
+    {
+        public DbSet<MetricEntity28> Metrics => Set<MetricEntity28>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity28>(entity =>
+            {
+                entity.ToTable("dim_interval_change_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasDimension(Dimension.CreateRange("SequenceId", "1000"));
+            });
+        }
+    }
+
+    private class LargeIntervalDimensionContext28 : DbContext
+    {
+        public DbSet<MetricEntity28> Metrics => Set<MetricEntity28>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity28>(entity =>
+            {
+                entity.ToTable("dim_interval_change_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasDimension(Dimension.CreateRange("SequenceId", "5000"));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Detect_Alter_When_Dimension_Interval_Changes()
+    {
+        // Arrange
+        using SmallIntervalDimensionContext28 sourceContext = new();
+        using LargeIntervalDimensionContext28 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+        Assert.NotNull(alterOp);
+        Assert.NotNull(alterOp.OldAdditionalDimensions);
+        Assert.NotNull(alterOp.AdditionalDimensions);
+        Assert.Equal("1000", alterOp.OldAdditionalDimensions![0].Interval);
+        Assert.Equal("5000", alterOp.AdditionalDimensions![0].Interval);
+    }
+
+    #endregion
+
+    #region Should_Detect_Alter_When_AdditionalDimensions_One_Null
+
+    private class MetricEntity26
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public int DeviceId { get; set; }
+    }
+
+    private class WithDimensionContext26 : DbContext
+    {
+        public DbSet<MetricEntity26> Metrics => Set<MetricEntity26>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity26>(entity =>
+            {
+                entity.ToTable("dim_one_null_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp)
+                      .HasDimension(Dimension.CreateHash("DeviceId", 4));
+            });
+        }
+    }
+
+    private class WithoutDimensionContext26 : DbContext
+    {
+        public DbSet<MetricEntity26> Metrics => Set<MetricEntity26>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity26>(entity =>
+            {
+                entity.ToTable("dim_one_null_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Detect_Alter_When_AdditionalDimensions_One_Null()
+    {
+        // Arrange
+        using WithDimensionContext26 sourceContext = new();
+        using WithoutDimensionContext26 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+        Assert.NotNull(alterOp);
+        Assert.NotNull(alterOp.OldAdditionalDimensions);
+        Assert.Null(alterOp.AdditionalDimensions);
     }
 
     #endregion

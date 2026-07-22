@@ -4,6 +4,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using System.Linq.Expressions;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.TypeBuilders;
 
@@ -2230,6 +2231,131 @@ public class ContinuousAggregateBuilderTests
 
     #endregion
 
+    #region Should_Handle_Cast_Lambda_In_AddAggregateFunction
+
+    private class CastLambdaAggFunction_MetricEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CastLambdaAggFunction_HourlyAggregate
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CastLambdaAggFunction_Context : DbContext
+    {
+        public DbSet<CastLambdaAggFunction_MetricEntity> Metrics => Set<CastLambdaAggFunction_MetricEntity>();
+        public DbSet<CastLambdaAggFunction_HourlyAggregate> HourlyMetrics => Set<CastLambdaAggFunction_HourlyAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CastLambdaAggFunction_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("cast_lambda_agg_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CastLambdaAggFunction_HourlyAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CastLambdaAggFunction_HourlyAggregate, CastLambdaAggFunction_MetricEntity>(
+                    "cast_lambda_agg_hourly", "1 hour", x => x.Timestamp)
+                .AddAggregateFunction(x => (object)x.AvgValue, x => (object)x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Handle_Cast_Lambda_In_AddAggregateFunction()
+    {
+        // Arrange
+        using CastLambdaAggFunction_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CastLambdaAggFunction_HourlyAggregate))!;
+
+        // Act
+        List<string>? aggregateFunctions = entityType.FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions)?.Value as List<string>;
+
+        // Assert
+        Assert.NotNull(aggregateFunctions);
+        Assert.Single(aggregateFunctions);
+        Assert.Contains("AvgValue:Avg:Value", aggregateFunctions);
+    }
+
+    #endregion
+
+    #region Should_Handle_Cast_Lambda_In_AddGroupByColumn
+
+    private class CastLambdaGroupBy_MetricEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public int DeviceId { get; set; }
+    }
+
+    private class CastLambdaGroupBy_GroupedAggregate
+    {
+        public DateTime TimeBucket { get; set; }
+        public int DeviceId { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CastLambdaGroupBy_Context : DbContext
+    {
+        public DbSet<CastLambdaGroupBy_MetricEntity> Metrics => Set<CastLambdaGroupBy_MetricEntity>();
+        public DbSet<CastLambdaGroupBy_GroupedAggregate> HourlyMetrics => Set<CastLambdaGroupBy_GroupedAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CastLambdaGroupBy_MetricEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("cast_lambda_gb_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CastLambdaGroupBy_GroupedAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CastLambdaGroupBy_GroupedAggregate, CastLambdaGroupBy_MetricEntity>(
+                    "cast_lambda_gb_hourly", "1 hour", x => x.Timestamp)
+                .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                .AddGroupByColumn(x => (object)x.DeviceId);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Handle_Cast_Lambda_In_AddGroupByColumn()
+    {
+        // Arrange
+        using CastLambdaGroupBy_Context context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(CastLambdaGroupBy_GroupedAggregate))!;
+
+        // Act
+        List<string>? groupByColumns = entityType.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns)?.Value as List<string>;
+
+        // Assert
+        Assert.NotNull(groupByColumns);
+        Assert.Single(groupByColumns);
+        Assert.Contains("DeviceId", groupByColumns);
+    }
+
+    #endregion
+
     #region GenericBuilder_And_StringBuilder_Should_Produce_Identical_Annotations
 
     private class BuilderParity_MetricEntity
@@ -2324,6 +2450,31 @@ public class ContinuousAggregateBuilderTests
         Assert.Equal(
             genericEntity.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns)?.Value as List<string>,
             stringEntity.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns)?.Value as List<string>);
+    }
+
+    #endregion
+
+    #region GetPropertyName_Should_Throw_When_Body_Is_Binary_Expression
+
+    private class BinaryExpressionEntity
+    {
+        public int Id { get; set; }
+    }
+
+    [Fact]
+    public void GetPropertyName_Should_Throw_When_Body_Is_Binary_Expression()
+    {
+        // Arrange
+        Expression<Func<BinaryExpressionEntity, int>> expression = e => e.Id + 1;
+
+        // Act & Assert
+        ArgumentException ex = Assert.Throws<ArgumentException>((Action)(() =>
+        {
+            _ = ContinuousAggregateBuilder<BinaryExpressionEntity, BinaryExpressionEntity>
+                .GetPropertyName(expression);
+        }));
+
+        Assert.Contains("simple property access expression", ex.Message);
     }
 
     #endregion

@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.RetentionPolicies;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
@@ -996,6 +997,65 @@ public class RetentionPolicyDifferTests
         IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(null, null);
 
         Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_ReAdd_RetentionPolicy_When_CA_Is_Recreated
+
+    private class MetricEntity17
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ContinuousAggregateWithPolicyContext17 : DbContext
+    {
+        public DbSet<MetricEntity17> Metrics => Set<MetricEntity17>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity17>(entity =>
+            {
+                entity.ToTable("ca_recreate_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithRetentionPolicy(dropAfter: "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_ReAdd_RetentionPolicy_When_CA_Is_Recreated()
+    {
+        // Arrange
+        using ContinuousAggregateWithPolicyContext17 sourceContext = new();
+        using ContinuousAggregateWithPolicyContext17 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        FeatureDiffContext context = new()
+        {
+            RecreatedAggregates = new HashSet<(string, string)> { ("public", "ca_recreate_metrics") }
+        };
+
+        RetentionPolicyDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel, context);
+
+        // Assert
+        AddRetentionPolicyOperation? addOp = operations.OfType<AddRetentionPolicyOperation>().FirstOrDefault();
+        Assert.NotNull(addOp);
+        Assert.Equal("ca_recreate_metrics", addOp.TableName);
+        Assert.Equal("7 days", addOp.DropAfter);
+
+        Assert.Empty(operations.OfType<AlterRetentionPolicyOperation>());
     }
 
     #endregion

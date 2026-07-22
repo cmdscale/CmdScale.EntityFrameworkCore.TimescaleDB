@@ -188,7 +188,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Contains("parentName:", result);
             Assert.Contains("timeBucketWidth:", result);
             Assert.Contains("aggregateFunctions:", result);
-            // Aggregate functions emit as typed entries showing the enum, not magic strings.
             Assert.Contains("ContinuousAggregateFunction(", result);
             Assert.Contains("EAggregateFunction.Count", result);
             Assert.DoesNotContain(".Sql(", result);
@@ -293,7 +292,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
             IndentedStringBuilder builder = new();
 
-            // An alter operation with no actual changes
             AlterReorderPolicyOperation operation = new()
             {
                 TableName = "sensor_data",
@@ -428,7 +426,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
             IndentedStringBuilder builder = new();
 
-            // An alter operation with no actual changes
             AlterContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "hourly_stats",
@@ -782,6 +779,239 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region AlterHypertable With Actual Changes Tests
+
+        [Fact]
+        public void Should_EmitChunkTimeIntervalArgs_When_AlterHypertableHasIntervalChange()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                ChunkTimeInterval = "14 days",
+                OldChunkTimeInterval = "7 days"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AlterHypertable(", result);
+            Assert.Contains("chunkTimeInterval:", result);
+            Assert.Contains("oldChunkTimeInterval:", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Should_EmitEnableCompressionArg_When_AlterHypertableEnablesCompression()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                EnableCompression = true,
+                OldEnableCompression = false
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AlterHypertable(", result);
+            Assert.Contains("enableCompression:", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        #endregion
+
+        #region Multi-Operation Generate Call Tests
+
+        [Fact]
+        public void Should_GenerateBothOperations_When_CreateAndAlterHypertablePassedTogether()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            CreateHypertableOperation createOperation = new()
+            {
+                TableName = "metrics",
+                Schema = "public",
+                TimeColumnName = "recorded_at",
+                ChunkTimeInterval = "7 days"
+            };
+
+            AlterHypertableOperation alterOperation = new()
+            {
+                TableName = "metrics",
+                Schema = "public",
+                ChunkTimeInterval = "14 days",
+                OldChunkTimeInterval = "7 days"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [createOperation, alterOperation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".CreateHypertable(", result);
+            Assert.Contains(".AlterHypertable(", result);
+            Assert.DoesNotContain(".Sql(", result);
+        }
+
+        [Fact]
+        public void Should_GenerateBothOperations_When_AddAndDropReorderPolicyPassedTogether()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddReorderPolicyOperation addOperation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                IndexName = "sensor_data_time_idx"
+            };
+
+            DropReorderPolicyOperation dropOperation = new()
+            {
+                TableName = "old_sensor_data",
+                Schema = "public"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [addOperation, dropOperation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AddReorderPolicy(", result);
+            Assert.Contains(".DropReorderPolicy(", result);
+            Assert.DoesNotContain(".Sql(", result);
+        }
+
+        [Fact]
+        public void Should_GenerateBothOperations_When_AddAndDropRetentionPolicyPassedTogether()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddRetentionPolicyOperation addOperation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                DropAfter = "30 days"
+            };
+
+            DropRetentionPolicyOperation dropOperation = new()
+            {
+                TableName = "old_sensor_data",
+                Schema = "public"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [addOperation, dropOperation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AddRetentionPolicy(", result);
+            Assert.Contains(".DropRetentionPolicy(", result);
+            Assert.DoesNotContain(".Sql(", result);
+        }
+
+        [Fact]
+        public void Should_GenerateBothOperations_When_CreateAndDropContinuousAggregatePassedTogether()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            CreateContinuousAggregateOperation createOperation = new()
+            {
+                MaterializedViewName = "hourly_stats",
+                Schema = "public",
+                ParentName = "sensor_data",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "timestamp",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["total_count:Count:id"]
+            };
+
+            DropContinuousAggregateOperation dropOperation = new()
+            {
+                MaterializedViewName = "old_hourly_stats",
+                Schema = "public"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [createOperation, dropOperation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".CreateContinuousAggregate(", result);
+            Assert.Contains(".DropContinuousAggregate(", result);
+            Assert.DoesNotContain(".Sql(", result);
+        }
+
+        [Fact]
+        public void Should_GenerateBothOperations_When_AddAndRemoveContinuousAggregatePolicyPassedTogether()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddContinuousAggregatePolicyOperation addOperation = new()
+            {
+                MaterializedViewName = "hourly_stats",
+                Schema = "public",
+                StartOffset = "1 month",
+                EndOffset = "1 hour"
+            };
+
+            RemoveContinuousAggregatePolicyOperation removeOperation = new()
+            {
+                MaterializedViewName = "old_hourly_stats",
+                Schema = "public"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [addOperation, removeOperation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AddContinuousAggregatePolicy(", result);
+            Assert.Contains(".RemoveContinuousAggregatePolicy(", result);
+            Assert.DoesNotContain(".Sql(", result);
+        }
+
+        #endregion
+
         #region Generate_StandardCreateTableOperation_Falls_Through_To_Base
 
         [Fact]
@@ -810,12 +1040,81 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region Null Guard Tests
+
+        [Fact]
+        public void Generate_NullOperation_ThrowsArgumentNullException()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TestableTimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() =>
+                generator.CallGenerate(null!, builder));
+        }
+
+        [Fact]
+        public void Generate_NullBuilder_ThrowsArgumentNullException()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TestableTimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "sensor_data",
+                TimeColumnName = "timestamp"
+            };
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() =>
+                generator.CallGenerate(operation, null!));
+        }
+
+        #endregion
+
+
+        #region Generate_UnknownCustomOperation_Falls_Through_To_Base
+
+        private class CustomUnknownOperation : MigrationOperation { }
+
+        [Fact]
+        public void Generate_UnknownCustomOperation_Falls_Through_To_Base()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TestableTimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+            CustomUnknownOperation operation = new();
+
+            // Act
+            InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+                () => generator.CallGenerate(operation, builder));
+
+            // Assert
+            Assert.Contains("cannot scaffold operations of type", ex.Message);
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private static CSharpMigrationOperationGeneratorDependencies CreateDependencies()
         {
             Mock<ICSharpHelper> mockCSharpHelper = new();
             return new CSharpMigrationOperationGeneratorDependencies(mockCSharpHelper.Object);
+        }
+
+        /// <summary>
+        /// Exposes the protected Generate overload for null-guard testing.
+        /// </summary>
+        private class TestableTimescaleCSharpMigrationOperationGenerator(CSharpMigrationOperationGeneratorDependencies dependencies)
+            : TimescaleCSharpMigrationOperationGenerator(dependencies)
+        {
+            public void CallGenerate(MigrationOperation operation, IndentedStringBuilder builder)
+                => Generate(operation, builder);
         }
 
         #endregion

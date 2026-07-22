@@ -81,7 +81,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.MigrationExtensions
             Assert.Equal(string.Empty, op.Schema);
             Assert.Equal(string.Empty, op.TimeBucketWidth);
             Assert.Equal(string.Empty, op.TimeBucketSourceColumn);
-            // timeBucketGroupBy defaults to true.
             Assert.True(op.TimeBucketGroupBy);
         }
 
@@ -134,6 +133,45 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.MigrationExtensions
             DropContinuousAggregateOperation op = Assert.IsType<DropContinuousAggregateOperation>(Assert.Single(mb.Operations));
             Assert.Equal("hourly", op.MaterializedViewName);
             Assert.Equal("public", op.Schema);
+        }
+
+        #endregion
+
+        #region AlterContinuousAggregate_NullSchema_CoalescesToEmpty
+
+        [Fact]
+        public void AlterContinuousAggregate_NullSchema_CoalescesToEmpty()
+        {
+            // Arrange
+            MigrationBuilder mb = new(activeProvider: null);
+
+            // Act
+            mb.AlterContinuousAggregate(materializedViewName: "hourly", schema: null);
+
+            // Assert
+            AlterContinuousAggregateOperation op = Assert.IsType<AlterContinuousAggregateOperation>(Assert.Single(mb.Operations));
+            Assert.Equal(string.Empty, op.Schema);
+        }
+
+        #endregion
+
+        #region CreateContinuousAggregate_NullSchema_CoalescesToEmpty
+
+        [Fact]
+        public void CreateContinuousAggregate_NullSchema_CoalescesToEmpty()
+        {
+            // Arrange
+            MigrationBuilder mb = new(activeProvider: null);
+
+            // Act
+            mb.CreateContinuousAggregate(
+                materializedViewName: "hourly",
+                parentName: "sensor_data",
+                schema: null);
+
+            // Assert
+            CreateContinuousAggregateOperation op = Assert.IsType<CreateContinuousAggregateOperation>(Assert.Single(mb.Operations));
+            Assert.Equal(string.Empty, op.Schema);
         }
 
         #endregion

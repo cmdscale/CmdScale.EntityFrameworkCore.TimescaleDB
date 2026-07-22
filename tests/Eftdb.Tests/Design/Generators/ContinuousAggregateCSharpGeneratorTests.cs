@@ -44,7 +44,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Act
             string result = Generate(op);
 
-            // Assert — fully qualified type and enum reference.
+            // Assert
             Assert.Contains(
                 "new CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions.ContinuousAggregateFunction(\"avg_t\", CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions.EAggregateFunction.Avg, \"temp\")",
                 result);
@@ -57,7 +57,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
         [Fact]
         public void CreateContinuousAggregate_MalformedAggregateString_IsSkipped()
         {
-            // Arrange — second entry has only two parts and must be silently skipped.
+            // Arrange
             CreateContinuousAggregateOperation op = new()
             {
                 MaterializedViewName = "hourly",
@@ -68,7 +68,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Act
             string result = Generate(op);
 
-            // Assert — only the well-formed entry is emitted.
+            // Assert
             Assert.Contains("EAggregateFunction.Avg, \"temp\")", result);
             Assert.DoesNotContain("malformed", result);
         }
@@ -80,7 +80,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
         [Fact]
         public void CreateContinuousAggregate_TimeBucketGroupBy_OnlyEmittedWhenDisabled()
         {
-            // Arrange — default true must NOT be emitted.
+            // Arrange
             CreateContinuousAggregateOperation enabled = new()
             {
                 MaterializedViewName = "hourly",
@@ -94,7 +94,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Assert
             Assert.DoesNotContain("timeBucketGroupBy:", enabledResult);
 
-            // Arrange — non-default false must be emitted as false.
+            // Arrange
             CreateContinuousAggregateOperation disabled = new()
             {
                 MaterializedViewName = "hourly",
@@ -234,6 +234,56 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             Assert.Contains("oldChunkInterval: \"1 day\"", result);
             Assert.Contains("oldCreateGroupIndexes: true", result);
             Assert.DoesNotContain("oldMaterializedOnly:", result);
+        }
+
+        #endregion
+
+        #region CreateContinuousAggregate_NullAggregateFunctions_Omits_AggregateFunctionsArg
+
+        [Fact]
+        public void CreateContinuousAggregate_NullAggregateFunctions_Omits_AggregateFunctionsArg()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "null_agg_ca",
+                ParentName = "src_null_agg",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "ts",
+                AggregateFunctions = null!,
+                GroupByColumns = []
+            };
+
+            // Act
+            string result = Generate(operation);
+
+            // Assert
+            Assert.DoesNotContain("aggregateFunctions", result);
+        }
+
+        #endregion
+
+        #region CreateContinuousAggregate_NullGroupByColumns_Omits_GroupByColumnsArg
+
+        [Fact]
+        public void CreateContinuousAggregate_NullGroupByColumns_Omits_GroupByColumnsArg()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "null_gbc_ca",
+                ParentName = "src_null_gbc",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "ts",
+                AggregateFunctions = [],
+                GroupByColumns = null!
+            };
+
+            // Act
+            string result = Generate(operation);
+
+            // Assert
+            Assert.DoesNotContain("groupByColumns", result);
         }
 
         #endregion

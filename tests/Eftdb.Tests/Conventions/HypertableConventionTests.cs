@@ -1075,4 +1075,42 @@ public class HypertableConventionTests
     }
 
     #endregion
+
+    #region Should_Skip_Hypertable_Annotations_For_Property_Bag_Entity
+
+    private class PropertyBagEntityContext : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity("PropertyBagHypertableTestEntity", b =>
+            {
+                b.HasNoKey();
+                b.ToTable("prop_bag_hypertable_test");
+                b.Property<int>("Id");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_Hypertable_Annotations_For_Property_Bag_Entity()
+    {
+        // Arrange
+        using PropertyBagEntityContext context = new();
+        IModel model = GetModel(context);
+
+        // Act
+        IEntityType entityType = model.FindEntityType("PropertyBagHypertableTestEntity")!;
+
+        // Assert
+        Assert.NotNull(entityType);
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.IsHypertable));
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn));
+        Assert.Null(entityType.FindAnnotation(HypertableAnnotations.AdditionalDimensions));
+    }
+
+    #endregion
 }

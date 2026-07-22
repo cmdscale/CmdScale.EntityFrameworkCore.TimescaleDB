@@ -849,6 +849,298 @@ public class ContinuousAggregatePolicyConventionTests
 
     #endregion
 
+    #region Should_Skip_Entity_Without_ContinuousAggregatePolicy_Attribute
+
+    private class MetricEntitySkip
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_metrics_skip", ParentName = "MetricsSkip")]
+    private class AggregateEntitySkip
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class SkipNoPolicyContext : DbContext
+    {
+        public DbSet<MetricEntitySkip> Metrics => Set<MetricEntitySkip>();
+        public DbSet<AggregateEntitySkip> Aggregates => Set<AggregateEntitySkip>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntitySkip>(entity =>
+            {
+                entity.ToTable("MetricsSkip");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<AggregateEntitySkip>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_Entity_Without_ContinuousAggregatePolicy_Attribute()
+    {
+        // Arrange
+        using SkipNoPolicyContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateEntitySkip))!;
+
+        // Assert
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy));
+    }
+
+    #endregion
+
+    #region Should_Not_Set_StartOffset_When_Null
+
+    private class MetricEntityNoStart
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_metrics_no_start", ParentName = "MetricsNoStart")]
+    [ContinuousAggregatePolicy(EndOffset = "1 hour", ScheduleInterval = "1 hour")]
+    private class AggregateEntityNoStart
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class NoStartOffsetContext : DbContext
+    {
+        public DbSet<MetricEntityNoStart> Metrics => Set<MetricEntityNoStart>();
+        public DbSet<AggregateEntityNoStart> Aggregates => Set<AggregateEntityNoStart>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntityNoStart>(entity =>
+            {
+                entity.ToTable("MetricsNoStart");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<AggregateEntityNoStart>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Set_StartOffset_When_Null()
+    {
+        // Arrange
+        using NoStartOffsetContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateEntityNoStart))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy)?.Value);
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset));
+    }
+
+    #endregion
+
+    #region Should_Not_Set_EndOffset_When_Null
+
+    private class MetricEntityNoEnd
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_metrics_no_end", ParentName = "MetricsNoEnd")]
+    [ContinuousAggregatePolicy(StartOffset = "1 month", ScheduleInterval = "1 hour")]
+    private class AggregateEntityNoEnd
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class NoEndOffsetContext : DbContext
+    {
+        public DbSet<MetricEntityNoEnd> Metrics => Set<MetricEntityNoEnd>();
+        public DbSet<AggregateEntityNoEnd> Aggregates => Set<AggregateEntityNoEnd>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntityNoEnd>(entity =>
+            {
+                entity.ToTable("MetricsNoEnd");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<AggregateEntityNoEnd>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Set_EndOffset_When_Null()
+    {
+        // Arrange
+        using NoEndOffsetContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateEntityNoEnd))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy)?.Value);
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.EndOffset));
+    }
+
+    #endregion
+
+    #region Should_Not_Set_ScheduleInterval_When_Null
+
+    private class MetricEntityNoSchedule
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_metrics_no_schedule", ParentName = "MetricsNoSchedule")]
+    [ContinuousAggregatePolicy(StartOffset = "1 month", EndOffset = "1 hour")]
+    private class AggregateEntityNoSchedule
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class NoScheduleIntervalContext : DbContext
+    {
+        public DbSet<MetricEntityNoSchedule> Metrics => Set<MetricEntityNoSchedule>();
+        public DbSet<AggregateEntityNoSchedule> Aggregates => Set<AggregateEntityNoSchedule>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntityNoSchedule>(entity =>
+            {
+                entity.ToTable("MetricsNoSchedule");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<AggregateEntityNoSchedule>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Set_ScheduleInterval_When_Null()
+    {
+        // Arrange
+        using NoScheduleIntervalContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateEntityNoSchedule))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy)?.Value);
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval));
+    }
+
+    #endregion
+
+    #region Should_Not_Set_IncludeTieredData_When_Not_Specified
+
+    private class MetricEntityNoTiered
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class AggregateEntityNoTiered
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class NoIncludeTieredDataContext : DbContext
+    {
+        public DbSet<MetricEntityNoTiered> Metrics => Set<MetricEntityNoTiered>();
+        public DbSet<AggregateEntityNoTiered> Aggregates => Set<AggregateEntityNoTiered>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntityNoTiered>(entity =>
+            {
+                entity.ToTable("MetricsNoTiered");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<AggregateEntityNoTiered>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<AggregateEntityNoTiered, MetricEntityNoTiered>(
+                        "hourly_metrics_no_tiered",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "1 hour");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Set_IncludeTieredData_When_Not_Specified()
+    {
+        // Arrange
+        using NoIncludeTieredDataContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateEntityNoTiered))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy)?.Value);
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.IncludeTieredData));
+    }
+
+    #endregion
+
     #region Should_Not_Set_BucketsPerBatch_Annotation_When_Equal_To_Default_One
 
     private class MetricEntity16

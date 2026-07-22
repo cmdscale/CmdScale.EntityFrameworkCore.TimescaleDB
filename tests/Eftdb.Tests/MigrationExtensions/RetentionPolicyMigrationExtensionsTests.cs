@@ -134,5 +134,24 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.MigrationExtensions
         }
 
         #endregion
+
+        #region AlterRetentionPolicy_NullSchema_CoalescesToEmpty
+
+        [Fact]
+        public void AlterRetentionPolicy_NullSchema_CoalescesToEmpty()
+        {
+            // Arrange
+            MigrationBuilder mb = new(activeProvider: null);
+
+            // Act
+            mb.AlterRetentionPolicy(tableName: "sensor_data", schema: null, dropAfter: "30 days");
+
+            // Assert
+            AlterRetentionPolicyOperation op = Assert.IsType<AlterRetentionPolicyOperation>(Assert.Single(mb.Operations));
+            Assert.Equal(string.Empty, op.Schema);
+            Assert.Equal("30 days", op.DropAfter);
+        }
+
+        #endregion
     }
 }

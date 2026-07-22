@@ -504,7 +504,7 @@ public class IntervalParsingHelperTests
     [Fact]
     public void Should_Handle_TimeSpan_Exceeding_24_Hours()
     {
-        // Arrange - 48 hours should be 2 days
+        // Arrange
         string input = "2.00:00:00";
 
         // Act
@@ -538,14 +538,13 @@ public class IntervalParsingHelperTests
     [Fact]
     public void Should_Handle_TimeSpan_At_60_Minutes()
     {
-        // Arrange - Exactly 60 minutes (1 hour)
+        // Arrange
         string input = "01:00:00";
 
         // Act
         string result = IntervalParsingHelper.NormalizeInterval(input);
 
         // Assert
-        // TotalMinutes is 60 which is NOT < 60, so it should go to hours check
         Assert.Equal("1 hour", result);
     }
 
@@ -556,7 +555,7 @@ public class IntervalParsingHelperTests
     [Fact]
     public void Should_Handle_Mixed_TimeSpan_With_Days_Hours_Minutes()
     {
-        // Arrange - 1 day, 5 hours, 30 minutes
+        // Arrange
         string input = "1.05:30:00";
 
         // Act
@@ -721,7 +720,7 @@ public class IntervalParsingHelperTests
         // Act
         string result = IntervalParsingHelper.NormalizeInterval("-1.00:00:00");
 
-        // Assert — cannot be parsed; returned unchanged
+        // Assert
         Assert.Equal("-1.00:00:00", result);
     }
 
@@ -766,6 +765,492 @@ public class IntervalParsingHelperTests
         // Assert
         Assert.True(success);
         Assert.Equal(2L * 604_800L * 1_000_000L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Negative_Day_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_Negative_Day_Returns_False()
+    {
+        // Arrange
+        string input = "-1.00:00:00";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Negative_Minutes_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_Negative_Minutes_Returns_False()
+    {
+        // Arrange
+        string input = "00:-01:00";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Minutes_60_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_Minutes_60_Returns_False()
+    {
+        // Arrange
+        string input = "00:60:00";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Empty_Fraction_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_Empty_Fraction_Returns_False()
+    {
+        // Arrange
+        string input = "00:00:30.";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_NonDigit_Fraction_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_NonDigit_Fraction_Returns_False()
+    {
+        // Arrange
+        string input = "00:00:30.abc";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Seconds_60_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_Seconds_60_Returns_False()
+    {
+        // Arrange
+        string input = "00:00:60";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Negative_Seconds_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_Negative_Seconds_Returns_False()
+    {
+        // Arrange
+        string input = "00:00:-1";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_DayDot_Hours_Over23_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_DayDot_Hours_Over23_Returns_False()
+    {
+        // Arrange
+        string input = "1.25:00:00";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region NormalizeInterval_ThreeMinutes_Returns_3_Minutes
+
+    [Fact]
+    public void NormalizeInterval_ThreeMinutes_Returns_3_Minutes()
+    {
+        // Arrange
+        string input = "00:03:00";
+
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal("3 minutes", result);
+    }
+
+    #endregion
+
+    #region NormalizeInterval_FractionPresent_Returns_Unchanged
+
+    [Fact]
+    public void NormalizeInterval_FractionPresent_Returns_Unchanged()
+    {
+        // Arrange
+        string input = "00:00:01.500000";
+
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal("00:00:01.500000", result);
+    }
+
+    #endregion
+
+    // ── TryParseTimeParts edge cases ────────────────────────────────────────
+
+    #region TryParseTimeParts_Returns_False_For_Negative_Hours_Without_Day_Dot
+
+    [Fact]
+    public void TryParseTimeParts_Returns_False_For_Negative_Hours_Without_Day_Dot()
+    {
+        // Arrange
+        string input = "-01:00:00";
+
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal("-01:00:00", result);
+    }
+
+    #endregion
+
+    #region TryParseTimeParts_Returns_False_For_NonParseable_Hour
+
+    [Fact]
+    public void TryParseTimeParts_Returns_False_For_NonParseable_Hour()
+    {
+        // Arrange
+        string input = "XX:00:00";
+
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal("XX:00:00", result);
+    }
+
+    #endregion
+
+    #region TryParseTimeParts_Returns_False_For_NonParseable_Day_Part
+
+    [Fact]
+    public void TryParseTimeParts_Returns_False_For_NonParseable_Day_Part()
+    {
+        // Arrange
+        string input = "X.12:00:00";
+
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal("X.12:00:00", result);
+    }
+
+    #endregion
+
+    #region TryParseTimeParts_Handles_Fraction_Longer_Than_Six_Digits
+
+    [Fact]
+    public void TryParseTimeParts_Handles_Fraction_Longer_Than_Six_Digits()
+    {
+        // Arrange
+        string input = "00:00:01.123456789";
+
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal("00:00:01.123456789", result);
+    }
+
+    #endregion
+
+    #region TryParseTimeParts_Handles_Short_Fraction_Padded_To_Six
+
+    [Fact]
+    public void TryParseTimeParts_Handles_Short_Fraction_Padded_To_Six()
+    {
+        // Arrange
+        string input = "00:00:01.1";
+
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal("00:00:01.1", result);
+    }
+
+    #endregion
+
+    // ── NormalizeInterval — seconds plural / singular ────────────────────────
+
+    #region NormalizeInterval_Single_Second_Returns_Singular
+
+    [Fact]
+    public void NormalizeInterval_Single_Second_Returns_Singular()
+    {
+        // Arrange
+        string input = "00:00:01";
+
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal("1 second", result);
+    }
+
+    #endregion
+
+    #region NormalizeInterval_Multiple_Seconds_Returns_Plural
+
+    [Fact]
+    public void NormalizeInterval_Multiple_Seconds_Returns_Plural()
+    {
+        // Arrange
+        string input = "00:00:02";
+
+        // Act
+        string result = IntervalParsingHelper.NormalizeInterval(input);
+
+        // Assert
+        Assert.Equal("2 seconds", result);
+    }
+
+    #endregion
+
+    // ── TryGetTotalMicroseconds — alternate unit spellings ───────────────────
+
+    #region TryGetTotalMicroseconds_Parses_Microsecond_Abbreviations
+
+    [Theory]
+    [InlineData("1 us", 1L)]
+    [InlineData("1 usec", 1L)]
+    [InlineData("2 usecs", 2L)]
+    [InlineData("3 microsecond", 3L)]
+    [InlineData("4 microseconds", 4L)]
+    public void TryGetTotalMicroseconds_Parses_Microsecond_Abbreviations(string input, long expected)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Parses_Millisecond_Abbreviations
+
+    [Theory]
+    [InlineData("1 ms", 1_000L)]
+    [InlineData("2 msec", 2_000L)]
+    [InlineData("3 msecs", 3_000L)]
+    [InlineData("4 millisecond", 4_000L)]
+    public void TryGetTotalMicroseconds_Parses_Millisecond_Abbreviations(string input, long expected)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Parses_Second_Abbreviations
+
+    [Theory]
+    [InlineData("1 s", 1_000_000L)]
+    [InlineData("2 sec", 2_000_000L)]
+    [InlineData("3 secs", 3_000_000L)]
+    [InlineData("4 second", 4_000_000L)]
+    public void TryGetTotalMicroseconds_Parses_Second_Abbreviations(string input, long expected)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Parses_Minute_Abbreviations
+
+    [Theory]
+    [InlineData("1 min", 60_000_000L)]
+    [InlineData("2 mins", 120_000_000L)]
+    [InlineData("3 minute", 180_000_000L)]
+    public void TryGetTotalMicroseconds_Parses_Minute_Abbreviations(string input, long expected)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Parses_Hour_Abbreviations
+
+    [Theory]
+    [InlineData("1 h", 3_600_000_000L)]
+    [InlineData("2 hr", 7_200_000_000L)]
+    [InlineData("3 hrs", 10_800_000_000L)]
+    [InlineData("4 hour", 14_400_000_000L)]
+    public void TryGetTotalMicroseconds_Parses_Hour_Abbreviations(string input, long expected)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Parses_Day_Abbreviations
+
+    [Theory]
+    [InlineData("1 d", 86_400_000_000L)]
+    [InlineData("2 day", 172_800_000_000L)]
+    public void TryGetTotalMicroseconds_Parses_Day_Abbreviations(string input, long expected)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Parses_Week_Abbreviations
+
+    [Theory]
+    [InlineData("1 w", 604_800_000_000L)]
+    [InlineData("2 week", 1_209_600_000_000L)]
+    public void TryGetTotalMicroseconds_Parses_Week_Abbreviations(string input, long expected)
+    {
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long result);
+
+        // Assert
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_Whitespace_Only_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_Whitespace_Only_Returns_False()
+    {
+        // Arrange
+        string input = "   ";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_ColonPath_Returns_False_For_Invalid_Time
+
+    [Fact]
+    public void TryGetTotalMicroseconds_ColonPath_Returns_False_For_Invalid_Time()
+    {
+        // Arrange
+        string input = "bad:value";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
+    }
+
+    #endregion
+
+    #region TryGetTotalMicroseconds_NumberUnit_Regex_No_Match_Returns_False
+
+    [Fact]
+    public void TryGetTotalMicroseconds_NumberUnit_Regex_No_Match_Returns_False()
+    {
+        // Arrange
+        string input = "days 7";
+
+        // Act
+        bool success = IntervalParsingHelper.TryGetTotalMicroseconds(input, out long microseconds);
+
+        // Assert
+        Assert.False(success);
+        Assert.Equal(0L, microseconds);
     }
 
     #endregion

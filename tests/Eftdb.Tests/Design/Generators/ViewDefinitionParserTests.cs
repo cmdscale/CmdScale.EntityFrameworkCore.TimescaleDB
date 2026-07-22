@@ -5,7 +5,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators;
 
 public class ViewDefinitionParserTests
 {
-    // A representative TimescaleDB CA view definition with several aggregate functions.
     private const string FullViewDef =
         "SELECT time_bucket('01:00:00'::interval, api_log.\"time\") AS bucket," +
         " api_log.service_name AS service_name," +
@@ -70,7 +69,6 @@ public class ViewDefinitionParserTests
     {
         string? result = ViewDefinitionParser.ParseTimeBucketSourceColumn(FullViewDef);
 
-        // Should strip table qualifier (api_log.) and quotes from "time"
         Assert.Equal("time", result);
     }
 
@@ -126,7 +124,6 @@ public class ViewDefinitionParserTests
     {
         IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(FullViewDef);
 
-        // api_log.duration_ms → duration_ms
         Assert.All(result.Where(a => a.SourceColumn != "*"), a =>
             Assert.DoesNotContain(".", a.SourceColumn));
     }
@@ -383,7 +380,6 @@ public class ViewDefinitionParserTests
     [Fact]
     public void ParseTimeBucketSourceColumn_ThreeArg_Timezone()
     {
-        // TimescaleDB >= 2.8 supports time_bucket(width, ts, timezone).
         const string viewDef =
             "SELECT time_bucket('01:00:00'::interval, t.\"time\", 'Europe/Berlin'::text) AS bucket" +
             " FROM t GROUP BY 1";
@@ -454,7 +450,6 @@ public class ViewDefinitionParserTests
     [Fact]
     public void ParseAggregates_PlainFirst_UsesFirstArgumentAsSource()
     {
-        // Finalized continuous aggregates (TimescaleDB >= 2.7, the default) store first/last in plain form.
         const string viewDef =
             "SELECT time_bucket('1 day'::interval, t.\"time\") AS bucket," +
             " first(t.temperature, t.\"time\") AS first_temperature" +
@@ -585,6 +580,583 @@ public class ViewDefinitionParserTests
         Assert.Contains("service_name", first.GroupByColumns);
         Assert.Null(first.WhereClause);
         Assert.Same(first, second);
+    }
+
+    #endregion
+
+
+    #region ParseAggregates_UnknownFunction_Is_Skipped
+
+    [Fact]
+    public void Should_Skip_Unknown_Aggregate_Function()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 day'::interval, t.ts) AS bucket," +
+            " stddev(t.val) AS stddev_val" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        Assert.DoesNotContain(result, a => a.Alias == "stddev_val");
+    }
+
+    #endregion
+
+    #region ParseAggregates_First_Function_Parsed
+
+    [Fact]
+    public void Should_Parse_First_Function_With_Two_Args()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket," +
+            " first(t.price, t.ts) AS first_price" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "first_price");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.First, agg.Function);
+        Assert.Equal("price", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseAggregates_Last_Function_Parsed
+
+    [Fact]
+    public void Should_Parse_Last_Function_With_Two_Args()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket," +
+            " last(t.price, t.ts) AS last_price" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "last_price");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Last, agg.Function);
+        Assert.Equal("price", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseAggregates_First_EmptyFirstArg_IsSkipped
+
+    [Fact]
+    public void Should_Skip_First_When_First_Arg_Is_Empty()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket," +
+            " first(, t.ts) AS first_val" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        Assert.DoesNotContain(result, a => a.Alias == "first_val");
+    }
+
+    #endregion
+
+    #region ParseAggregates_LegacyFinalizeAgg_First_Parsed
+
+    [Fact]
+    public void Should_Parse_Legacy_FinalizeAgg_First_And_Strip_Prefix()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 day'::interval, t.ts) AS bucket," +
+            " _timescaledb_internal.finalize_agg('first(double precision,timestamp with time zone)'::text," +
+            " null::text, array[]) AS first_price" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "first_price");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.First, agg.Function);
+        Assert.Equal("price", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseAggregates_LegacyFinalizeAgg_NoPrefixAlias_UsesAlias
+
+    [Fact]
+    public void Should_Use_Alias_As_SourceColumn_When_Legacy_FinalizeAgg_Alias_Has_No_Prefix()
+    {
+        // Arrange
+        const string sql =
+            "SELECT _timescaledb_internal.finalize_agg('last(double precision,timestamp with time zone)'::text," +
+            " null::text, array[]) AS my_value" +
+            " FROM t";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "my_value");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Last, agg.Function);
+        Assert.Equal("my_value", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseGroupByColumns_Parenthesised_TimeBucket_Skipped
+
+    [Fact]
+    public void Should_Skip_Parenthesised_TimeBucket_In_GroupBy()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket, t.region" +
+            " FROM t GROUP BY (time_bucket('1 hour'::interval, t.ts)), t.region";
+
+        // Act
+        IReadOnlyList<string> result = ViewDefinitionParser.ParseGroupByColumns(sql);
+
+        // Assert
+        Assert.Contains("region", result);
+        Assert.DoesNotContain(result, c => c.StartsWith("(time_bucket", StringComparison.OrdinalIgnoreCase));
+    }
+
+    #endregion
+
+    #region ParseGroupByColumns_Positional_References_Skipped
+
+    [Fact]
+    public void Should_Return_Empty_When_All_GroupBy_Entries_Are_Positional()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 day'::interval, t.ts) AS bucket, avg(t.val) AS avg_val" +
+            " FROM t GROUP BY 1, 2";
+
+        // Act
+        IReadOnlyList<string> result = ViewDefinitionParser.ParseGroupByColumns(sql);
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    #endregion
+
+    #region ParseGroupByColumns_NonSimple_Expression_Kept_Verbatim
+
+    [Fact]
+    public void Should_Keep_NonSimple_GroupBy_Expression_Verbatim()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 day'::interval, t.ts) AS bucket" +
+            " FROM t GROUP BY time_bucket('1 day'::interval, t.ts), date_trunc('hour', t.ts)";
+
+        // Act
+        IReadOnlyList<string> result = ViewDefinitionParser.ParseGroupByColumns(sql);
+
+        // Assert
+        Assert.Contains("date_trunc('hour', t.ts)", result);
+    }
+
+    #endregion
+
+
+    #region ParseAggregates_Min_Function_Parsed
+
+    [Fact]
+    public void ParseAggregates_Min_Function_Parsed()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket," +
+            " min(t.temperature) AS min_temperature" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "min_temperature");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Min, agg.Function);
+        Assert.Equal("temperature", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseAggregates_BareColumnName_NoTableQualifier
+
+    [Fact]
+    public void ParseAggregates_BareColumnName_NoTableQualifier()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, ts) AS bucket," +
+            " avg(temperature) AS avg_temp" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "avg_temp");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Avg, agg.Function);
+        Assert.Equal("temperature", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseAggregates_NoFrom_SelectClauseIsWholeString
+
+    [Fact]
+    public void ParseAggregates_NoFrom_SelectClauseIsWholeString()
+    {
+        // Arrange
+        const string sql = "avg(t.value) AS avg_val";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "avg_val");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Avg, agg.Function);
+    }
+
+    #endregion
+
+    #region ParseGroupByColumns_BareColumnName_NoTableQualifier
+
+    [Fact]
+    public void ParseGroupByColumns_BareColumnName_NoTableQualifier()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, ts) AS bucket, region" +
+            " FROM t GROUP BY time_bucket('1 hour'::interval, ts), region";
+
+        // Act
+        IReadOnlyList<string> result = ViewDefinitionParser.ParseGroupByColumns(sql);
+
+        // Assert
+        Assert.Contains("region", result);
+    }
+
+    #endregion
+
+    #region ParseTimeBucketSourceColumn_BareColumnWithoutQuotes
+
+    [Fact]
+    public void ParseTimeBucketSourceColumn_BareColumnWithoutQuotes()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 day'::interval, readings.timestamp) AS bucket" +
+            " FROM readings GROUP BY 1";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseTimeBucketSourceColumn(sql);
+
+        // Assert
+        Assert.Equal("timestamp", result);
+    }
+
+    #endregion
+
+    #region ParseWhereClause_With_Having_Clause
+
+    [Fact]
+    public void ParseWhereClause_With_Having_Clause()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket," +
+            " avg(t.value) AS avg_value" +
+            " FROM t" +
+            " WHERE t.active = true" +
+            " HAVING avg(t.value) > 0";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseWhereClause(sql);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Contains("active", result);
+        Assert.DoesNotContain("HAVING", result, StringComparison.OrdinalIgnoreCase);
+    }
+
+    #endregion
+
+    #region ParseGroupByColumns_QuotedBareColumn_NoTablePrefix
+
+    [Fact]
+    public void ParseGroupByColumns_QuotedBareColumn_NoTablePrefix()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket, t.\"Region\" AS \"Region\"" +
+            " FROM t GROUP BY time_bucket('1 hour'::interval, t.ts), \"Region\"";
+
+        // Act
+        IReadOnlyList<string> result = ViewDefinitionParser.ParseGroupByColumns(sql);
+
+        // Assert
+        Assert.Contains("Region", result);
+    }
+
+    #endregion
+
+
+    #region ParseAggregates_Sum_Function_Parsed_Standalone
+
+    [Fact]
+    public void ParseAggregates_Sum_Function_Parsed_Standalone()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 day'::interval, t.ts) AS bucket," +
+            " sum(t.amount) AS total_amount" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "total_amount");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Sum, agg.Function);
+        Assert.Equal("amount", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseAggregates_Max_Function_Parsed_Standalone
+
+    [Fact]
+    public void ParseAggregates_Max_Function_Parsed_Standalone()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket," +
+            " max(t.price) AS max_price" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "max_price");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Max, agg.Function);
+        Assert.Equal("price", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseAggregates_Count_Function_With_Column_Reference
+
+    [Fact]
+    public void ParseAggregates_Count_Function_With_Column_Reference()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket," +
+            " count(t.event_id) AS event_count" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "event_count");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Count, agg.Function);
+        Assert.Equal("event_id", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseGroupByColumns_EmptyToken_After_Split_Is_Skipped
+
+    [Fact]
+    public void ParseGroupByColumns_EmptyToken_After_Split_Is_Skipped()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket, t.region AS region" +
+            " FROM t GROUP BY time_bucket('1 hour'::interval, t.ts), t.region";
+
+        // Act
+        IReadOnlyList<string> result = ViewDefinitionParser.ParseGroupByColumns(sql);
+
+        // Assert
+        Assert.Contains("region", result);
+        Assert.All(result, c => Assert.False(string.IsNullOrWhiteSpace(c)));
+    }
+
+    #endregion
+
+    #region ParseWhereClause_ReturnsNull_When_No_Where_Keyword
+
+    [Fact]
+    public void ParseWhereClause_ReturnsNull_When_No_Where_Keyword()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 day'::interval, t.ts) AS bucket," +
+            " avg(t.value) AS avg_val" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseWhereClause(sql);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region ParseAggregates_QuotedAlias_Strips_Quotes
+
+    [Fact]
+    public void ParseAggregates_QuotedAlias_Strips_Quotes()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket," +
+            " avg(t.\"TotalRevenue\") AS \"AvgRevenue\"" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "AvgRevenue");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Avg, agg.Function);
+        Assert.Equal("TotalRevenue", agg.SourceColumn);
+    }
+
+    #endregion
+
+    // ── StripQuotes tests ─────────────────────────────────────────────────────
+
+    #region ParseTimeBucketSourceColumn_SingleChar_Column_Not_Stripped
+
+    [Fact]
+    public void ParseTimeBucketSourceColumn_SingleChar_Column_Not_Stripped()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.x) AS bucket" +
+            " FROM t_single_col_src GROUP BY 1";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseTimeBucketSourceColumn(sql);
+
+        // Assert
+        Assert.Equal("x", result);
+    }
+
+    #endregion
+
+    #region ParseAggregates_Min_Function_Parsed_Standalone
+
+    [Fact]
+    public void ParseAggregates_Min_Function_Parsed_Standalone()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.ts) AS bucket," +
+            " min(t.temperature) AS min_temp" +
+            " FROM t_min_standalone GROUP BY 1";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        ViewDefinitionParser.ParsedAggregate? agg = result.FirstOrDefault(a => a.Alias == "min_temp");
+        Assert.NotNull(agg);
+        Assert.Equal(EAggregateFunction.Min, agg.Function);
+        Assert.Equal("temperature", agg.SourceColumn);
+    }
+
+    #endregion
+
+    #region ParseGroupByColumns_NonSimpleExpression_Verbatim
+
+    [Fact]
+    public void ParseGroupByColumns_NonSimpleExpression_Verbatim()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 day'::interval, t.ts) AS bucket," +
+            " t.status AS status" +
+            " FROM t_non_simple GROUP BY time_bucket('1 day'::interval, t.ts), (CASE WHEN t.active THEN 1 ELSE 0 END)";
+
+        // Act
+        IReadOnlyList<string> result = ViewDefinitionParser.ParseGroupByColumns(sql);
+
+        // Assert
+        Assert.Contains(result, c => c.Contains("CASE"));
+    }
+
+    #endregion
+
+    #region ParseAggregates_First_With_WhitespaceOnlyFirstArg_IsSkipped
+
+    [Fact]
+    public void ParseAggregates_First_With_WhitespaceOnlyFirstArg_IsSkipped()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, ts) AS time_bucket," +
+            " first(  , ts) AS first_ws_arg" +
+            " FROM src_first_ws GROUP BY time_bucket('1 hour'::interval, ts)";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        Assert.DoesNotContain(result, a => a.Alias == "first_ws_arg");
+    }
+
+    #endregion
+
+    #region ParseAggregates_LegacyFinalizeAgg_AlreadyParsedAlias_IsSkipped
+
+    [Fact]
+    public void ParseAggregates_LegacyFinalizeAgg_AlreadyParsedAlias_IsSkipped()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, ts) AS time_bucket," +
+            " first(value, ts) AS dup_alias," +
+            " _timescaledb_internal.finalize_agg('first(double precision,bigint)'::text, null) AS dup_alias" +
+            " FROM src_dup_finalize GROUP BY time_bucket('1 hour'::interval, ts)";
+
+        // Act
+        IReadOnlyList<ViewDefinitionParser.ParsedAggregate> result = ViewDefinitionParser.ParseAggregates(sql);
+
+        // Assert
+        Assert.Single(result, a => a.Alias == "dup_alias");
     }
 
     #endregion

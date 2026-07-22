@@ -68,8 +68,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
         }
 
-        // --- Tests for DropReorderPolicyOperation ---
-
         [Fact]
         public void Generate_Drop_creates_correct_remove_policy_sql()
         {
@@ -91,8 +89,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
         }
 
-        // --- Tests for AlterReorderPolicyOperation ---
-
         [Fact]
         public void Generate_Alter_when_only_job_settings_change_creates_only_alter_job_sql()
         {
@@ -101,12 +97,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 Schema = "metrics",
                 TableName = "TestTable",
-                // Fundamental properties are the same
                 IndexName = "IX_TestTable_Time",
                 OldIndexName = "IX_TestTable_Time",
                 InitialStart = null,
                 OldInitialStart = null,
-                // Job properties have changed
                 ScheduleInterval = "2 days",
                 OldScheduleInterval = "1 day"
             };
@@ -185,5 +179,127 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
         }
+
+        #region Should_Recreate_Without_AlterJob_When_Only_InitialStart_Changes
+
+        [Fact]
+        public void Should_Recreate_Without_AlterJob_When_Only_InitialStart_Changes()
+        {
+            // Arrange
+            DateTime oldDate = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            DateTime newDate = new(2025, 6, 15, 0, 0, 0, DateTimeKind.Utc);
+            AlterReorderPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                IndexName = "IX_TestTable_Time",
+                OldIndexName = "IX_TestTable_Time",
+                InitialStart = newDate,
+                OldInitialStart = oldDate,
+            };
+
+            string expected = @"
+                SELECT remove_reorder_policy('public.""TestTable""', if_exists => true);
+                SELECT add_reorder_policy('public.""TestTable""', 'IX_TestTable_Time', initial_start => '2025-06-15T00:00:00.0000000Z');
+            ";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+            Assert.DoesNotContain("alter_job", result);
+        }
+
+        #endregion
+
+        #region Should_Return_Empty_When_No_Reorder_Changes
+
+        [Fact]
+        public void Should_Return_Empty_When_No_Reorder_Changes()
+        {
+            // Arrange
+            AlterReorderPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                IndexName = "IX_TestTable_Time",
+                OldIndexName = "IX_TestTable_Time",
+                InitialStart = null,
+                OldInitialStart = null,
+                ScheduleInterval = "1 day",
+                OldScheduleInterval = "1 day",
+                MaxRuntime = "00:00:00",
+                OldMaxRuntime = "00:00:00",
+                MaxRetries = -1,
+                OldMaxRetries = -1,
+                RetryPeriod = "1 day",
+                OldRetryPeriod = "1 day",
+            };
+
+            // Act
+            List<string> statements = ReorderPolicySqlGenerator.Generate(operation);
+
+            // Assert
+            Assert.Empty(statements);
+        }
+
+        #endregion
+
+        #region Should_Not_Include_AlterJob_When_Recreated_Without_JobClauses
+
+        [Fact]
+        public void Should_Not_Include_AlterJob_When_Recreated_Without_JobClauses()
+        {
+            // Arrange
+            AlterReorderPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                IndexName = "IX_New_Name",
+                OldIndexName = "IX_Old_Name",
+            };
+
+            string expected = @"
+                SELECT remove_reorder_policy('public.""TestTable""', if_exists => true);
+                SELECT add_reorder_policy('public.""TestTable""', 'IX_New_Name');
+            ";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+            Assert.DoesNotContain("alter_job", result);
+        }
+
+        #endregion
+
+        #region Should_Recreate_Policy_When_Only_InitialStart_Changes
+
+        [Fact]
+        public void Should_Recreate_Policy_When_Only_InitialStart_Changes()
+        {
+            // Arrange
+            AlterReorderPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                IndexName = "IX_TestTable_Time",
+                OldIndexName = "IX_TestTable_Time",
+                InitialStart = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                OldInitialStart = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            };
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Contains("remove_reorder_policy", result);
+            Assert.Contains("add_reorder_policy", result);
+            Assert.Contains("initial_start => '2026-01-01T00:00:00.0000000Z'", result);
+        }
+
+        #endregion
     }
 }

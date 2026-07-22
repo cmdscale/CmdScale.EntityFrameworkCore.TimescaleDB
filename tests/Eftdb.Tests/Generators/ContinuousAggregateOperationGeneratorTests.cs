@@ -60,7 +60,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_WithAllStandardAggregates_GeneratesCorrectCode()
         {
-            // Arrange - Test all standard aggregate functions (AVG, MAX, MIN, SUM, COUNT)
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "daily_stats",
@@ -102,7 +102,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_WithCountStarAggregate_GeneratesUnquotedWildcard()
         {
-            // Arrange - the COUNT(*) wildcard is not an identifier and must not be quoted
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "hourly_counts",
@@ -136,7 +136,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_WithTimescaleDBFirstLastFunctions_GeneratesCorrectSyntax()
         {
-            // Arrange - TimescaleDB first() and last() require (value, time) parameter ordering
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "price_aggregates",
@@ -174,7 +174,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_WithGroupByColumns_GeneratesCorrectGrouping()
         {
-            // Arrange - Test GROUP BY with multiple columns
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "sales_by_region",
@@ -208,7 +208,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_WithWhereClause_GeneratesCorrectFiltering()
         {
-            // Arrange - Test WHERE clause filtering
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "high_value_trades",
@@ -244,7 +244,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_WithChunkInterval_GeneratesCorrectOption()
         {
-            // Arrange - Test custom chunk_interval
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "monthly_summary",
@@ -302,7 +302,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Runtime uses single quotes for SQL
+            // Assert
             Assert.Contains("CREATE MATERIALIZED VIEW \"public\".\"hourly_metrics\"", result);
             Assert.Contains("WITH (timescaledb.continuous", result);
             Assert.Contains("time_bucket('1 hour', \"timestamp\")", result);
@@ -315,7 +315,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Create_WithFirstLast_UsesCorrectParameterOrder()
         {
-            // Arrange - Verify TimescaleDB first()/last() parameter ordering
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "price_extremes",
@@ -338,7 +338,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - first() and last() must have (value, time) ordering
+            // Assert
             Assert.Contains("first(\"price\", \"time\") AS \"opening_price\"", result);
             Assert.Contains("last(\"price\", \"time\") AS \"closing_price\"", result);
         }
@@ -346,7 +346,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Create_WithAllOptions_GeneratesCompleteSQL()
         {
-            // Arrange - Test comprehensive continuous aggregate
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "comprehensive_stats",
@@ -375,7 +375,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert all SQL components
+            // Assert
             Assert.Contains("CREATE MATERIALIZED VIEW \"analytics\".\"comprehensive_stats\"", result);
             Assert.Contains("timescaledb.continuous", result);
             Assert.Contains("timescaledb.create_group_indexes = true", result);
@@ -491,7 +491,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Alter_MultipleProperties_GeneratesMultipleStatements()
         {
-            // Arrange - Test altering multiple properties at once
+            // Arrange
             AlterContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "complex_view",
@@ -507,7 +507,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - Should generate three separate ALTER statements
+            // Assert
             Assert.Contains("timescaledb.chunk_interval = '60 days'", result);
             Assert.Contains("timescaledb.create_group_indexes = true", result);
             Assert.Contains("timescaledb.materialized_only = false", result);
@@ -516,7 +516,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Alter_NoChanges_GeneratesNoSQL()
         {
-            // Arrange - Nothing changed
+            // Arrange
             AlterContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "unchanged_view",
@@ -532,7 +532,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Should generate empty result
+            // Assert
             Assert.Empty(result.Trim());
         }
 
@@ -582,7 +582,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Drop_UsesIfExists_ForSafety()
         {
-            // Arrange - Verify IF EXISTS is always used for safety
+            // Arrange
             DropContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "maybe_exists",
@@ -592,7 +592,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - IF EXISTS prevents errors if view doesn't exist
+            // Assert
             Assert.Contains("IF EXISTS", result);
         }
 
@@ -603,7 +603,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_With_Malformed_AggregateFunction_SkipsInvalidFunction()
         {
-            // Arrange - Aggregate function with wrong number of parts (only 2 instead of 3)
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "bad_agg",
@@ -612,7 +612,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TimeBucketWidth = "1 hour",
                 TimeBucketSourceColumn = "time",
                 TimeBucketGroupBy = true,
-                // Malformed: missing source column (only 2 parts)
                 AggregateFunctions = ["alias_only:Avg", "valid_agg:Sum:value"],
                 GroupByColumns = [],
                 CreateGroupIndexes = false,
@@ -623,16 +622,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Should skip malformed and only include valid
+            // Assert
             Assert.Contains("SUM(\"value\") AS \"valid_agg\"", result);
-            // Malformed function should be skipped
             Assert.DoesNotContain("alias_only", result);
         }
 
         [Fact]
         public void Create_With_ExtraColon_In_AggregateFunction_SkipsFunction()
         {
-            // Arrange - Too many parts (4 instead of 3)
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "malformed_view",
@@ -641,7 +639,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TimeBucketWidth = "1 hour",
                 TimeBucketSourceColumn = "time",
                 TimeBucketGroupBy = true,
-                // Too many colons - will be skipped
                 AggregateFunctions = ["alias:Avg:value:extra", "valid:Sum:amount"],
                 GroupByColumns = [],
                 CreateGroupIndexes = false,
@@ -652,17 +649,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Malformed should be skipped
+            // Assert
             Assert.DoesNotContain("extra", result);
             Assert.DoesNotContain("alias", result);
-            // Valid one should be present
             Assert.Contains("SUM(\"amount\") AS \"valid\"", result);
         }
 
         [Fact]
         public void Create_With_SinglePartAggregateFunction_SkipsFunction()
         {
-            // Arrange - Only 1 part (just alias, no function or column)
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "single_part",
@@ -689,7 +685,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_WithoutTimeBucketInGroupBy_GeneratesCorrectSQL()
         {
-            // Arrange - TimeBucketGroupBy = false
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "no_time_bucket_gb",
@@ -709,9 +705,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            // time_bucket should still be in SELECT
             Assert.Contains("time_bucket('1 hour', \"time\") AS time_bucket", result);
-            // GROUP BY should only have region, not time_bucket
             Assert.Contains("GROUP BY \"region\"", result);
             Assert.DoesNotContain("GROUP BY time_bucket", result);
         }
@@ -719,7 +713,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_WithRawSQLGroupByExpression_IncludesAsIs()
         {
-            // Arrange - GROUP BY with raw SQL expression (contains parentheses)
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "raw_sql_groupby",
@@ -738,7 +732,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Raw SQL should be included as-is, quoted column should be quoted
+            // Assert
             Assert.Contains("EXTRACT(HOUR FROM time)", result);
             Assert.Contains("\"region\"", result);
         }
@@ -746,7 +740,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_WithRawSQLGroupByExpression_ContainingComma_IncludesAsIs()
         {
-            // Arrange - GROUP BY with raw SQL expression containing comma
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "comma_sql",
@@ -765,7 +759,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Raw SQL should be included as-is
+            // Assert
             Assert.Contains("COALESCE(region, 'unknown')", result);
         }
 
@@ -793,7 +787,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             Assert.Contains("GROUP BY time_bucket", result);
-            // Ensure there's no trailing comma after time_bucket
             Assert.DoesNotContain("GROUP BY time_bucket,", result);
         }
 
@@ -881,7 +874,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_WithUnsupportedAggregateFunction_ThrowsNotSupportedException()
         {
-            // Arrange - Using an unsupported aggregate function name
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "unsupported",
@@ -897,7 +890,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-
             // Act & Assert
             NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
                 ContinuousAggregateSqlGenerator.Generate(operation));
@@ -908,7 +900,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_WithInvalidAggregateEnum_ThrowsNotSupportedException()
         {
-            // Arrange - Using an unrecognized aggregate function name
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "bad_func",
@@ -924,7 +916,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 WithNoData = false
             };
 
-
             // Act & Assert
             NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
                 ContinuousAggregateSqlGenerator.Generate(operation));
@@ -934,7 +925,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_WithAllAggregateFunctionsMalformed_GeneratesViewWithNoAggregates()
         {
-            // Arrange - All aggregate functions are malformed
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "all_malformed",
@@ -953,7 +944,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Should still generate the view structure, just without aggregate columns
+            // Assert
             Assert.Contains("CREATE MATERIALIZED VIEW", result);
             Assert.Contains("time_bucket", result);
             Assert.DoesNotContain("bad1", result);
@@ -967,7 +958,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Alter_With_NullChunkInterval_And_OldChunkIntervalExists_RestoresOldValue()
         {
-            // Arrange - ChunkInterval set to null but OldChunkInterval exists
+            // Arrange
             AlterContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "restore_chunk",
@@ -979,14 +970,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Should restore old value
+            // Assert
             Assert.Contains("SET (timescaledb.chunk_interval = '7 days')", result);
         }
 
         [Fact]
         public void Alter_With_EmptyChunkInterval_And_EmptyOldChunkInterval_GeneratesNothing()
         {
-            // Arrange - Both intervals are empty
+            // Arrange
             AlterContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "empty_intervals",
@@ -998,14 +989,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Should generate nothing for chunk interval
+            // Assert
             Assert.DoesNotContain("chunk_interval", result);
         }
 
         [Fact]
         public void Alter_With_NullChunkInterval_And_NullOldChunkInterval_GeneratesNothing()
         {
-            // Arrange - Both intervals are null
+            // Arrange
             AlterContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "null_intervals",
@@ -1017,7 +1008,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Should generate nothing for chunk interval
+            // Assert
             Assert.DoesNotContain("chunk_interval", result);
         }
 
@@ -1094,10 +1085,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             List<string> statements = ContinuousAggregateSqlGenerator.Generate(operation);
             string result = string.Join("\n", statements);
 
-            // Assert - Runtime should use single quotes (standard SQL quoting)
+            // Assert
             Assert.Contains("\"public\"", result);
             Assert.Contains("\"test_view\"", result);
-            // Should not have escaped quotes
             Assert.DoesNotContain("\"\"public\"\"", result);
         }
 
@@ -1108,7 +1098,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_RequiresTimeBucket_InSelectClause()
         {
-            // Arrange - TimescaleDB requires time_bucket in continuous aggregates
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "test_view",
@@ -1127,7 +1117,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - time_bucket is required by TimescaleDB
+            // Assert
             Assert.Contains("time_bucket(", result);
             Assert.Contains("AS time_bucket", result);
         }
@@ -1154,14 +1144,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - GROUP BY must include time_bucket
+            // Assert
             Assert.Contains("GROUP BY time_bucket", result);
         }
 
         [Fact]
         public void Create_FirstAndLast_RequireTimeParameter()
         {
-            // Arrange - TimescaleDB first() and last() must have time column
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "first_last_test",
@@ -1184,7 +1174,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - first() and last() MUST have (value, time) signature
+            // Assert
             Assert.Contains("first(\"value\", \"ts\")", result);
             Assert.Contains("last(\"value\", \"ts\")", result);
             Assert.DoesNotContain("first(\"value\")", result);
@@ -1194,7 +1184,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_StandardAggregates_DoNotRequireTimeParameter()
         {
-            // Arrange - Standard SQL aggregates (AVG, MAX, MIN, SUM, COUNT) don't need time
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "standard_agg_test",
@@ -1218,7 +1208,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Standard aggregates use single parameter
+            // Assert
             Assert.Contains("AVG(\"temperature\")", result);
             Assert.Contains("MAX(\"temperature\")", result);
             Assert.Contains("COUNT(\"id\")", result);
@@ -1232,7 +1222,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Create_WithViewDefinition_GeneratesRawCreateMaterializedView()
         {
-            // Arrange - scaffolded round-trip path: raw view body, no structured fields needed
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "hourly_metrics",
@@ -1251,13 +1241,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string sql = Assert.Single(statements);
             Assert.Contains("CREATE MATERIALIZED VIEW \"public\".\"hourly_metrics\"", sql);
             Assert.Contains("timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = true", sql);
-            // Raw body present (with leading semicolon stripped) and a final terminating semicolon appended
             Assert.Contains("SELECT time_bucket('1 hour', \"time\") AS bucket FROM \"src\"", sql);
             Assert.Contains("GROUP BY bucket", sql);
             Assert.EndsWith(";", sql);
-            // Raw body's own trailing ';' is stripped, so only one ';' at the end
             Assert.False(sql.EndsWith(";;"));
-            // No structured SELECT synthesis appears
             Assert.DoesNotContain("AS time_bucket,", sql);
         }
 
@@ -1280,15 +1267,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             string sql = Assert.Single(statements);
             Assert.Contains("WITH NO DATA", sql);
-            // WITH NO DATA must come immediately before the trailing ';'
             Assert.EndsWith("WITH NO DATA;", sql);
         }
 
         [Fact]
         public void Runtime_Create_WithViewDefinition_IgnoresStructuredFields()
         {
-            // Arrange - even when structured fields are populated with nonsense values,
-            // the raw ViewDefinition must take precedence and they must not appear in output.
+            // Arrange
             CreateContinuousAggregateOperation operation = new()
             {
                 MaterializedViewName = "hourly_metrics",
@@ -1306,7 +1291,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             List<string> statements = ContinuousAggregateSqlGenerator.Generate(operation);
 
-            // Assert - raw body is present, structured fields are not
+            // Assert
             string sql = Assert.Single(statements);
             Assert.Contains("SELECT raw_only AS bucket FROM \"src\" GROUP BY bucket", sql);
             Assert.DoesNotContain("BOGUS_WIDTH", sql);
@@ -1315,6 +1300,61 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.DoesNotContain("bogus_source", sql);
             Assert.DoesNotContain("bogus_groupby", sql);
             Assert.DoesNotContain("bogus_where", sql);
+        }
+
+        #endregion
+
+        #region Create_WithTimeBucketGroupByFalse_And_EmptyGroupByColumns_OmitsGroupByClause
+
+        [Fact]
+        public void Create_WithTimeBucketGroupByFalse_And_EmptyGroupByColumns_OmitsGroupByClause()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "no_group_by_ca",
+                Schema = "public",
+                ParentName = "src_no_gb",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "ts",
+                TimeBucketGroupBy = false,
+                AggregateFunctions = ["total:Sum:amount"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("time_bucket('1 hour', \"ts\") AS time_bucket", result);
+            Assert.Contains("SUM(\"amount\") AS \"total\"", result);
+            Assert.DoesNotContain("GROUP BY", result);
+        }
+
+        #endregion
+
+        #region Alter_NullChunkInterval_And_EmptyOldChunkInterval_GeneratesNoStatement
+
+        [Fact]
+        public void Alter_NullChunkInterval_And_EmptyOldChunkInterval_GeneratesNoStatement()
+        {
+            // Arrange
+            AlterContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "null_vs_empty_ca",
+                Schema = "public",
+                ChunkInterval = null,
+                OldChunkInterval = ""
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.DoesNotContain("chunk_interval", result);
         }
 
         #endregion

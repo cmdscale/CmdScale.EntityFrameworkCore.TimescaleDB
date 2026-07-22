@@ -1507,4 +1507,1297 @@ public class ContinuousAggregateAnnotationRendererTests
     }
 
     #endregion
+
+    // ── ViewDefinition parsing edge cases ─────────────────────────────────────
+
+    #region Should_Return_Empty_When_ViewDefinition_Has_No_TimeBucket
+
+    private class NoTimeBucketCaEntity
+    {
+        public double Value { get; set; }
+    }
+
+    private class NoTimeBucketContext : DbContext
+    {
+        public DbSet<NoTimeBucketCaEntity> Stats => Set<NoTimeBucketCaEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoTimeBucketCaEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("no_time_bucket_stats");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Return_Empty_When_ViewDefinition_Has_No_TimeBucket()
+    {
+        // Arrange
+        const string viewDefNoTimeBucket =
+            "SELECT value FROM raw_data GROUP BY value";
+
+        using NoTimeBucketContext context = new();
+        IEntityType entityType = GetEntityType<NoTimeBucketCaEntity>(context);
+        Dictionary<string, IAnnotation> fluentAnnotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "no_time_bucket_stats"),
+            (ContinuousAggregateAnnotations.ParentName, "raw_data"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDefNoTimeBucket));
+
+        Dictionary<string, IAnnotation> daAnnotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "no_time_bucket_stats"),
+            (ContinuousAggregateAnnotations.ParentName, "raw_data"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDefNoTimeBucket));
+
+        IAnnotationCodeGenerator generator = CreateAnnotationCodeGenerator();
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> fluentResult = generator.GenerateFluentApiCalls(entityType, fluentAnnotations);
+        IReadOnlyList<AttributeCodeFragment> daResult = generator.GenerateDataAnnotationAttributes(entityType, daAnnotations);
+
+        // Assert
+        Assert.DoesNotContain(fluentResult, f => CollectMethodChain(f).Contains(nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate)));
+        Assert.DoesNotContain(daResult, a => a.Type == typeof(ContinuousAggregateAttribute));
+    }
+
+    #endregion
+
+    #region Should_Return_Empty_When_TimeBucketSourceColumn_Is_Null
+
+    private class NoSourceColumnCaEntity
+    {
+        public double Value { get; set; }
+    }
+
+    private class NoSourceColumnContext : DbContext
+    {
+        public DbSet<NoSourceColumnCaEntity> Stats => Set<NoSourceColumnCaEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoSourceColumnCaEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("no_source_col_stats");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Return_Empty_When_TimeBucketSourceColumn_Is_Null()
+    {
+        // Arrange
+        const string viewDefNoSourceCol =
+            "SELECT time_bucket('1 hour') AS bucket, avg(value) AS avg_value FROM raw_data GROUP BY 1";
+
+        using NoSourceColumnContext context = new();
+        IEntityType entityType = GetEntityType<NoSourceColumnCaEntity>(context);
+        Dictionary<string, IAnnotation> fluentAnnotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "no_source_col_stats"),
+            (ContinuousAggregateAnnotations.ParentName, "raw_data"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDefNoSourceCol));
+
+        Dictionary<string, IAnnotation> daAnnotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "no_source_col_stats"),
+            (ContinuousAggregateAnnotations.ParentName, "raw_data"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDefNoSourceCol));
+
+        IAnnotationCodeGenerator generator = CreateAnnotationCodeGenerator();
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> fluentResult = generator.GenerateFluentApiCalls(entityType, fluentAnnotations);
+        IReadOnlyList<AttributeCodeFragment> daResult = generator.GenerateDataAnnotationAttributes(entityType, daAnnotations);
+
+        // Assert
+        Assert.DoesNotContain(fluentResult, f => CollectMethodChain(f).Contains(nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate)));
+        Assert.DoesNotContain(daResult, a => a.Type == typeof(ContinuousAggregateAttribute));
+    }
+
+    #endregion
+
+    // ── ResolveParentColumnArg — unresolvable parent ───────────────────────────
+
+    #region Should_Use_Raw_ColumnName_When_Parent_EntityType_Not_Resolved
+
+    private class UnresolvableParentCaEntity
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class UnresolvableParentContext : DbContext
+    {
+        public DbSet<UnresolvableParentCaEntity> Stats => Set<UnresolvableParentCaEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UnresolvableParentCaEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("unresolvable_parent_stats");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Use_Raw_ColumnName_When_Parent_EntityType_Not_Resolved()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, src.\"time\") AS bucket," +
+            " avg(src.value) AS avg_value" +
+            " FROM unknown_source src" +
+            " GROUP BY time_bucket('01:00:00'::interval, src.\"time\")";
+
+        using UnresolvableParentContext context = new();
+        IEntityType entityType = GetEntityType<UnresolvableParentCaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "unresolvable_parent_stats"),
+            (ContinuousAggregateAnnotations.ParentName, "unknown_source"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+
+        Assert.IsType<string>(root.Arguments[1]);
+        Assert.IsType<string>(root.Arguments[3]);
+        MethodCallCodeFragment? addAgg = null;
+        for (MethodCallCodeFragment? current = root; current != null; current = current.ChainedCall)
+        {
+            if (current.Method == "AddAggregateFunction") { addAgg = current; break; }
+        }
+        Assert.NotNull(addAgg);
+        Assert.IsType<string>(addAgg.Arguments[1]);
+    }
+
+    #endregion
+
+    // ── COUNT(*) wildcard in fluent API ───────────────────────────────────────
+
+    #region Should_Use_Wildcard_String_When_AggregateSourceColumn_Is_Star
+
+    private class CountStarSourceEntity
+    {
+        public DateTime Time { get; set; }
+        public double Price { get; set; }
+    }
+
+    private class CountStarCaEntity
+    {
+        public DateTime Bucket { get; set; }
+        public long TradeCount { get; set; }
+    }
+
+    private class CountStarFluentContext : DbContext
+    {
+        public DbSet<CountStarSourceEntity> Sources => Set<CountStarSourceEntity>();
+        public DbSet<CountStarCaEntity> Stats => Set<CountStarCaEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CountStarSourceEntity>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("count_star_source");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Price).HasColumnName("price");
+            });
+
+            modelBuilder.Entity<CountStarCaEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("count_star_ca_stats");
+                e.Property(x => x.TradeCount).HasColumnName("trade_count");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Use_Wildcard_String_When_AggregateSourceColumn_Is_Star()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " count(*) AS trade_count" +
+            " FROM count_star_source s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using CountStarFluentContext context = new();
+        IEntityType entityType = GetEntityType<CountStarCaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "count_star_ca_stats"),
+            (ContinuousAggregateAnnotations.ParentName, "count_star_source"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+
+        MethodCallCodeFragment? addAgg = null;
+        for (MethodCallCodeFragment? current = root; current != null; current = current.ChainedCall)
+        {
+            if (current.Method == "AddAggregateFunction") { addAgg = current; break; }
+        }
+        Assert.NotNull(addAgg);
+        Assert.Equal("*", addAgg.Arguments[1]);
+        Assert.IsType<string>(addAgg.Arguments[1]);
+        Assert.Equal(EAggregateFunction.Count, addAgg.Arguments[2]);
+    }
+
+    #endregion
+
+    // ── MaterializedOnly, WhereClause, ChunkInterval, GroupByColumn, raw alias ──
+
+    #region Should_Chain_MaterializedOnly_When_MaterializedOnly_Is_True
+
+    private class MaterializedOnlyParentEntity4
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MaterializedOnlyCaEntity4
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class MaterializedOnlyContext4 : DbContext
+    {
+        public DbSet<MaterializedOnlyParentEntity4> Sources => Set<MaterializedOnlyParentEntity4>();
+        public DbSet<MaterializedOnlyCaEntity4> Stats => Set<MaterializedOnlyCaEntity4>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MaterializedOnlyParentEntity4>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("mat_only_src4");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<MaterializedOnlyCaEntity4>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("mat_only_stats4");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Chain_MaterializedOnly_When_MaterializedOnly_Is_True()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value" +
+            " FROM mat_only_src4 s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using MaterializedOnlyContext4 context = new();
+        IEntityType entityType = GetEntityType<MaterializedOnlyCaEntity4>(context);
+        Dictionary<string, IAnnotation> fluentAnnotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "mat_only_stats4"),
+            (ContinuousAggregateAnnotations.ParentName, "mat_only_src4"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (ContinuousAggregateAnnotations.MaterializedOnly, true));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, fluentAnnotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        List<string> chain = CollectMethodChain(root);
+        Assert.Contains("MaterializedOnly", chain);
+    }
+
+    #endregion
+
+    #region Should_Chain_WhereClause_When_WhereClause_Present_In_FluentApi
+
+    private class WhereClauseParentEntity5
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+        public string? Region { get; set; }
+    }
+
+    private class WhereClauseCaEntity5
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class WhereClauseContext5 : DbContext
+    {
+        public DbSet<WhereClauseParentEntity5> Sources => Set<WhereClauseParentEntity5>();
+        public DbSet<WhereClauseCaEntity5> Stats => Set<WhereClauseCaEntity5>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<WhereClauseParentEntity5>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("where_clause_src5");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<WhereClauseCaEntity5>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("where_clause_stats5");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Chain_WhereClause_When_WhereClause_Present_In_FluentApi()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value" +
+            " FROM where_clause_src5 s" +
+            " WHERE s.value > 0" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using WhereClauseContext5 context = new();
+        IEntityType entityType = GetEntityType<WhereClauseCaEntity5>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "where_clause_stats5"),
+            (ContinuousAggregateAnnotations.ParentName, "where_clause_src5"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        List<string> chain = CollectMethodChain(root);
+        Assert.Contains("Where", chain);
+    }
+
+    #endregion
+
+    #region Should_Chain_ChunkInterval_When_Not_Derived_Default
+
+    private class ChunkIntervalParentEntity6
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ChunkIntervalCaEntity6
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ChunkIntervalContext6 : DbContext
+    {
+        public DbSet<ChunkIntervalParentEntity6> Sources => Set<ChunkIntervalParentEntity6>();
+        public DbSet<ChunkIntervalCaEntity6> Stats => Set<ChunkIntervalCaEntity6>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ChunkIntervalParentEntity6>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("chunk_interval_src6");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<ChunkIntervalCaEntity6>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("chunk_interval_stats6");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Chain_ChunkInterval_When_Not_Derived_Default()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value" +
+            " FROM chunk_interval_src6 s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using ChunkIntervalContext6 context = new();
+        IEntityType entityType = GetEntityType<ChunkIntervalCaEntity6>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "chunk_interval_stats6"),
+            (ContinuousAggregateAnnotations.ParentName, "chunk_interval_src6"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (ContinuousAggregateAnnotations.ChunkInterval, "1 month"));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        List<string> chain = CollectMethodChain(root);
+        Assert.Contains("WithChunkInterval", chain);
+    }
+
+    #endregion
+
+    #region Should_Not_Chain_ChunkInterval_When_IsDerivedDefault
+
+    private class DerivedDefaultChunkIntervalParentEntity7
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class DerivedDefaultChunkIntervalCaEntity7
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class DerivedDefaultChunkIntervalContext7 : DbContext
+    {
+        public DbSet<DerivedDefaultChunkIntervalParentEntity7> Sources => Set<DerivedDefaultChunkIntervalParentEntity7>();
+        public DbSet<DerivedDefaultChunkIntervalCaEntity7> Stats => Set<DerivedDefaultChunkIntervalCaEntity7>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DerivedDefaultChunkIntervalParentEntity7>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("derived_default_src7");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<DerivedDefaultChunkIntervalCaEntity7>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("derived_default_stats7");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Chain_ChunkInterval_When_IsDerivedDefault()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value" +
+            " FROM derived_default_src7 s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using DerivedDefaultChunkIntervalContext7 context = new();
+        IEntityType entityType = GetEntityType<DerivedDefaultChunkIntervalCaEntity7>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "derived_default_stats7"),
+            (ContinuousAggregateAnnotations.ParentName, "derived_default_src7"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (ContinuousAggregateAnnotations.ChunkInterval, "70 days"));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        List<string> chain = CollectMethodChain(root);
+        Assert.DoesNotContain("WithChunkInterval", chain);
+    }
+
+    #endregion
+
+    #region Should_Chain_AddGroupByColumn_For_GroupBy_Columns
+
+    private class GroupByColParentEntity8
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+        public string Region { get; set; } = "";
+    }
+
+    private class GroupByColCaEntity8
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+        public string Region { get; set; } = "";
+    }
+
+    private class GroupByColContext8 : DbContext
+    {
+        public DbSet<GroupByColParentEntity8> Sources => Set<GroupByColParentEntity8>();
+        public DbSet<GroupByColCaEntity8> Stats => Set<GroupByColCaEntity8>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<GroupByColParentEntity8>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("group_by_col_src8");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+                e.Property(x => x.Region).HasColumnName("region");
+            });
+            modelBuilder.Entity<GroupByColCaEntity8>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("group_by_col_stats8");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+                e.Property(x => x.Region).HasColumnName("region");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Chain_AddGroupByColumn_For_GroupBy_Columns()
+    {
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value," +
+            " s.region AS region" +
+            " FROM group_by_col_src8 s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\"), s.region";
+
+        using GroupByColContext8 context = new();
+        IEntityType entityType = GetEntityType<GroupByColCaEntity8>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "group_by_col_stats8"),
+            (ContinuousAggregateAnnotations.ParentName, "group_by_col_src8"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        List<string> chain = CollectMethodChain(root);
+        Assert.Contains("AddGroupByColumn", chain);
+    }
+
+    #endregion
+
+    #region Should_Use_Raw_Alias_When_AggregateAlias_Does_Not_Match_Any_Property
+
+    private class RawAliasParentEntity9
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class RawAliasCaEntity9
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class RawAliasContext9 : DbContext
+    {
+        public DbSet<RawAliasParentEntity9> Sources => Set<RawAliasParentEntity9>();
+        public DbSet<RawAliasCaEntity9> Stats => Set<RawAliasCaEntity9>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RawAliasParentEntity9>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("raw_alias_src9");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<RawAliasCaEntity9>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("raw_alias_stats9");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Use_Raw_Alias_When_AggregateAlias_Does_Not_Match_Any_Property()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS unmapped_alias" +
+            " FROM raw_alias_src9 s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using RawAliasContext9 context = new();
+        IEntityType entityType = GetEntityType<RawAliasCaEntity9>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "raw_alias_stats9"),
+            (ContinuousAggregateAnnotations.ParentName, "raw_alias_src9"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        MethodCallCodeFragment? addAgg = null;
+        for (MethodCallCodeFragment? cur = root; cur != null; cur = cur.ChainedCall)
+        {
+            if (cur.Method == "AddAggregateFunction") { addAgg = cur; break; }
+        }
+        Assert.NotNull(addAgg);
+        Assert.IsType<string>(addAgg.Arguments[0]);
+        Assert.Equal("unmapped_alias", addAgg.Arguments[0]);
+    }
+
+    #endregion
+
+    #region Should_Set_MaterializedOnly_Named_Arg_In_DataAnnotations
+
+    private class MaterializedOnlyDaParentEntity10
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MaterializedOnlyDaCaEntity10
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class MaterializedOnlyDaContext10 : DbContext
+    {
+        public DbSet<MaterializedOnlyDaParentEntity10> Sources => Set<MaterializedOnlyDaParentEntity10>();
+        public DbSet<MaterializedOnlyDaCaEntity10> Stats => Set<MaterializedOnlyDaCaEntity10>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MaterializedOnlyDaParentEntity10>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("mat_only_da_src10");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<MaterializedOnlyDaCaEntity10>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("mat_only_da_stats10");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Set_MaterializedOnly_Named_Arg_In_DataAnnotations()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value" +
+            " FROM mat_only_da_src10 s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        TimescaleDbAnnotationCodeGenerator generator = (TimescaleDbAnnotationCodeGenerator)CreateAnnotationCodeGenerator();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        using MaterializedOnlyDaContext10 context = new();
+        IEntityType entityType = GetEntityType<MaterializedOnlyDaCaEntity10>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "mat_only_da_stats10"),
+            (ContinuousAggregateAnnotations.ParentName, "mat_only_da_src10"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (ContinuousAggregateAnnotations.MaterializedOnly, true));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = generator
+            .GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment? caAttr = result.FirstOrDefault(a => a.Type == typeof(ContinuousAggregateAttribute));
+        Assert.NotNull(caAttr);
+        Assert.True(caAttr.NamedArguments.ContainsKey(nameof(ContinuousAggregateAttribute.MaterializedOnly)));
+    }
+
+    #endregion
+
+    #region Should_Set_Where_Named_Arg_In_DataAnnotations
+
+    private class WhereDaParentEntity11
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class WhereDaCaEntity11
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class WhereDaContext11 : DbContext
+    {
+        public DbSet<WhereDaParentEntity11> Sources => Set<WhereDaParentEntity11>();
+        public DbSet<WhereDaCaEntity11> Stats => Set<WhereDaCaEntity11>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<WhereDaParentEntity11>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("where_da_src11");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<WhereDaCaEntity11>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("where_da_stats11");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Set_Where_Named_Arg_In_DataAnnotations()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value" +
+            " FROM where_da_src11 s" +
+            " WHERE s.value > 0" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        TimescaleDbAnnotationCodeGenerator generator = (TimescaleDbAnnotationCodeGenerator)CreateAnnotationCodeGenerator();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        using WhereDaContext11 context = new();
+        IEntityType entityType = GetEntityType<WhereDaCaEntity11>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "where_da_stats11"),
+            (ContinuousAggregateAnnotations.ParentName, "where_da_src11"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = generator
+            .GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment? caAttr = result.FirstOrDefault(a => a.Type == typeof(ContinuousAggregateAttribute));
+        Assert.NotNull(caAttr);
+        Assert.True(caAttr.NamedArguments.ContainsKey(nameof(ContinuousAggregateAttribute.Where)));
+    }
+
+    #endregion
+
+    #region Should_Set_ChunkInterval_Named_Arg_In_DataAnnotations_When_Not_Derived_Default
+
+    private class ChunkIntervalDaParentEntity12
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ChunkIntervalDaCaEntity12
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ChunkIntervalDaContext12 : DbContext
+    {
+        public DbSet<ChunkIntervalDaParentEntity12> Sources => Set<ChunkIntervalDaParentEntity12>();
+        public DbSet<ChunkIntervalDaCaEntity12> Stats => Set<ChunkIntervalDaCaEntity12>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ChunkIntervalDaParentEntity12>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("chunk_da_src12");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<ChunkIntervalDaCaEntity12>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("chunk_da_stats12");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Set_ChunkInterval_Named_Arg_In_DataAnnotations_When_Not_Derived_Default()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value" +
+            " FROM chunk_da_src12 s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        TimescaleDbAnnotationCodeGenerator generator = (TimescaleDbAnnotationCodeGenerator)CreateAnnotationCodeGenerator();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        using ChunkIntervalDaContext12 context = new();
+        IEntityType entityType = GetEntityType<ChunkIntervalDaCaEntity12>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "chunk_da_stats12"),
+            (ContinuousAggregateAnnotations.ParentName, "chunk_da_src12"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (ContinuousAggregateAnnotations.ChunkInterval, "1 month"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = generator
+            .GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment? caAttr = result.FirstOrDefault(a => a.Type == typeof(ContinuousAggregateAttribute));
+        Assert.NotNull(caAttr);
+        Assert.True(caAttr.NamedArguments.ContainsKey(nameof(ContinuousAggregateAttribute.ChunkInterval)));
+    }
+
+    #endregion
+
+    // ── Default fallbacks: createGroupIndexes and parentName ─────────────────
+
+    #region CreateGroupIndexes_DefaultsToTrue_When_Annotation_Is_Null
+
+    private class NullGiParentEntity13
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NullGiCaEntity13
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class NullGiContext13 : DbContext
+    {
+        public DbSet<NullGiParentEntity13> Sources => Set<NullGiParentEntity13>();
+        public DbSet<NullGiCaEntity13> Stats => Set<NullGiCaEntity13>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NullGiParentEntity13>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("null_gi_src13");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<NullGiCaEntity13>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("null_gi_stats13");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void CreateGroupIndexes_DefaultsToTrue_When_Annotation_Is_Null()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value" +
+            " FROM null_gi_src13 s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using NullGiContext13 context = new();
+        IEntityType entityType = GetEntityType<NullGiCaEntity13>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "null_gi_stats13"),
+            (ContinuousAggregateAnnotations.ParentName, "null_gi_src13"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        List<string> chain = CollectMethodChain(root);
+        Assert.DoesNotContain("CreateGroupIndexes", chain);
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_ParentName_Null_FallsBackTo_MaterializedViewName
+
+    private class NullParentNameCaEntity14
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class NullParentNameContext14 : DbContext
+    {
+        public DbSet<NullParentNameCaEntity14> Stats => Set<NullParentNameCaEntity14>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NullParentNameCaEntity14>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("null_parent_name_stats14");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_ParentName_Null_FallsBackTo_MaterializedViewName()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.avg_value) AS avg_value" +
+            " FROM unknown_parent_src s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using NullParentNameContext14 context = new();
+        IEntityType entityType = GetEntityType<NullParentNameCaEntity14>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "null_parent_name_stats14"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        string parentArg = Assert.IsType<string>(root.Arguments[1]);
+        Assert.Equal(string.Empty, parentArg);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_ParentName_Null_FallsBackTo_EmptyString
+
+    private class NullParentNameDaCaEntity15
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class NullParentNameDaContext15 : DbContext
+    {
+        public DbSet<NullParentNameDaCaEntity15> Stats => Set<NullParentNameDaCaEntity15>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NullParentNameDaCaEntity15>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("null_parent_name_da_stats15");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_ParentName_Null_FallsBackTo_EmptyString()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.avg_value) AS avg_value" +
+            " FROM unknown_parent_da_src s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using NullParentNameDaContext15 context = new();
+        IEntityType entityType = GetEntityType<NullParentNameDaCaEntity15>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "null_parent_name_da_stats15"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment? caAttr = result.FirstOrDefault(a => a.Type == typeof(ContinuousAggregateAttribute));
+        Assert.NotNull(caAttr);
+        Assert.True(caAttr.NamedArguments.ContainsKey(nameof(ContinuousAggregateAttribute.ParentName)));
+        string parentNameArg = Assert.IsType<string>(caAttr.NamedArguments[nameof(ContinuousAggregateAttribute.ParentName)]);
+        Assert.Equal(string.Empty, parentNameArg);
+    }
+
+    #endregion
+
+    #region ConsumeFeatureAnnotations_ReportsWarning_WhenViewDefinitionUnparseable
+
+    [Fact]
+    public void ConsumeFeatureAnnotations_ReportsWarning_WhenViewDefinitionUnparseable()
+    {
+        // Arrange
+        using CaTestContext context = new();
+        IEntityType entityType = GetEntityType<HourlyStatsEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "hourly_stats"),
+            (ContinuousAggregateAnnotations.ViewDefinition, "NOT VALID SQL AT ALL"));
+
+        (TimescaleDbAnnotationCodeGenerator generator, RecordingReporter reporter) = CreateGeneratorWithReporter();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        // Act
+        generator.GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        string warning = Assert.Single(reporter.Warnings);
+        Assert.Contains("hourly_stats", warning);
+        Assert.Contains(ContinuousAggregateAnnotations.MaterializedViewName, annotations.Keys);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_NoGroupByAttribute_WhenGroupByEntryUnresolvable
+
+    private class UnresolvableGroupByParentEntity16
+    {
+        public DateTime Time { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class UnresolvableGroupByCaEntity16
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class UnresolvableGroupByContext16 : DbContext
+    {
+        public DbSet<UnresolvableGroupByParentEntity16> Sources => Set<UnresolvableGroupByParentEntity16>();
+        public DbSet<UnresolvableGroupByCaEntity16> Stats => Set<UnresolvableGroupByCaEntity16>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UnresolvableGroupByParentEntity16>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("unresolvable_gb_src16");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+            modelBuilder.Entity<UnresolvableGroupByCaEntity16>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("unresolvable_gb_stats16");
+                e.Property(x => x.AvgValue).HasColumnName("avg_value");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_NoGroupByAttribute_WhenGroupByEntryUnresolvable()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.value) AS avg_value," +
+            " s.region AS region" +
+            " FROM unresolvable_gb_src16 s" +
+            " GROUP BY time_bucket('01:00:00'::interval, s.\"time\"), s.region";
+
+        using UnresolvableGroupByContext16 context = new();
+        IEntityType entityType = GetEntityType<UnresolvableGroupByCaEntity16>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "unresolvable_gb_stats16"),
+            (ContinuousAggregateAnnotations.ParentName, "unresolvable_gb_src16"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        (TimescaleDbAnnotationCodeGenerator generator, RecordingReporter reporter) = CreateGeneratorWithReporter();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = generator.GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        Assert.Single(reporter.Warnings);
+        Assert.Contains(result, a => a.Type == typeof(ContinuousAggregateAttribute));
+    }
+
+    #endregion
+
+    // ── Fluent API: parentEntityType null AND parentName null → uses materializedViewName ──
+
+    #region GenerateFluentApiCalls_Uses_MaterializedViewName_When_ParentName_And_EntityType_Both_Null
+
+    private class NullParentCaEntity17
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgVal { get; set; }
+    }
+
+    private class NullParentContext17 : DbContext
+    {
+        public DbSet<NullParentCaEntity17> Stats => Set<NullParentCaEntity17>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NullParentCaEntity17>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("null_parent_ca17");
+                e.Property(x => x.AvgVal).HasColumnName("avg_val");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_Uses_MaterializedViewName_When_ParentName_And_EntityType_Both_Null()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.time) AS bucket, avg(s.avg_val) AS avg_val" +
+            " FROM null_parent_src17 s GROUP BY 1";
+
+        using NullParentContext17 context = new();
+        IEntityType entityType = GetEntityType<NullParentCaEntity17>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "null_parent_ca17"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        (TimescaleDbAnnotationCodeGenerator generator, _) = CreateGeneratorWithReporter();
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = generator.GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        IEnumerable<string> methods = result.SelectMany(f => CollectMethodChain(f));
+        Assert.Contains("IsContinuousAggregate", methods);
+    }
+
+    #endregion
+
+    // ── DA mode: parentEntityType null AND parentName null → uses materializedViewName ──
+
+    #region GenerateDataAnnotationAttributes_Uses_MaterializedViewName_When_ParentName_And_EntityType_Both_Null
+
+    private class NullParentDaCaEntity18
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgVal { get; set; }
+    }
+
+    private class NullParentDaContext18 : DbContext
+    {
+        public DbSet<NullParentDaCaEntity18> Stats => Set<NullParentDaCaEntity18>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NullParentDaCaEntity18>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("null_parent_da_ca18");
+                e.Property(x => x.AvgVal).HasColumnName("avg_val");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_Uses_MaterializedViewName_When_ParentName_And_EntityType_Both_Null()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.time) AS bucket, avg(s.avg_val) AS avg_val" +
+            " FROM null_parent_da_src18 s GROUP BY 1";
+
+        using NullParentDaContext18 context = new();
+        IEntityType entityType = GetEntityType<NullParentDaCaEntity18>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "null_parent_da_ca18"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        (TimescaleDbAnnotationCodeGenerator generator, _) = CreateGeneratorWithReporter();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = generator.GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        Assert.Contains(result, a => a.Type == typeof(ContinuousAggregateAttribute));
+    }
+
+    #endregion
 }
