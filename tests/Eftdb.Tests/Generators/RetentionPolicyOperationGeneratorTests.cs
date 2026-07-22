@@ -15,8 +15,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             return string.Join("\n", statements);
         }
 
-        // --- Tests for AddRetentionPolicyOperation ---
-
         #region Generate_Add_DropAfter_with_minimal_config_creates_only_add_policy_sql
 
         [Fact]
@@ -168,8 +166,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        // --- Tests for AlterRetentionPolicyOperation ---
-
         #region Generate_Alter_when_only_job_settings_change_creates_only_alter_job_sql
 
         [Fact]
@@ -256,7 +252,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldScheduleInterval = "1 day"
             };
 
-            // During recreation, alter_job is emitted to reapply the final-state job settings
             string expected = @"
                 SELECT remove_retention_policy('public.""TestTable""', if_exists => true);
                 SELECT add_retention_policy('public.""TestTable""', drop_created_before => INTERVAL '30 days');
@@ -310,8 +305,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         #endregion
-
-        // --- Tests for DropRetentionPolicyOperation ---
 
         #region Generate_Drop_creates_correct_remove_policy_sql
 
@@ -517,8 +510,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        // --- Tests for runtime quoting ---
-
         private static List<string> GetRuntimeStatements(dynamic operation)
         {
             return RetentionPolicySqlGenerator.Generate(operation);
@@ -569,8 +560,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        // --- Tests for alter no-change path ---
-
         #region Generate_Add_DropAfter_uses_drop_after_interval_argument
 
         [Fact]
@@ -587,7 +576,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
 
-            // Assert — DropAfter maps to the drop_after => INTERVAL argument
+            // Assert
             Assert.Single(statements);
             Assert.Contains("drop_after => INTERVAL '7 days'", statements[0]);
             Assert.DoesNotContain("drop_created_before", statements[0]);
@@ -611,7 +600,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
 
-            // Assert — DropCreatedBefore maps to the drop_created_before => INTERVAL argument
+            // Assert
             Assert.Single(statements);
             Assert.Contains("drop_created_before => INTERVAL '30 days'", statements[0]);
             Assert.DoesNotContain("drop_after", statements[0]);
@@ -650,6 +639,151 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             Assert.Empty(result);
+        }
+
+        #endregion
+
+        #region Should_Recreate_When_DropCreatedBefore_Changes
+
+        [Fact]
+        public void Should_Recreate_When_DropCreatedBefore_Changes()
+        {
+            // Arrange
+            AlterRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropAfter = null,
+                OldDropAfter = null,
+                DropCreatedBefore = "60 days",
+                OldDropCreatedBefore = "30 days",
+                InitialStart = null,
+                OldInitialStart = null,
+                ScheduleInterval = "1 day",
+                OldScheduleInterval = "1 day"
+            };
+
+            string expected = @"
+                SELECT remove_retention_policy('public.""TestTable""', if_exists => true);
+                SELECT add_retention_policy('public.""TestTable""', drop_created_before => INTERVAL '60 days');
+                SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day')
+                FROM timescaledb_information.jobs
+                WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' AND hypertable_name = 'TestTable';
+            ";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        #endregion
+
+        #region Should_Generate_Add_SQL_With_DropCreatedBefore
+
+        [Fact]
+        public void Should_Generate_Add_SQL_With_DropCreatedBefore()
+        {
+            // Arrange
+            AddRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropCreatedBefore = "30 days"
+            };
+
+            string expected = @"
+                SELECT add_retention_policy('public.""TestTable""', drop_created_before => INTERVAL '30 days');
+            ";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+            Assert.DoesNotContain("drop_after", result);
+        }
+
+        #endregion
+
+        #region Should_Recreate_Without_AlterJob_When_No_Job_Settings
+
+        [Fact]
+        public void Should_Recreate_Without_AlterJob_When_No_Job_Settings()
+        {
+            // Arrange
+            AlterRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropAfter = "30 days",
+                OldDropAfter = "7 days",
+                DropCreatedBefore = null,
+                OldDropCreatedBefore = null,
+                InitialStart = null,
+                OldInitialStart = null
+            };
+
+            // Act
+            List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
+
+            // Assert
+            Assert.Equal(2, statements.Count);
+            Assert.Contains("remove_retention_policy", statements[0]);
+            Assert.Contains("add_retention_policy", statements[1]);
+            Assert.DoesNotContain("alter_job", string.Join(" ", statements));
+        }
+
+        #endregion
+
+        #region Should_Generate_Add_SQL_With_No_DropAfter_Or_DropCreatedBefore
+
+        [Fact]
+        public void Should_Generate_Add_SQL_With_No_DropAfter_Or_DropCreatedBefore()
+        {
+            // Arrange
+            AddRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropAfter = null,
+                DropCreatedBefore = null
+            };
+
+            // Act
+            List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
+
+            // Assert
+            Assert.Single(statements);
+            Assert.Contains("add_retention_policy", statements[0]);
+            Assert.DoesNotContain("drop_after", statements[0]);
+            Assert.DoesNotContain("drop_created_before", statements[0]);
+        }
+
+        #endregion
+
+        #region Should_Recreate_Policy_When_Only_DropCreatedBefore_Changes
+
+        [Fact]
+        public void Should_Recreate_Policy_When_Only_DropCreatedBefore_Changes()
+        {
+            // Arrange
+            AlterRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropCreatedBefore = "60 days",
+                OldDropCreatedBefore = "30 days",
+            };
+
+            // Act
+            List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
+
+            // Assert
+            Assert.Equal(2, statements.Count);
+            Assert.Contains("remove_retention_policy", statements[0]);
+            Assert.Contains("drop_created_before => INTERVAL '60 days'", statements[1]);
         }
 
         #endregion

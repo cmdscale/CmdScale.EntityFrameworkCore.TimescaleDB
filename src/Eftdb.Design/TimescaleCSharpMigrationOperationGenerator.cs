@@ -13,70 +13,51 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             ArgumentNullException.ThrowIfNull(operation);
             ArgumentNullException.ThrowIfNull(builder);
 
-            HypertableCSharpGenerator? hypertableCSharpGenerator = null;
-            ReorderPolicyCSharpGenerator? reorderPolicyCSharpGenerator = null;
-            RetentionPolicyCSharpGenerator? retentionPolicyCSharpGenerator = null;
-            ContinuousAggregateCSharpGenerator? continuousAggregateCSharpGenerator = null;
-            ContinuousAggregatePolicyCSharpGenerator? continuousAggregatePolicyCSharpGenerator = null;
-
             switch (operation)
             {
                 case CreateHypertableOperation create:
-                    hypertableCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    hypertableCSharpGenerator.Generate(create, builder);
+                    new HypertableCSharpGenerator(Dependencies.CSharpHelper).Generate(create, builder);
                     return;
                 case AlterHypertableOperation alter:
-                    hypertableCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    hypertableCSharpGenerator.Generate(alter, builder);
+                    new HypertableCSharpGenerator(Dependencies.CSharpHelper).Generate(alter, builder);
                     return;
 
                 case AddReorderPolicyOperation addReorder:
-                    reorderPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    reorderPolicyCSharpGenerator.Generate(addReorder, builder);
+                    new ReorderPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(addReorder, builder);
                     return;
                 case AlterReorderPolicyOperation alterReorder:
-                    reorderPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    reorderPolicyCSharpGenerator.Generate(alterReorder, builder);
+                    new ReorderPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(alterReorder, builder);
                     return;
                 case DropReorderPolicyOperation dropReorder:
-                    reorderPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    reorderPolicyCSharpGenerator.Generate(dropReorder, builder);
+                    new ReorderPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(dropReorder, builder);
                     return;
 
                 case AddRetentionPolicyOperation addRetention:
-                    retentionPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    retentionPolicyCSharpGenerator.Generate(addRetention, builder);
+                    new RetentionPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(addRetention, builder);
                     return;
                 case AlterRetentionPolicyOperation alterRetention:
-                    retentionPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    retentionPolicyCSharpGenerator.Generate(alterRetention, builder);
+                    new RetentionPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(alterRetention, builder);
                     return;
                 case DropRetentionPolicyOperation dropRetention:
-                    retentionPolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    retentionPolicyCSharpGenerator.Generate(dropRetention, builder);
+                    new RetentionPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(dropRetention, builder);
                     return;
 
                 case CreateContinuousAggregateOperation createContinuousAggregate:
-                    continuousAggregateCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    continuousAggregateCSharpGenerator.Generate(createContinuousAggregate, builder);
+                    new ContinuousAggregateCSharpGenerator(Dependencies.CSharpHelper).Generate(createContinuousAggregate, builder);
                     return;
                 case AlterContinuousAggregateOperation alterContinuousAggregate:
-                    continuousAggregateCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    continuousAggregateCSharpGenerator.Generate(alterContinuousAggregate, builder);
+                    new ContinuousAggregateCSharpGenerator(Dependencies.CSharpHelper).Generate(alterContinuousAggregate, builder);
                     return;
                 case DropContinuousAggregateOperation dropContinuousAggregate:
-                    continuousAggregateCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    continuousAggregateCSharpGenerator.Generate(dropContinuousAggregate, builder);
+                    new ContinuousAggregateCSharpGenerator(Dependencies.CSharpHelper).Generate(dropContinuousAggregate, builder);
                     return;
 
                 case AddContinuousAggregatePolicyOperation addContinuousAggregatePolicy:
-                    continuousAggregatePolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    continuousAggregatePolicyCSharpGenerator.Generate(addContinuousAggregatePolicy, builder);
+                    new ContinuousAggregatePolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(addContinuousAggregatePolicy, builder);
                     return;
 
                 case RemoveContinuousAggregatePolicyOperation removeContinuousAggregatePolicy:
-                    continuousAggregatePolicyCSharpGenerator ??= new(Dependencies.CSharpHelper);
-                    continuousAggregatePolicyCSharpGenerator.Generate(removeContinuousAggregatePolicy, builder);
+                    new ContinuousAggregatePolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(removeContinuousAggregatePolicy, builder);
                     return;
 
                 default:

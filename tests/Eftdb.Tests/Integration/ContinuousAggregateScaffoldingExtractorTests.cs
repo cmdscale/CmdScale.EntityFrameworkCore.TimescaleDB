@@ -638,4 +638,80 @@ public class ContinuousAggregateScaffoldingExtractorTests : MigrationTestBase, I
     }
 
     #endregion
+
+    #region Should_Extract_ContinuousAggregate_When_Connection_Already_Open
+
+    private class PreOpenedConnSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class PreOpenedConnAggMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class PreOpenedConnAggregateContext(string connectionString) : DbContext
+    {
+        public DbSet<PreOpenedConnSourceMetric> Metrics => Set<PreOpenedConnSourceMetric>();
+        public DbSet<PreOpenedConnAggMetric> HourlyMetrics => Set<PreOpenedConnAggMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<PreOpenedConnSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("pre_opened_ca_source");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<PreOpenedConnAggMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToView("pre_opened_ca_hourly");
+                entity.IsContinuousAggregate<PreOpenedConnAggMetric, PreOpenedConnSourceMetric>(
+                    "pre_opened_ca_hourly",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(
+                    x => x.AvgValue,
+                    x => x.Value,
+                    EAggregateFunction.Avg
+                );
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_ContinuousAggregate_When_Connection_Already_Open()
+    {
+        // Arrange
+        string testConnectionString = await GetTestConnectionStringAsync();
+        await using PreOpenedConnAggregateContext context = new(testConnectionString);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        ContinuousAggregateScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(testConnectionString);
+
+        // Act
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        Assert.True(result.ContainsKey(("public", "pre_opened_ca_hourly")));
+
+        ContinuousAggregateScaffoldingExtractor.ContinuousAggregateInfo info =
+            (ContinuousAggregateScaffoldingExtractor.ContinuousAggregateInfo)result[("public", "pre_opened_ca_hourly")];
+        Assert.Equal("pre_opened_ca_hourly", info.MaterializedViewName);
+
+        // Assert
+        Assert.Equal(System.Data.ConnectionState.Open, connection.State);
+    }
+
+    #endregion
 }

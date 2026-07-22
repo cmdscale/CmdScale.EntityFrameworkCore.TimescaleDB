@@ -132,6 +132,42 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             mockBuilder.Verify(b => b.Append(It.IsAny<string>()), Times.Never);
             mockBuilder.Verify(b => b.EndCommand(It.IsAny<bool>()), Times.Never);
         }
+        #region ReplaceSelectWithPerform_NonSelect_Returns_Unchanged
+
+        [Fact]
+        public void ReplaceSelectWithPerform_NonSelect_Returns_Unchanged()
+        {
+            // Arrange
+            string input = "INSERT INTO x VALUES (1);";
+
+            // Act
+            string result = SqlBuilderHelper.ReplaceSelectWithPerform(input);
+
+            // Assert
+            Assert.Equal(input, result);
+        }
+
+        #endregion
+
+        #region BuildQueryString_IndentedStringBuilder_SuppressTransaction_True
+
+        [Fact]
+        public void BuildQueryString_IndentedStringBuilder_SuppressTransaction_True()
+        {
+            // Arrange
+            List<string> statements = ["SELECT 1;"];
+            IndentedStringBuilder indentedBuilder = new();
+
+            // Act
+            SqlBuilderHelper.BuildQueryString(statements, indentedBuilder, suppressTransaction: true);
+            string result = indentedBuilder.ToString();
+
+            // Assert
+            Assert.Contains("suppressTransaction: true", result);
+        }
+
+        #endregion
+
         #region ReplaceSelectWithPerform
 
         [Fact]

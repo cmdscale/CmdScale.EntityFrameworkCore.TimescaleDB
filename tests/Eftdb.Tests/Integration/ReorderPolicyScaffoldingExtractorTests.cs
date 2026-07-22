@@ -497,4 +497,60 @@ public class ReorderPolicyScaffoldingExtractorTests : MigrationTestBase, IAsyncL
     }
 
     #endregion
+
+    #region Should_Extract_ReorderPolicy_When_Connection_Already_Open
+
+    private class PreOpenedConnectionMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class PreOpenedConnectionContext(string connectionString) : DbContext
+    {
+        public DbSet<PreOpenedConnectionMetric> Metrics => Set<PreOpenedConnectionMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<PreOpenedConnectionMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("pre_opened_reorder_metrics");
+                entity.HasIndex(x => x.Timestamp, "pre_opened_reorder_idx");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithReorderPolicy("pre_opened_reorder_idx");
+            });
+        }
+    }
+
+    [Fact]
+    public async Task Should_Extract_ReorderPolicy_When_Connection_Already_Open()
+    {
+        // Arrange
+        await using PreOpenedConnectionContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        ReorderPolicyScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        // Act
+        await connection.OpenAsync(TestContext.Current.CancellationToken);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        Assert.Single(result);
+        Assert.True(result.ContainsKey(("public", "pre_opened_reorder_metrics")));
+
+        ReorderPolicyScaffoldingExtractor.ReorderPolicyInfo info =
+            (ReorderPolicyScaffoldingExtractor.ReorderPolicyInfo)result[("public", "pre_opened_reorder_metrics")];
+        Assert.Equal("pre_opened_reorder_idx", info.IndexName);
+
+        // Assert
+        Assert.Equal(System.Data.ConnectionState.Open, connection.State);
+    }
+
+    #endregion
 }

@@ -153,14 +153,14 @@ public class OperationOrderingTests
     [Fact]
     public void Should_Order_DropContinuousAggregate_Before_DropHypertable()
     {
-        // Arrange — source has a hypertable + a dependent continuous aggregate; target is empty.
+        // Arrange
         using DropOrderSourceContextB sourceContext = new();
         using DropOrderTargetContextB targetContext = new();
 
         // Act
         List<MigrationOperation> operations = [.. GenerateMigrationOperations(sourceContext, targetContext)];
 
-        // Assert — the aggregate (depends on the hypertable) must be dropped before the parent table.
+        // Assert
         int dropAggregateIndex = operations.FindIndex(op => op is DropContinuousAggregateOperation);
         int dropTableIndex = operations.FindIndex(op =>
             op is DropTableOperation dropTable && dropTable.Name == "order_metrics_b");
@@ -229,9 +229,6 @@ public class OperationOrderingTests
     [Fact]
     public void Should_Order_Drop_Policies_Before_DropContinuousAggregate()
     {
-        // The retention and refresh policies depend on the continuous aggregate, so both drops must precede
-        // the DropContinuousAggregate. Per GetOperationPriority: DropRetentionPolicy (-60) and
-        // RemoveContinuousAggregatePolicy (-50) both come before DropContinuousAggregate (-40).
 
         // Arrange
         using DropPoliciesSourceContextC sourceContext = new();
@@ -254,7 +251,6 @@ public class OperationOrderingTests
         Assert.True(removeCaPolicyIndex < dropAggregateIndex,
             $"RemoveContinuousAggregatePolicy ({removeCaPolicyIndex}) should precede DropContinuousAggregate ({dropAggregateIndex})");
 
-        // The two policy drops are ordered relative to each other: retention (-60) before CA policy (-50).
         Assert.True(dropRetentionIndex < removeCaPolicyIndex,
             $"DropRetentionPolicy ({dropRetentionIndex}) should precede RemoveContinuousAggregatePolicy ({removeCaPolicyIndex})");
     }
@@ -405,6 +401,144 @@ public class OperationOrderingTests
         int alterHypertableIndex = operations.FindIndex(op => op is AlterHypertableOperation);
         Assert.True(createHypertableIndex >= 0, "Expected a CreateHypertableOperation for the new hypertable.");
         Assert.True(createHypertableIndex < alterHypertableIndex, "CreateHypertable (10) must be ordered before AlterHypertable (15).");
+    }
+
+    #endregion
+
+    #region Should_Order_AlterRetentionPolicy_After_CreateHypertable
+
+    private class OrderMetricF
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class RetentionPolicySourceContextF : DbContext
+    {
+        public DbSet<OrderMetricF> Metrics => Set<OrderMetricF>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderMetricF>(entity =>
+            {
+                entity.ToTable("order_metrics_f");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithRetentionPolicy(dropAfter: "7 days");
+            });
+        }
+    }
+
+    private class RetentionPolicyChangedContextF : DbContext
+    {
+        public DbSet<OrderMetricF> Metrics => Set<OrderMetricF>();
+        public DbSet<OrderMetricG> NewMetrics => Set<OrderMetricG>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderMetricF>(entity =>
+            {
+                entity.ToTable("order_metrics_f");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithRetentionPolicy(dropAfter: "14 days");
+            });
+
+            modelBuilder.Entity<OrderMetricG>(entity =>
+            {
+                entity.ToTable("order_metrics_g");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    private class OrderMetricG
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [Fact]
+    public void Should_Order_AlterRetentionPolicy_After_CreateHypertable()
+    {
+
+        // Arrange
+        using RetentionPolicySourceContextF sourceContext = new();
+        using RetentionPolicyChangedContextF targetContext = new();
+
+        // Act
+        List<MigrationOperation> operations = [.. GenerateMigrationOperations(sourceContext, targetContext)];
+
+        // Assert
+        int createHypertableIndex = operations.FindIndex(op => op is CreateHypertableOperation);
+        int alterRetentionIndex = operations.FindIndex(op => op is AlterRetentionPolicyOperation);
+
+        Assert.NotEqual(-1, createHypertableIndex);
+        Assert.NotEqual(-1, alterRetentionIndex);
+        Assert.True(createHypertableIndex < alterRetentionIndex,
+            $"CreateHypertable (priority 10) should precede AlterRetentionPolicy (priority 60), " +
+            $"but found indices {createHypertableIndex} and {alterRetentionIndex}.");
+    }
+
+    #endregion
+
+    #region Should_Order_CreateTable_Before_CreateHypertable
+
+    private class OrderMetricH
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CreateTableAndHypertableContextH : DbContext
+    {
+        public DbSet<OrderMetricH> Metrics => Set<OrderMetricH>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderMetricH>(entity =>
+            {
+                entity.ToTable("order_metrics_h");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Order_CreateTable_Before_CreateHypertable()
+    {
+
+        // Arrange
+        using CreateTableAndHypertableContextH targetContext = new();
+
+        // Act
+        List<MigrationOperation> operations = [.. GenerateMigrationOperations(null, targetContext)];
+
+        // Assert
+        int createTableIndex = operations.FindIndex(op =>
+            op is CreateTableOperation ct && ct.Name == "order_metrics_h");
+        int createHypertableIndex = operations.FindIndex(op =>
+            op is CreateHypertableOperation ht && ht.TableName == "order_metrics_h");
+
+        Assert.NotEqual(-1, createTableIndex);
+        Assert.NotEqual(-1, createHypertableIndex);
+        Assert.True(createTableIndex < createHypertableIndex,
+            $"CreateTable (priority 0) should precede CreateHypertable (priority 10), " +
+            $"but found indices {createTableIndex} and {createHypertableIndex}.");
     }
 
     #endregion

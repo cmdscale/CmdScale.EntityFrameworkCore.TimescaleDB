@@ -960,4 +960,156 @@ public class ContinuousAggregateConventionTests
     }
 
     #endregion
+
+    #region Should_Not_Set_TimeBucket_Annotations_When_TimeBucket_Attribute_Absent
+
+    [Hypertable("Timestamp")]
+    private class NoTimeBucketSourceEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "no_timebucket_view", ParentName = "no_timebucket_source")]
+    private class NoTimeBucketCaEntity
+    {
+        [Aggregate(EAggregateFunction.Avg, "Value")]
+        public double AvgValue { get; set; }
+    }
+
+    private class NoTimeBucketContext : DbContext
+    {
+        public DbSet<NoTimeBucketSourceEntity> Sources => Set<NoTimeBucketSourceEntity>();
+        public DbSet<NoTimeBucketCaEntity> Aggregates => Set<NoTimeBucketCaEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoTimeBucketSourceEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("no_timebucket_source");
+            });
+
+            modelBuilder.Entity<NoTimeBucketCaEntity>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Set_TimeBucket_Annotations_When_TimeBucket_Attribute_Absent()
+    {
+        using NoTimeBucketContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(NoTimeBucketCaEntity))!;
+
+        // Assert
+        Assert.NotNull(entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName));
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth));
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn));
+    }
+
+    #endregion
+
+    #region Should_Use_Property_Name_As_Source_Column_When_AggregateAttribute_SourceColumn_Not_Provided
+
+    [Hypertable("Timestamp")]
+    private class DefaultSourceColSourceEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double Revenue { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "default_src_col_view", ParentName = "default_src_col_source")]
+    [TimeBucket("1 day", "Timestamp")]
+    private class DefaultSourceColCaEntity
+    {
+        [Aggregate(EAggregateFunction.Count)]
+        public long EventCount { get; set; }
+    }
+
+    private class DefaultSourceColContext : DbContext
+    {
+        public DbSet<DefaultSourceColSourceEntity> Sources => Set<DefaultSourceColSourceEntity>();
+        public DbSet<DefaultSourceColCaEntity> Aggregates => Set<DefaultSourceColCaEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DefaultSourceColSourceEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("default_src_col_source");
+            });
+
+            modelBuilder.Entity<DefaultSourceColCaEntity>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Use_Property_Name_As_Source_Column_When_AggregateAttribute_SourceColumn_Not_Provided()
+    {
+        // Arrange
+        using DefaultSourceColContext context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(DefaultSourceColCaEntity))!;
+        List<string>? aggregateFunctions = entityType
+            .FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions)?.Value as List<string>;
+
+        // Assert
+        Assert.NotNull(aggregateFunctions);
+        Assert.Contains(aggregateFunctions, e => e.StartsWith("EventCount:Count:*", StringComparison.Ordinal));
+    }
+
+    #endregion
+
+    #region Should_Skip_CA_Annotations_For_Property_Bag_Entity
+
+    private class PropertyBagCaContext : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity("PropertyBagCaTestEntity", b =>
+            {
+                b.HasNoKey();
+                b.ToTable("prop_bag_ca_test");
+                b.Property<int>("Id");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Skip_CA_Annotations_For_Property_Bag_Entity()
+    {
+        // Arrange
+        using PropertyBagCaContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType("PropertyBagCaTestEntity")!;
+
+        // Act + Assert
+        Assert.NotNull(entityType);
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName));
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregateAnnotations.ParentName));
+    }
+
+    #endregion
 }

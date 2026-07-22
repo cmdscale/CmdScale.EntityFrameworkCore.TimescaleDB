@@ -1,6 +1,7 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
@@ -2167,7 +2168,7 @@ public class ContinuousAggregateDifferTests
     [Fact]
     public void Should_Drop_And_Recreate_When_ViewDefinition_Changes()
     {
-        // Arrange - regression for bug #5: differ now compares ViewDefinition as a structural change
+        // Arrange
         using RawDefinitionContextA24 sourceContext = new();
         using RawDefinitionContextB24 targetContext = new();
 
@@ -2179,7 +2180,7 @@ public class ContinuousAggregateDifferTests
         // Act
         IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
 
-        // Assert - drop must come before create
+        // Assert
         DropContinuousAggregateOperation? dropOp = operations.OfType<DropContinuousAggregateOperation>().FirstOrDefault();
         CreateContinuousAggregateOperation? createOp = operations.OfType<CreateContinuousAggregateOperation>().FirstOrDefault();
         Assert.NotNull(dropOp);
@@ -2273,7 +2274,7 @@ public class ContinuousAggregateDifferTests
     [Fact]
     public void Should_Emit_No_Operation_When_ViewDefinition_Identical()
     {
-        // Arrange - counter-test for bug #5: identical ViewDefinition must not trigger drop+recreate
+        // Arrange
         using IdenticalRawDefinitionContextA25 sourceContext = new();
         using IdenticalRawDefinitionContextB25 targetContext = new();
 
@@ -2288,6 +2289,1058 @@ public class ContinuousAggregateDifferTests
         // Assert
         Assert.DoesNotContain(operations, op => op is DropContinuousAggregateOperation);
         Assert.DoesNotContain(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Not_Drop_And_Recreate_When_Same_GroupByColumns_And_Same_Count
+
+    private class MetricEntity26
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public string? Category { get; set; }
+    }
+
+    private class MetricAggregateWithCategory26
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+        public string? Category { get; set; }
+    }
+
+    private class WithGroupByColumnsContext26 : DbContext
+    {
+        public DbSet<MetricEntity26> Metrics => Set<MetricEntity26>();
+        public DbSet<MetricAggregateWithCategory26> HourlyMetrics => Set<MetricAggregateWithCategory26>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity26>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregateWithCategory26>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregateWithCategory26, MetricEntity26>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .AddGroupByColumn(x => x.Category);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Drop_And_Recreate_When_Same_GroupByColumns_And_Same_Count()
+    {
+        // Arrange
+        using WithGroupByColumnsContext26 sourceContext = new();
+        using WithGroupByColumnsContext26 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.DoesNotContain(operations, op => op is DropContinuousAggregateOperation);
+        Assert.DoesNotContain(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_GroupByColumns_Same_Count_Different_Values
+
+    private class MetricEntity27
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public string? Category { get; set; }
+        public string? Region { get; set; }
+    }
+
+    private class MetricAggregateWithCategory27
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+        public string? Category { get; set; }
+    }
+
+    private class MetricAggregateWithRegion27
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+        public string? Region { get; set; }
+    }
+
+    private class GroupByCategoryContext27 : DbContext
+    {
+        public DbSet<MetricEntity27> Metrics => Set<MetricEntity27>();
+        public DbSet<MetricAggregateWithCategory27> HourlyMetrics => Set<MetricAggregateWithCategory27>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity27>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregateWithCategory27>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregateWithCategory27, MetricEntity27>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .AddGroupByColumn(x => x.Category);
+            });
+        }
+    }
+
+    private class GroupByRegionContext27 : DbContext
+    {
+        public DbSet<MetricEntity27> Metrics => Set<MetricEntity27>();
+        public DbSet<MetricAggregateWithRegion27> HourlyMetrics => Set<MetricAggregateWithRegion27>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity27>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregateWithRegion27>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregateWithRegion27, MetricEntity27>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .AddGroupByColumn(x => x.Region);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_GroupByColumns_Same_Count_Different_Values()
+    {
+        // Arrange
+        using GroupByCategoryContext27 sourceContext = new();
+        using GroupByRegionContext27 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Accept_Explicit_Non_Null_FeatureDiffContext
+
+    private class MetricEntity28
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricAggregate28
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class BasicContinuousAggregateContext28 : DbContext
+    {
+        public DbSet<MetricEntity28> Metrics => Set<MetricEntity28>();
+        public DbSet<MetricAggregate28> HourlyMetrics => Set<MetricAggregate28>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity28>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate28>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregate28, MetricEntity28>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Accept_Explicit_Non_Null_FeatureDiffContext()
+    {
+        // Arrange
+        using BasicContinuousAggregateContext28 sourceContext = new();
+        using BasicContinuousAggregateContext28 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+        FeatureDiffContext context = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel, context);
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_WhereClause_Changes
+
+    private class MetricEntity29
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricAggregate29
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class NoWhereClauseContext29 : DbContext
+    {
+        public DbSet<MetricEntity29> Metrics => Set<MetricEntity29>();
+        public DbSet<MetricAggregate29> HourlyMetrics => Set<MetricAggregate29>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity29>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate29>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregate29, MetricEntity29>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class WithWhereClauseContext29 : DbContext
+    {
+        public DbSet<MetricEntity29> Metrics => Set<MetricEntity29>();
+        public DbSet<MetricAggregate29> HourlyMetrics => Set<MetricAggregate29>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity29>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate29>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregate29, MetricEntity29>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .Where("value > 0");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_WhereClause_Changes()
+    {
+        // Arrange
+        using NoWhereClauseContext29 sourceContext = new();
+        using WithWhereClauseContext29 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_WithNoData_Changes
+
+    private class MetricEntity30
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricAggregate30
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class WithDataContext30 : DbContext
+    {
+        public DbSet<MetricEntity30> Metrics => Set<MetricEntity30>();
+        public DbSet<MetricAggregate30> HourlyMetrics => Set<MetricAggregate30>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity30>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate30>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregate30, MetricEntity30>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class WithNoDataContext30 : DbContext
+    {
+        public DbSet<MetricEntity30> Metrics => Set<MetricEntity30>();
+        public DbSet<MetricAggregate30> HourlyMetrics => Set<MetricAggregate30>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity30>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate30>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregate30, MetricEntity30>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .WithNoData();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_WithNoData_Changes()
+    {
+        // Arrange
+        using WithDataContext30 sourceContext = new();
+        using WithNoDataContext30 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_TimeBucketGroupBy_Changes
+
+    private class MetricEntity31
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricAggregate31
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class TimeBucketGroupByEnabledContext31 : DbContext
+    {
+        public DbSet<MetricEntity31> Metrics => Set<MetricEntity31>();
+        public DbSet<MetricAggregate31> HourlyMetrics => Set<MetricAggregate31>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity31>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate31>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregate31, MetricEntity31>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp,
+                        timeBucketGroupBy: true)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class TimeBucketGroupByDisabledContext31 : DbContext
+    {
+        public DbSet<MetricEntity31> Metrics => Set<MetricEntity31>();
+        public DbSet<MetricAggregate31> HourlyMetrics => Set<MetricAggregate31>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity31>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate31>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregate31, MetricEntity31>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp,
+                        timeBucketGroupBy: false)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_TimeBucketGroupBy_Changes()
+    {
+        // Arrange
+        using TimeBucketGroupByEnabledContext31 sourceContext = new();
+        using TimeBucketGroupByDisabledContext31 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_AggregateFunctions_Same_Count_Different_Values
+
+    private class MetricEntity32
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricAggregateAvg32
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AggValue { get; set; }
+    }
+
+    private class MetricAggregateMax32
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AggValue { get; set; }
+    }
+
+    private class AvgAggregateFunctionContext32 : DbContext
+    {
+        public DbSet<MetricEntity32> Metrics => Set<MetricEntity32>();
+        public DbSet<MetricAggregateAvg32> HourlyMetrics => Set<MetricAggregateAvg32>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity32>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregateAvg32>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregateAvg32, MetricEntity32>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AggValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class MaxAggregateFunctionContext32 : DbContext
+    {
+        public DbSet<MetricEntity32> Metrics => Set<MetricEntity32>();
+        public DbSet<MetricAggregateMax32> HourlyMetrics => Set<MetricAggregateMax32>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity32>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregateMax32>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregateMax32, MetricEntity32>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AggValue, x => x.Value, EAggregateFunction.Max);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_AggregateFunctions_Same_Count_Different_Values()
+    {
+        // Arrange
+        using AvgAggregateFunctionContext32 sourceContext = new();
+        using MaxAggregateFunctionContext32 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Not_Recreate_When_GroupByColumns_Same_Values_Different_List_Order
+
+    private class MetricEntity33
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public string? Category { get; set; }
+        public string? Region { get; set; }
+    }
+
+    private class MetricAggregateMultiGroupBy33
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+        public string? Category { get; set; }
+        public string? Region { get; set; }
+    }
+
+    private class GroupByCategoryFirstContext33 : DbContext
+    {
+        public DbSet<MetricEntity33> Metrics => Set<MetricEntity33>();
+        public DbSet<MetricAggregateMultiGroupBy33> HourlyMetrics => Set<MetricAggregateMultiGroupBy33>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity33>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregateMultiGroupBy33>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregateMultiGroupBy33, MetricEntity33>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .AddGroupByColumn(x => x.Category)
+                    .AddGroupByColumn(x => x.Region);
+            });
+        }
+    }
+
+    private class GroupByRegionFirstContext33 : DbContext
+    {
+        public DbSet<MetricEntity33> Metrics => Set<MetricEntity33>();
+        public DbSet<MetricAggregateMultiGroupBy33> HourlyMetrics => Set<MetricAggregateMultiGroupBy33>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity33>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregateMultiGroupBy33>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregateMultiGroupBy33, MetricEntity33>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .AddGroupByColumn(x => x.Region)
+                    .AddGroupByColumn(x => x.Category);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Recreate_When_GroupByColumns_Same_Values_Different_List_Order()
+    {
+        // Arrange
+        using GroupByCategoryFirstContext33 sourceContext = new();
+        using GroupByRegionFirstContext33 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.DoesNotContain(operations, op => op is DropContinuousAggregateOperation);
+        Assert.DoesNotContain(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_TimeBucketSourceColumn_Changes
+
+    private class MetricEntity34
+    {
+        public DateTime Timestamp { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricAggregate34
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class TimestampSourceColumnContext34 : DbContext
+    {
+        public DbSet<MetricEntity34> Metrics => Set<MetricEntity34>();
+        public DbSet<MetricAggregate34> HourlyMetrics => Set<MetricAggregate34>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity34>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate34>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregate34, MetricEntity34>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class CreatedAtSourceColumnContext34 : DbContext
+    {
+        public DbSet<MetricEntity34> Metrics => Set<MetricEntity34>();
+        public DbSet<MetricAggregate34> HourlyMetrics => Set<MetricAggregate34>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity34>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<MetricAggregate34>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<MetricAggregate34, MetricEntity34>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.CreatedAt)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_TimeBucketSourceColumn_Changes()
+    {
+        // Arrange
+        using TimestampSourceColumnContext34 sourceContext = new();
+        using CreatedAtSourceColumnContext34 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_AggregateFunction_Count_Differs
+
+    private class MetricEntity35
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SingleAggregate35
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class DoubleAggregate35
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+        public double MaxValue { get; set; }
+    }
+
+    private class SingleAggregateContext35 : DbContext
+    {
+        public DbSet<MetricEntity35> Metrics => Set<MetricEntity35>();
+        public DbSet<SingleAggregate35> HourlyMetrics => Set<SingleAggregate35>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity35>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<SingleAggregate35>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<SingleAggregate35, MetricEntity35>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class DoubleAggregateContext35 : DbContext
+    {
+        public DbSet<MetricEntity35> Metrics => Set<MetricEntity35>();
+        public DbSet<DoubleAggregate35> HourlyMetrics => Set<DoubleAggregate35>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity35>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<DoubleAggregate35>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<DoubleAggregate35, MetricEntity35>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .AddAggregateFunction(x => x.MaxValue, x => x.Value, EAggregateFunction.Max);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_AggregateFunction_Count_Differs()
+    {
+        // Arrange
+        using SingleAggregateContext35 sourceContext = new();
+        using DoubleAggregateContext35 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_GroupByColumn_Count_Differs
+
+    private class MetricEntity36
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public string Region { get; set; } = string.Empty;
+    }
+
+    private class SingleGroupByAggregate36
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+        public string Category { get; set; } = string.Empty;
+    }
+
+    private class DoubleGroupByAggregate36
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+        public string Category { get; set; } = string.Empty;
+        public string Region { get; set; } = string.Empty;
+    }
+
+    private class SingleGroupByContext36 : DbContext
+    {
+        public DbSet<MetricEntity36> Metrics => Set<MetricEntity36>();
+        public DbSet<SingleGroupByAggregate36> HourlyMetrics => Set<SingleGroupByAggregate36>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity36>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<SingleGroupByAggregate36>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<SingleGroupByAggregate36, MetricEntity36>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .AddGroupByColumn(x => x.Category);
+            });
+        }
+    }
+
+    private class DoubleGroupByContext36 : DbContext
+    {
+        public DbSet<MetricEntity36> Metrics => Set<MetricEntity36>();
+        public DbSet<DoubleGroupByAggregate36> HourlyMetrics => Set<DoubleGroupByAggregate36>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity36>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<DoubleGroupByAggregate36>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<DoubleGroupByAggregate36, MetricEntity36>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .AddGroupByColumn(x => x.Category)
+                    .AddGroupByColumn(x => x.Region);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_GroupByColumn_Count_Differs()
+    {
+        // Arrange
+        using SingleGroupByContext36 sourceContext = new();
+        using DoubleGroupByContext36 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
     }
 
     #endregion

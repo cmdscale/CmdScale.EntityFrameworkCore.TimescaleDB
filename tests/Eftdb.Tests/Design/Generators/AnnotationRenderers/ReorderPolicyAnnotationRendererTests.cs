@@ -930,5 +930,27 @@ public class ReorderPolicyAnnotationRendererTests
     }
 
     #endregion
+
+
+    #region GenerateFluentApiCalls_Returns_Empty_When_IndexName_Missing
+
+    [Fact]
+    public void GenerateFluentApiCalls_Returns_Empty_When_IndexName_Missing()
+    {
+        // Arrange
+        using ReorderRendererContext context = new();
+        IEntityType entityType = GetEntityType<ReorderRendererEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ReorderPolicyAnnotations.HasReorderPolicy, true));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        Assert.DoesNotContain(result, f => CollectMethodChain(f).Contains("WithReorderPolicy"));
+    }
+
+    #endregion
 }
 #pragma warning restore EF1001

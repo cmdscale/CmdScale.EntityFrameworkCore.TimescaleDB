@@ -95,7 +95,6 @@ public class HypertableAnnotationRendererTests
     {
         using NoTimeColumnContext context = new();
         IEntityType entityType = GetEntityType<NoTimeColumnEntity>(context);
-        // IsHypertable is true but no HypertableTimeColumn annotation
         Dictionary<string, IAnnotation> annotations = Annotations(
             (HypertableAnnotations.IsHypertable, true));
 
@@ -233,7 +232,6 @@ public class HypertableAnnotationRendererTests
         List<string> chain = CollectMethodChain(hypertableCall);
         Assert.Contains(nameof(HypertableTypeBuilder.WithCompressionOrderBy), chain);
 
-        // Find the WithCompressionOrderBy fragment and verify the closure uses ByAscending
         MethodCallCodeFragment? current = hypertableCall;
         MethodCallCodeFragment? orderByCall = null;
         while (current != null)
@@ -371,7 +369,6 @@ public class HypertableAnnotationRendererTests
         Assert.NotNull(orderByCall);
         NestedClosureCodeFragment closure = Assert.IsType<NestedClosureCodeFragment>(orderByCall.Arguments[0]);
         Assert.Equal(nameof(OrderBySelector<>.ByAscending), closure.MethodCalls[0].Method);
-        // Second argument to ByAscending should be true (nullsFirst)
         Assert.Equal(2, closure.MethodCalls[0].Arguments.Count);
         Assert.Equal(true, closure.MethodCalls[0].Arguments[1]);
     }
@@ -406,7 +403,6 @@ public class HypertableAnnotationRendererTests
 
         MethodCallCodeFragment? hypertableCall = result.First(f => CollectMethodChain(f).Contains(nameof(HypertableTypeBuilder.IsHypertable)));
         List<string> chain = CollectMethodChain(hypertableCall);
-        // SegmentBy implicitly enables compression, so standalone EnableCompression should not appear
         Assert.DoesNotContain(nameof(HypertableTypeBuilder.EnableCompression), chain);
         Assert.Contains(nameof(HypertableTypeBuilder.WithCompressionSegmentBy), chain);
     }
@@ -829,7 +825,6 @@ public class HypertableAnnotationRendererTests
 
         Assert.Contains(result, a => a.Type == typeof(DimensionAttribute));
         AttributeCodeFragment dimAttr = result.First(a => a.Type == typeof(DimensionAttribute));
-        // Second positional arg should be EDimensionType.Hash
         Assert.Equal(EDimensionType.Hash, dimAttr.Arguments[1]);
     }
 
@@ -1091,6 +1086,464 @@ public class HypertableAnnotationRendererTests
 
         Assert.DoesNotContain(result, f => CollectMethodChain(f).Contains(nameof(HypertableTypeBuilder.IsHypertable)));
         Assert.DoesNotContain(annotations.Keys, k => k.StartsWith("TimescaleDB:", StringComparison.Ordinal));
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_CompressionOrderBy_Unmapped_Column_With_Suffix_Returns_RawString
+
+    private class UnmappedOrderByEntity { public DateTime Ts { get; set; } }
+
+    private class UnmappedOrderByContext : DbContext
+    {
+        public DbSet<UnmappedOrderByEntity> Items => Set<UnmappedOrderByEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UnmappedOrderByEntity>(e => { e.HasNoKey(); e.ToTable("da_unmapped_orderby"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_CompressionOrderBy_Unmapped_Column_With_Suffix_Returns_RawString()
+    {
+        // Arrange
+        using UnmappedOrderByContext context = new();
+        IEntityType entityType = GetEntityType<UnmappedOrderByEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionOrderBy, "unmapped_col DESC"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment hypertableAttr = Assert.Single(result, a => a.Type == typeof(HypertableAttribute));
+        Assert.True(hypertableAttr.NamedArguments.ContainsKey(nameof(HypertableAttribute.CompressionOrderBy)));
+        string[] orderByArray = Assert.IsType<string[]>(hypertableAttr.NamedArguments[nameof(HypertableAttribute.CompressionOrderBy)]);
+        Assert.Single(orderByArray);
+        Assert.Equal("unmapped_col DESC", orderByArray[0]);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_CompressionOrderBy_Mapped_Column_With_Suffix_Returns_NameOfCodeFragment
+
+    private class MappedOrderByEntity { public DateTime Ts { get; set; } public int DeviceId { get; set; } }
+
+    private class MappedOrderByContext : DbContext
+    {
+        public DbSet<MappedOrderByEntity> Items => Set<MappedOrderByEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<MappedOrderByEntity>(e => { e.HasNoKey(); e.ToTable("da_mapped_orderby"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_CompressionOrderBy_Mapped_Column_With_Suffix_Returns_NameOfCodeFragment()
+    {
+        // Arrange
+        using MappedOrderByContext context = new();
+        IEntityType entityType = GetEntityType<MappedOrderByEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionOrderBy, "DeviceId DESC"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment hypertableAttr = Assert.Single(result, a => a.Type == typeof(HypertableAttribute));
+        Assert.True(hypertableAttr.NamedArguments.ContainsKey(nameof(HypertableAttribute.CompressionOrderBy)));
+        object[] orderByArray = Assert.IsType<object[]>(hypertableAttr.NamedArguments[nameof(HypertableAttribute.CompressionOrderBy)]);
+        Assert.Single(orderByArray);
+        Assert.IsType<NameOfCodeFragment>(orderByArray[0]);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_Returns_Empty_When_TimeColumn_IsWhitespace
+
+    private class DaWhitespaceTimeEntity { public DateTime Ts { get; set; } }
+
+    private class DaWhitespaceTimeContext : DbContext
+    {
+        public DbSet<DaWhitespaceTimeEntity> Items => Set<DaWhitespaceTimeEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaWhitespaceTimeEntity>(e => { e.HasNoKey(); e.ToTable("da_ws_time"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_Returns_Empty_When_TimeColumn_IsWhitespace()
+    {
+        // Arrange
+        using DaWhitespaceTimeContext context = new();
+        IEntityType entityType = GetEntityType<DaWhitespaceTimeEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "   "));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        Assert.DoesNotContain(result, a => a.Type == typeof(HypertableAttribute));
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_InvalidJsonDimensions_ReturnsEmptyDimensions
+
+    private class DaInvalidDimensionsEntity { public DateTime Ts { get; set; } }
+
+    private class DaInvalidDimensionsContext : DbContext
+    {
+        public DbSet<DaInvalidDimensionsEntity> Items => Set<DaInvalidDimensionsEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaInvalidDimensionsEntity>(e => { e.HasNoKey(); e.ToTable("da_invalid_dims"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_InvalidJsonDimensions_ReturnsEmptyDimensions()
+    {
+        // Arrange
+        using DaInvalidDimensionsContext context = new();
+        IEntityType entityType = GetEntityType<DaInvalidDimensionsEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.AdditionalDimensions, "not valid json!!"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        Assert.Contains(result, a => a.Type == typeof(HypertableAttribute));
+        Assert.DoesNotContain(result, a => a.Type == typeof(DimensionAttribute));
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_Omits_ChunkTimeInterval_When_Whitespace
+
+    private class DaChunkIntervalWhitespaceEntity { public DateTime Ts { get; set; } }
+
+    private class DaChunkIntervalWhitespaceContext : DbContext
+    {
+        public DbSet<DaChunkIntervalWhitespaceEntity> Items => Set<DaChunkIntervalWhitespaceEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaChunkIntervalWhitespaceEntity>(e => { e.HasNoKey(); e.ToTable("da_cti_ws"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_Omits_ChunkTimeInterval_When_Whitespace()
+    {
+        // Arrange
+        using DaChunkIntervalWhitespaceContext context = new();
+        IEntityType entityType = GetEntityType<DaChunkIntervalWhitespaceEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.ChunkTimeInterval, "   "));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment hypertableAttr = Assert.Single(result, a => a.Type == typeof(HypertableAttribute));
+        Assert.False(hypertableAttr.NamedArguments.ContainsKey(nameof(HypertableAttribute.ChunkTimeInterval)));
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_Skips_ChunkTimeInterval_When_Whitespace
+
+    private class FluentWhitespaceIntervalEntity { public DateTime Ts { get; set; } }
+
+    private class FluentWhitespaceIntervalContext : DbContext
+    {
+        public DbSet<FluentWhitespaceIntervalEntity> Items => Set<FluentWhitespaceIntervalEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<FluentWhitespaceIntervalEntity>(e => { e.HasNoKey(); e.ToTable("fluent_ws_interval"); });
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_Skips_ChunkTimeInterval_When_Whitespace()
+    {
+        // Arrange
+        using FluentWhitespaceIntervalContext context = new();
+        IEntityType entityType = GetEntityType<FluentWhitespaceIntervalEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.ChunkTimeInterval, "   "));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment? hypertableCall = result.First(f => CollectMethodChain(f).Contains(nameof(HypertableTypeBuilder.IsHypertable)));
+        Assert.DoesNotContain(nameof(HypertableTypeBuilder.WithChunkTimeInterval), CollectMethodChain(hypertableCall));
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_Skips_MigrateData_When_Annotation_Value_Is_False
+
+    private class FluentMigrateDataFalseEntity { public DateTime Ts { get; set; } }
+
+    private class FluentMigrateDataFalseContext : DbContext
+    {
+        public DbSet<FluentMigrateDataFalseEntity> Items => Set<FluentMigrateDataFalseEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<FluentMigrateDataFalseEntity>(e => { e.HasNoKey(); e.ToTable("fluent_migrate_false"); });
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_Skips_MigrateData_When_Annotation_Value_Is_False()
+    {
+        // Arrange
+        using FluentMigrateDataFalseContext context = new();
+        IEntityType entityType = GetEntityType<FluentMigrateDataFalseEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.MigrateData, false));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment? hypertableCall = result.First(f => CollectMethodChain(f).Contains(nameof(HypertableTypeBuilder.IsHypertable)));
+        Assert.DoesNotContain(nameof(HypertableTypeBuilder.WithMigrateData), CollectMethodChain(hypertableCall));
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_Skips_Dimensions_When_AdditionalDimensions_Is_Empty_Array
+
+    private class FluentEmptyDimensionsEntity { public DateTime Ts { get; set; } }
+
+    private class FluentEmptyDimensionsContext : DbContext
+    {
+        public DbSet<FluentEmptyDimensionsEntity> Items => Set<FluentEmptyDimensionsEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<FluentEmptyDimensionsEntity>(e => { e.HasNoKey(); e.ToTable("fluent_empty_dims"); });
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_Skips_Dimensions_When_AdditionalDimensions_Is_Empty_Array()
+    {
+        // Arrange
+        using FluentEmptyDimensionsContext context = new();
+        IEntityType entityType = GetEntityType<FluentEmptyDimensionsEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.AdditionalDimensions, "[]"));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment? hypertableCall = result.First(f => CollectMethodChain(f).Contains(nameof(HypertableTypeBuilder.IsHypertable)));
+        List<string> chain = CollectMethodChain(hypertableCall);
+        Assert.DoesNotContain(nameof(HypertableTypeBuilder.HasHashDimension), chain);
+        Assert.DoesNotContain(nameof(HypertableTypeBuilder.HasRangeDimension), chain);
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_Chains_HashDimension_With_Null_NumberOfPartitions
+
+    private class FluentHashDimNullPartitionsEntity { public DateTime Ts { get; set; } public int DeviceId { get; set; } }
+
+    private class FluentHashDimNullPartitionsContext : DbContext
+    {
+        public DbSet<FluentHashDimNullPartitionsEntity> Items => Set<FluentHashDimNullPartitionsEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<FluentHashDimNullPartitionsEntity>(e => { e.HasNoKey(); e.ToTable("fluent_hash_null_parts"); });
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_Chains_HashDimension_With_Null_NumberOfPartitions()
+    {
+        // Arrange
+        using FluentHashDimNullPartitionsContext context = new();
+        IEntityType entityType = GetEntityType<FluentHashDimNullPartitionsEntity>(context);
+        Dimension hashDimWithNullPartitions = new() { ColumnName = "DeviceId", Type = EDimensionType.Hash, NumberOfPartitions = null };
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.AdditionalDimensions, JsonSerializer.Serialize(new List<Dimension> { hashDimWithNullPartitions })));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment? hypertableCall = result.First(f => CollectMethodChain(f).Contains(nameof(HypertableTypeBuilder.IsHypertable)));
+        Assert.Contains(nameof(HypertableTypeBuilder.HasHashDimension), CollectMethodChain(hypertableCall));
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_Chains_RangeDimension_With_Null_Interval
+
+    private class FluentRangeDimNullIntervalEntity { public DateTime Ts { get; set; } public string Region { get; set; } = ""; }
+
+    private class FluentRangeDimNullIntervalContext : DbContext
+    {
+        public DbSet<FluentRangeDimNullIntervalEntity> Items => Set<FluentRangeDimNullIntervalEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<FluentRangeDimNullIntervalEntity>(e => { e.HasNoKey(); e.ToTable("fluent_range_null_interval"); });
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_Chains_RangeDimension_With_Null_Interval()
+    {
+        // Arrange
+        using FluentRangeDimNullIntervalContext context = new();
+        IEntityType entityType = GetEntityType<FluentRangeDimNullIntervalEntity>(context);
+        Dimension rangeDimNullInterval = new() { ColumnName = "Region", Type = EDimensionType.Range, Interval = null };
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.AdditionalDimensions, JsonSerializer.Serialize(new List<Dimension> { rangeDimNullInterval })));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment? hypertableCall = result.First(f => CollectMethodChain(f).Contains(nameof(HypertableTypeBuilder.IsHypertable)));
+        Assert.Contains(nameof(HypertableTypeBuilder.HasRangeDimension), CollectMethodChain(hypertableCall));
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_Skips_MigrateData_When_Annotation_Value_Is_False
+
+    private class DaMigrateDataFalseEntity { public DateTime Ts { get; set; } }
+
+    private class DaMigrateDataFalseContext : DbContext
+    {
+        public DbSet<DaMigrateDataFalseEntity> Items => Set<DaMigrateDataFalseEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaMigrateDataFalseEntity>(e => { e.HasNoKey(); e.ToTable("da_migrate_false"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_Skips_MigrateData_When_Annotation_Value_Is_False()
+    {
+        // Arrange
+        using DaMigrateDataFalseContext context = new();
+        IEntityType entityType = GetEntityType<DaMigrateDataFalseEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.MigrateData, false));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment hypertableAttr = Assert.Single(result, a => a.Type == typeof(HypertableAttribute));
+        Assert.False(hypertableAttr.NamedArguments.ContainsKey(nameof(HypertableAttribute.MigrateData)));
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_CompressionOrderBy_Unmapped_Column_No_Space
+
+    private class DaOrderByNoSpaceEntity { public DateTime Ts { get; set; } }
+
+    private class DaOrderByNoSpaceContext : DbContext
+    {
+        public DbSet<DaOrderByNoSpaceEntity> Items => Set<DaOrderByNoSpaceEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaOrderByNoSpaceEntity>(e => { e.HasNoKey(); e.ToTable("da_ob_no_space"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_CompressionOrderBy_Unmapped_Column_No_Space()
+    {
+        // Arrange
+        using DaOrderByNoSpaceContext context = new();
+        IEntityType entityType = GetEntityType<DaOrderByNoSpaceEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionOrderBy, "unmapped_col"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment hypertableAttr = Assert.Single(result, a => a.Type == typeof(HypertableAttribute));
+        Assert.True(hypertableAttr.NamedArguments.ContainsKey(nameof(HypertableAttribute.CompressionOrderBy)));
+        string[] orderByArray = Assert.IsType<string[]>(hypertableAttr.NamedArguments[nameof(HypertableAttribute.CompressionOrderBy)]);
+        Assert.Single(orderByArray);
+        Assert.Equal("unmapped_col", orderByArray[0]);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_Dimension_Unmapped_Column_Returns_RawString_And_Range_With_Null_Interval
+
+    private class DaDimUnmappedEntity { public DateTime Ts { get; set; } }
+
+    private class DaDimUnmappedContext : DbContext
+    {
+        public DbSet<DaDimUnmappedEntity> Items => Set<DaDimUnmappedEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaDimUnmappedEntity>(e => { e.HasNoKey(); e.ToTable("da_dim_unmapped"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_Dimension_Unmapped_Column_Returns_RawString_And_Range_With_Null_Interval()
+    {
+        // Arrange
+        using DaDimUnmappedContext context = new();
+        IEntityType entityType = GetEntityType<DaDimUnmappedEntity>(context);
+        Dimension rangeDimNullInterval = new() { ColumnName = "unmapped_dim_col", Type = EDimensionType.Range, Interval = null };
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.AdditionalDimensions, JsonSerializer.Serialize(new List<Dimension> { rangeDimNullInterval })));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        Assert.Contains(result, a => a.Type == typeof(DimensionAttribute));
+        AttributeCodeFragment dimAttr = result.First(a => a.Type == typeof(DimensionAttribute));
+        Assert.Equal(EDimensionType.Range, dimAttr.Arguments[1]);
+        Assert.Equal(string.Empty, dimAttr.Arguments[2]);
+        Assert.IsType<string>(dimAttr.Arguments[0]);
+        Assert.Equal("unmapped_dim_col", dimAttr.Arguments[0]);
     }
 
     #endregion

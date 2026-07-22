@@ -230,6 +230,28 @@ public class RetentionPolicyAttributeTests
 
     #endregion
 
+    #region Should_Throw_When_DropAfter_WhitespaceOnly
+
+    [Fact]
+    public void Constructor2_With_WhitespaceOnly_DropAfter_ThrowsInvalidOperationException()
+    {
+        // Arrange & Act & Assert
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => new RetentionPolicyAttribute(dropAfter: "   ", dropCreatedBefore: null));
+        Assert.Contains("exactly one", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Constructor2_With_WhitespaceOnly_DropCreatedBefore_ThrowsInvalidOperationException()
+    {
+        // Arrange & Act & Assert
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => new RetentionPolicyAttribute(dropAfter: null, dropCreatedBefore: "\t  "));
+        Assert.Contains("exactly one", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    #endregion
+
     #region Constructor2 Empty and Whitespace String Tests
 
     [Fact]

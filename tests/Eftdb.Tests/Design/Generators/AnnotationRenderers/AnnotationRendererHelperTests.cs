@@ -371,6 +371,48 @@ public class AnnotationRendererHelperTests
 
     #endregion
 
+    #region TryResolvePropertyName_NoStore_And_PropertyMissing_Returns_Raw
+
+    private class NoStoreMissingPropertyEntity
+    {
+        public int Counter { get; set; }
+    }
+
+    private class NoStoreMissingPropertyContext : DbContext
+    {
+        public DbSet<NoStoreMissingPropertyEntity> Items => Set<NoStoreMissingPropertyEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<NoStoreMissingPropertyEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToSqlQuery("SELECT 0 AS \"Counter\"");
+            });
+        }
+    }
+
+    [Fact]
+    public void TryResolvePropertyName_NoStore_And_PropertyMissing_Returns_Raw()
+    {
+        // Arrange
+        using NoStoreMissingPropertyContext context = new();
+        IEntityType entityType = GetEntityType<NoStoreMissingPropertyEntity>(context);
+
+        // Act
+        bool found = AnnotationRendererHelper.TryResolvePropertyName(entityType, "nonexistent_column", out string propertyName);
+
+        // Assert
+        Assert.False(found);
+        Assert.Equal("nonexistent_column", propertyName);
+    }
+
+    #endregion
+
     #region TryResolvePropertyName_View_Mapped_Entity_Returns_True_On_Match
 
     private class ViewMappedEntity
@@ -408,6 +450,45 @@ public class AnnotationRendererHelperTests
 
         Assert.True(found);
         Assert.Equal("CreatedAt", propertyName);
+    }
+
+    #endregion
+
+    #region TryResolvePropertyName_FindProperty_Fallback_When_Column_Name_Differs_From_Property_Name
+
+    private class SnakeCaseEntity
+    {
+        public int Id { get; set; }
+        public double SomeValue { get; set; }
+    }
+
+    private class SnakeCaseContext : DbContext
+    {
+        public DbSet<SnakeCaseEntity> Items => Set<SnakeCaseEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder
+                .UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                .UseTimescaleDb()
+                .UseSnakeCaseNamingConvention();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<SnakeCaseEntity>(e => e.ToTable("snake_case_entity"));
+    }
+
+    [Fact]
+    public void TryResolvePropertyName_FindProperty_Fallback_When_Column_Name_Differs_From_Property_Name()
+    {
+        // Arrange
+        using SnakeCaseContext context = new();
+        IEntityType entityType = GetEntityType<SnakeCaseEntity>(context);
+
+        // Act
+        bool found = AnnotationRendererHelper.TryResolvePropertyName(entityType, "SomeValue", out string propertyName);
+
+        // Assert
+        Assert.True(found);
+        Assert.Equal("SomeValue", propertyName);
     }
 
     #endregion
