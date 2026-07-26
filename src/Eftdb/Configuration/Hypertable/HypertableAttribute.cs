@@ -19,7 +19,7 @@
         /// Maps to <c>timescaledb.compress_segmentby</c>.
         /// </summary>
         /// <example>
-        /// <code>[Hypertable("time", CompressionSegmentBy = ["device_id", "tenant_id"])]</code>
+        /// <code>[Hypertable("time", CompressionSegmentBy = new[] { "device_id", "tenant_id" })]</code>
         /// </example>
         public string[]? CompressionSegmentBy { get; set; } = null;
 
@@ -29,7 +29,7 @@
         /// Since attributes cannot use Expressions, you must specify the full SQL syntax if direction is needed.
         /// </summary>
         /// <example>
-        /// <code>[Hypertable("time", CompressionOrderBy = ["time DESC", "value ASC NULLS LAST"])]</code>
+        /// <code>[Hypertable("time", CompressionOrderBy = new[] { "time DESC", "value ASC NULLS LAST" })]</code>
         /// </example>
         public string[]? CompressionOrderBy { get; set; } = null;
 
