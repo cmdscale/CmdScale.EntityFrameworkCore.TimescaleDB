@@ -1,4 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
@@ -88,6 +89,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 conventionSet.EntityTypeAddedConventions.Add(new ContinuousAggregateConvention());
                 conventionSet.EntityTypeAddedConventions.Add(new ContinuousAggregatePolicyConvention());
                 conventionSet.EntityTypeAddedConventions.Add(new RetentionPolicyConvention());
+                conventionSet.EntityTypeAddedConventions.Add(new CompressionPolicyConvention());
                 conventionSet.ModelFinalizedConventions.Add(new TimeColumnStoreTypeValidationConvention());
                 return conventionSet;
             }

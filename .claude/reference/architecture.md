@@ -63,6 +63,13 @@ This document provides detailed architectural information for the CmdScale.Entit
 - `RetentionPolicyTypeBuilder.cs` - Fluent API: `WithRetentionPolicy()`; includes a scaffold-targeting overload that takes 6 positional string parameters and returns `RetentionPolicyStringBuilder<TEntity>`
 - `RetentionPolicyStringBuilder.cs` - String-based builder used by scaffolded `OnModelCreating` code; exposes `WithInitialStart(DateTime)` as a chained method (DateTime cannot be rendered as a positional literal via `MethodCallCodeFragment`)
 
+#### CompressionPolicy/ (5 files)
+- `CompressionPolicyAttribute.cs` - Data annotation: `[CompressionPolicy(After = "7 days")]`; exactly one of `After`/`CreatedBefore` is required (XOR validated)
+- `CompressionPolicyConvention.cs` - IEntityTypeAddedConvention implementation
+- `CompressionPolicyAnnotations.cs` - Annotation constants
+- `CompressionPolicyTypeBuilder.cs` - Fluent API: `WithCompressionPolicy(after: "7 days", ...)`; optional `scheduleInterval`, `initialStart`, `timezone`, `ifNotExists`; includes scaffold-targeting overload returning `CompressionPolicyStringBuilder<TEntity>`
+- `CompressionPolicyStringBuilder.cs` - String-based builder used by scaffolded `OnModelCreating` code; exposes `WithInitialStart(DateTime)` as a chained method
+
 #### ContinuousAggregate/ (11 files)
 - `ContinuousAggregateAttribute.cs` - Entity-level attribute defining materialized view
 - `TimeBucketAttribute.cs` - Property-level attribute for time bucketing
@@ -108,6 +115,7 @@ All inherit `MigrationOperation` and contain feature-specific properties:
 - `AddRetentionPolicyOperation.cs` / `AlterRetentionPolicyOperation.cs` / `DropRetentionPolicyOperation.cs`
 - `CreateContinuousAggregateOperation.cs` / `AlterContinuousAggregateOperation.cs` / `DropContinuousAggregateOperation.cs`
 - `AddContinuousAggregatePolicyOperation.cs` / `RemoveContinuousAggregatePolicyOperation.cs`
+- `AddCompressionPolicyOperation.cs` / `AlterCompressionPolicyOperation.cs` / `DropCompressionPolicyOperation.cs`
 
 ### Query/ - EF.Functions Extensions and LINQ Translators
 
@@ -134,6 +142,7 @@ Each `*SqlGenerator` exposes `static List<string> Generate(XxxOperation operatio
 | `RetentionPolicySqlGenerator.cs` | `add_retention_policy()`, `remove_retention_policy()`, `alter_job` tuning |
 | `ContinuousAggregateSqlGenerator.cs` | `CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous)` plus drop/alter SQL |
 | `ContinuousAggregatePolicySqlGenerator.cs` | `add_continuous_aggregate_policy()` / `remove_continuous_aggregate_policy()` |
+| `CompressionPolicySqlGenerator.cs` | `add_compression_policy()` / `remove_compression_policy()`; uses legacy function-name spelling (`compress_after`/`compress_created_before`) for pre-2.18 compatibility |
 | `PolicyJobSqlBuilder.cs` | Shared `alter_job` clause builder (schedule interval, max runtime, retries, retry period) used by reorder/retention/CA refresh policies |
 | `SqlBuilderHelper.cs` | `Regclass()`, `QualifiedIdentifier()`, `QuoteIdentifier()`, statement grouping, and `SELECT`→`PERFORM` rewriting for idempotent scripts |
 
@@ -148,6 +157,7 @@ Generated migrations call strongly-typed extension methods that construct a `Mig
 | `RetentionPolicyMigrationExtensions.cs` | `AddRetentionPolicy(...)`, `AlterRetentionPolicy(...)`, `DropRetentionPolicy(...)` |
 | `ContinuousAggregateMigrationExtensions.cs` | `CreateContinuousAggregate(...)`, `AlterContinuousAggregate(...)`, `DropContinuousAggregate(...)` |
 | `ContinuousAggregatePolicyMigrationExtensions.cs` | `AddContinuousAggregatePolicy(...)`, `RemoveContinuousAggregatePolicy(...)` |
+| `CompressionPolicyMigrationExtensions.cs` | `AddCompressionPolicy(...)`, `AlterCompressionPolicy(...)`, `DropCompressionPolicy(...)` |
 
 ### Internals/ - Core Diffing Logic
 
@@ -162,6 +172,7 @@ Generated migrations call strongly-typed extension methods that construct a `Mig
 - `Features/RetentionPolicies/` - `RetentionPolicyDiffer.cs`, `RetentionPolicyModelExtractor.cs`
 - `Features/ContinuousAggregates/` - `ContinuousAggregateDiffer.cs`, `ContinuousAggregateModelExtractor.cs`
 - `Features/ContinuousAggregatePolicies/` - `ContinuousAggregatePolicyDiffer.cs`, `ContinuousAggregatePolicyModelExtractor.cs`
+- `Features/CompressionPolicies/` - `CompressionPolicyDiffer.cs`, `CompressionPolicyModelExtractor.cs`, `CompressionPolicyDefaultHelper.cs`
 
 #### FeatureDiffContext
 
@@ -211,6 +222,7 @@ Each `*CSharpGenerator.Generate(XxxOperation, IndentedStringBuilder)` emits one 
 | `RetentionPolicyCSharpGenerator.cs` | Emits `AddRetentionPolicy(...)` / `AlterRetentionPolicy(...)` / `DropRetentionPolicy(...)` |
 | `ContinuousAggregateCSharpGenerator.cs` | Emits `CreateContinuousAggregate(...)` / `AlterContinuousAggregate(...)` / `DropContinuousAggregate(...)` |
 | `ContinuousAggregatePolicyCSharpGenerator.cs` | Emits `AddContinuousAggregatePolicy(...)` / `RemoveContinuousAggregatePolicy(...)` |
+| `CompressionPolicyCSharpGenerator.cs` | Emits `AddCompressionPolicy(...)` / `AlterCompressionPolicy(...)` / `DropCompressionPolicy(...)` |
 | `MigrationCallWriter.cs` | `IDisposable` helper that writes a `.Method(` call and named `arg: value` lines |
 | `CSharpGeneratorHelper.cs` | `LiteralStringList()` for `["a", "b"]` collection expressions and `StaticCall()` for `Type.Method(args)` literals |
 
@@ -230,6 +242,7 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 | `AnnotationRenderers/ContinuousAggregatePolicyAnnotationRenderer.cs` | Renders continuous aggregate policy annotations to `WithRefreshPolicy(...)` fluent API or `[ContinuousAggregatePolicy]` attribute |
 | `AnnotationRenderers/RetentionPolicyAnnotationRenderer.cs` | Renders retention policy annotations to `WithRetentionPolicy(...)` fluent API or `[RetentionPolicy]` attribute; `ShouldRender` guard requires the parent renderer (hypertable or continuous aggregate) to have already consumed its annotation |
 | `AnnotationRenderers/ReorderPolicyAnnotationRenderer.cs` | Renders reorder policy annotations to `WithReorderPolicy(...)` fluent API or `[ReorderPolicy]` attribute; `ShouldRender` guard requires the hypertable renderer to have already consumed its annotation |
+| `AnnotationRenderers/CompressionPolicyAnnotationRenderer.cs` | Renders compression policy annotations to `WithCompressionPolicy(...)` fluent API or `[CompressionPolicy]` attribute; `ShouldRender` guard requires the hypertable renderer to have already consumed its annotation |
 | `AnnotationRenderers/PolicyJobRendererHelper.cs` | Shared static helpers for rendering optional policy-job fields (InitialStart, ScheduleInterval, MaxRuntime, etc.) shared across all policy renderers |
 | `AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName`, `ResolveColumns` |
 | `AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` record: renders as `nameof(Property)` or `$"{nameof(Property)} DESC"` |
@@ -245,13 +258,14 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 - `RetentionPolicyScaffoldingExtractor` + `RetentionPolicyAnnotationApplier`
 - `ContinuousAggregateScaffoldingExtractor` + `ContinuousAggregateAnnotationApplier`
 - `ContinuousAggregatePolicyScaffoldingExtractor` + `ContinuousAggregatePolicyAnnotationApplier`
+- `CompressionPolicyScaffoldingExtractor` + `CompressionPolicyAnnotationApplier` — reads jobs from `timescaledb_information.jobs` joined with `_timescaledb_config.bgw_job` for timezone; applier suppresses default schedule intervals
 
 **Phase 2 — Annotation code generation** (`TimescaleDbAnnotationCodeGenerator` + `AnnotationRenderers/`):
 EF Core's scaffolding pipeline calls `TimescaleDbAnnotationCodeGenerator` to convert those annotations into C# code. The dispatcher iterates its registered `IFeatureAnnotationRenderer` implementations:
 - When `UseDataAnnotations = false` → `GenerateFluentApiCalls` → fluent API method chains in `OnModelCreating`
 - When `UseDataAnnotations = true` → `GenerateDataAnnotationAttributes` → `[Attribute]` declarations on entity classes
 
-Registered renderers: `HypertableAnnotationRenderer`, `ContinuousAggregateAnnotationRenderer`, `ContinuousAggregatePolicyAnnotationRenderer`, `RetentionPolicyAnnotationRenderer`, `ReorderPolicyAnnotationRenderer`. Registration order matters: child renderers (`ContinuousAggregatePolicyAnnotationRenderer`, `RetentionPolicyAnnotationRenderer`, `ReorderPolicyAnnotationRenderer`) must run after their respective parent renderers so the `ShouldRender` guard can verify the parent annotation was consumed.
+Registered renderers: `HypertableAnnotationRenderer`, `ContinuousAggregateAnnotationRenderer`, `ContinuousAggregatePolicyAnnotationRenderer`, `RetentionPolicyAnnotationRenderer`, `ReorderPolicyAnnotationRenderer`, `CompressionPolicyAnnotationRenderer`. Registration order matters: child renderers (`ContinuousAggregatePolicyAnnotationRenderer`, `RetentionPolicyAnnotationRenderer`, `ReorderPolicyAnnotationRenderer`, `CompressionPolicyAnnotationRenderer`) must run after their respective parent renderers so the `ShouldRender` guard can verify the parent annotation was consumed.
 
 `TimescaleCSharpModelGenerator` wraps EF Core's standard model generator and post-processes the generated files to inject missing `using` directives for TimescaleDB attribute namespaces. `TimescaleModelCodeGeneratorSelector` ensures this custom generator is selected.
 
@@ -277,11 +291,13 @@ Custom operations are sorted by `TimescaleMigrationsModelDiffer.GetOperationPrio
 | -60 | `DropRetentionPolicyOperation` |
 | -50 | `RemoveContinuousAggregatePolicyOperation` |
 | -40 | `DropContinuousAggregateOperation` |
+| -25 | `DropCompressionPolicyOperation` |
 | -20 | `DropReorderPolicyOperation` |
 | 0 | Standard EF operations (CreateTable, AddColumn, DropTable, …) |
 | 10 | `CreateHypertableOperation` |
 | 15 | `AlterHypertableOperation` |
 | 20 | `AddReorderPolicyOperation` / `AlterReorderPolicyOperation` |
+| 25 | `AddCompressionPolicyOperation` / `AlterCompressionPolicyOperation` |
 | 30 | `CreateContinuousAggregateOperation` |
 | 40 | `AlterContinuousAggregateOperation` |
 | 50 | `AddContinuousAggregatePolicyOperation` |

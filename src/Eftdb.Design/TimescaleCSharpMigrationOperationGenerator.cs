@@ -42,6 +42,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                     new RetentionPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(dropRetention, builder);
                     return;
 
+                case AddCompressionPolicyOperation addCompression:
+                    new CompressionPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(addCompression, builder);
+                    return;
+                case AlterCompressionPolicyOperation alterCompression:
+                    new CompressionPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(alterCompression, builder);
+                    return;
+                case DropCompressionPolicyOperation dropCompression:
+                    new CompressionPolicyCSharpGenerator(Dependencies.CSharpHelper).Generate(dropCompression, builder);
+                    return;
+
                 case CreateContinuousAggregateOperation createContinuousAggregate:
                     new ContinuousAggregateCSharpGenerator(Dependencies.CSharpHelper).Generate(createContinuousAggregate, builder);
                     return;

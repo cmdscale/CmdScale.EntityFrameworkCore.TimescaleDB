@@ -53,6 +53,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     statements = RetentionPolicySqlGenerator.Generate(dropRetentionPolicyOperation);
                     break;
 
+                case AddCompressionPolicyOperation addCompressionPolicyOperation:
+                    statements = CompressionPolicySqlGenerator.Generate(addCompressionPolicyOperation);
+                    break;
+
+                case AlterCompressionPolicyOperation alterCompressionPolicyOperation:
+                    statements = CompressionPolicySqlGenerator.Generate(alterCompressionPolicyOperation);
+                    break;
+
+                case DropCompressionPolicyOperation dropCompressionPolicyOperation:
+                    statements = CompressionPolicySqlGenerator.Generate(dropCompressionPolicyOperation);
+                    break;
+
                 case CreateContinuousAggregateOperation createContinuousAggregateOperation:
                     statements = ContinuousAggregateSqlGenerator.Generate(createContinuousAggregateOperation);
                     suppressTransaction = true;

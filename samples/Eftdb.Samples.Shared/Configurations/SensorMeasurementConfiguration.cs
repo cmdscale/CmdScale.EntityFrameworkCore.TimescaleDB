@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
                    .WithCompressionSegmentBy(x => x.Site, x => x.MetricType)
                    .WithCompressionOrderBy(
                        s => s.By(x => x.SensorId),
-                       s => s.ByDescending(x => x.RecordedAt));
+                       s => s.ByDescending(x => x.RecordedAt))
+                   .WithCompressionPolicy(after: "7 days", scheduleInterval: "12 hours");
         }
     }
 }

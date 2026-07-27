@@ -35,6 +35,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
             new ContinuousAggregatePolicyAnnotationRenderer(),
             new RetentionPolicyAnnotationRenderer(),
             new ReorderPolicyAnnotationRenderer(),
+            new CompressionPolicyAnnotationRenderer(),
         ];
 
         private readonly Dictionary<IEntityType, IReadOnlyList<AttributeCodeFragment>> _entityAttributeCache = [];

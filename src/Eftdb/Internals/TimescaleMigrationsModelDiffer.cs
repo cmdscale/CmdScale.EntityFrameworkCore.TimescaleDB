@@ -1,4 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.CompressionPolicies;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregatePolicies;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertables;
@@ -40,6 +41,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
 
             allOperations.AddRange(new ContinuousAggregatePolicyDiffer().GetDifferences(source, target, context));
             allOperations.AddRange(new RetentionPolicyDiffer().GetDifferences(source, target, context));
+            allOperations.AddRange(new CompressionPolicyDiffer().GetDifferences(source, target, context));
 
             // Sort the entire list based on the priority defined in the helper method
             List<MigrationOperation> sortedOperations = [.. allOperations.OrderBy(GetOperationPriority)];
@@ -140,7 +142,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
                 case DropReorderPolicyOperation:
                     return -20;
 
-                // --- Add/Alter operations: positive priorities, dependency order ---
+                case DropCompressionPolicyOperation:
+                    return -25;
+
                 case CreateHypertableOperation:
                     return 10;
                 case AlterHypertableOperation:
@@ -149,6 +153,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
                 case AddReorderPolicyOperation:
                 case AlterReorderPolicyOperation:
                     return 20;
+
+                case AddCompressionPolicyOperation:
+                case AlterCompressionPolicyOperation:
+                    return 25;
 
                 case CreateContinuousAggregateOperation:
                     return 30;
