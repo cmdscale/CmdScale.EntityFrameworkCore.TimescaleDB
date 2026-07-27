@@ -64,6 +64,24 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Operations/AlterRetentionPolicyOperation.cs` | Migration operation |
 | `Operations/DropRetentionPolicyOperation.cs` | Migration operation |
 
+### Compression Policy
+
+| File | Purpose |
+|------|---------|
+| `Configuration/CompressionPolicy/CompressionPolicyTypeBuilder.cs` | Fluent API (including scaffold-targeting overload) |
+| `Configuration/CompressionPolicy/CompressionPolicyStringBuilder.cs` | String-based builder used in scaffolded code |
+| `Configuration/CompressionPolicy/CompressionPolicyAnnotations.cs` | Annotation constants |
+| `Configuration/CompressionPolicy/CompressionPolicyAttribute.cs` | Data annotation |
+| `Configuration/CompressionPolicy/CompressionPolicyConvention.cs` | Convention processing |
+| `Internals/Features/CompressionPolicies/CompressionPolicyDiffer.cs` | Diffing logic |
+| `Internals/Features/CompressionPolicies/CompressionPolicyModelExtractor.cs` | Model extraction |
+| `Internals/Features/CompressionPolicies/CompressionPolicyDefaultHelper.cs` | Dynamic schedule_interval default (12h when chunk interval >= 1 day, else half the chunk interval) |
+| `Generators/CompressionPolicySqlGenerator.cs` | Runtime SQL generation |
+| `MigrationExtensions/CompressionPolicyMigrationExtensions.cs` | Typed migrationBuilder methods |
+| `Operations/AddCompressionPolicyOperation.cs` | Migration operation |
+| `Operations/AlterCompressionPolicyOperation.cs` | Migration operation |
+| `Operations/DropCompressionPolicyOperation.cs` | Migration operation |
+
 ### Continuous Aggregate
 
 | File | Purpose |
@@ -143,6 +161,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Generators/HypertableCSharpGenerator.cs` | Emits `CreateHypertable`/`AlterHypertable` calls |
 | `Generators/ReorderPolicyCSharpGenerator.cs` | Emits reorder-policy calls |
 | `Generators/RetentionPolicyCSharpGenerator.cs` | Emits retention-policy calls |
+| `Generators/CompressionPolicyCSharpGenerator.cs` | Emits compression-policy calls |
 | `Generators/ContinuousAggregateCSharpGenerator.cs` | Emits continuous-aggregate calls |
 | `Generators/ContinuousAggregatePolicyCSharpGenerator.cs` | Emits CA-policy calls |
 | `Generators/MigrationCallWriter.cs` | Writes a `.Method(arg: value, …)` call |
@@ -162,6 +181,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Generators/AnnotationRenderers/ContinuousAggregatePolicyAnnotationRenderer.cs` | Renders continuous aggregate policy annotations to `WithRefreshPolicy(...)` fluent API or `[ContinuousAggregatePolicy]` attribute |
 | `Generators/AnnotationRenderers/RetentionPolicyAnnotationRenderer.cs` | Renders retention policy annotations to `WithRetentionPolicy(...)` fluent API or `[RetentionPolicy]` attribute; registered after parent renderers (hypertable and continuous aggregate) |
 | `Generators/AnnotationRenderers/ReorderPolicyAnnotationRenderer.cs` | Renders reorder policy annotations to `WithReorderPolicy(...)` fluent API or `[ReorderPolicy]` attribute; registered after the hypertable renderer |
+| `Generators/AnnotationRenderers/CompressionPolicyAnnotationRenderer.cs` | Renders compression policy annotations to `WithCompressionPolicy(...)` fluent API or `[CompressionPolicy]` attribute; registered after the hypertable renderer |
 | `Generators/AnnotationRenderers/PolicyJobRendererHelper.cs` | Shared helpers for emitting policy-job optional arguments (`InitialStart`, `WithScheduleInterval`, etc.) |
 | `Generators/AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName` |
 | `Generators/AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` producing `nameof(X)` or `$"{nameof(X)} DESC"` |
@@ -183,6 +203,8 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Scaffolding/ContinuousAggregateAnnotationApplier.cs` | Apply continuous aggregate annotations |
 | `Scaffolding/ContinuousAggregatePolicyScaffoldingExtractor.cs` | Query continuous aggregate refresh policies from database |
 | `Scaffolding/ContinuousAggregatePolicyAnnotationApplier.cs` | Apply continuous aggregate policy annotations |
+| `Scaffolding/CompressionPolicyScaffoldingExtractor.cs` | Query compression policies from `timescaledb_information.jobs` joined with `_timescaledb_config.bgw_job` for timezone |
+| `Scaffolding/CompressionPolicyAnnotationApplier.cs` | Apply compression policy annotations; suppresses default schedule intervals to avoid phantom migrations |
 | `Scaffolding/IntervalParsingHelper.cs` | Parses and normalizes PostgreSQL interval strings (e.g. `"01:00:00"` → `"1 hour"`) and integer offsets |
 | `Scaffolding/ViewDefinitionParser.cs` | Parses continuous aggregate view SQL to extract structured configuration for code generation |
 | `build/CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets` | MSBuild integration |
@@ -209,6 +231,7 @@ src/
 ├── Eftdb/                  # Core runtime library (CmdScale.EntityFrameworkCore.TimescaleDB)
 │   ├── Abstractions/       # Domain objects (Dimension, enums)
 │   ├── Configuration/      # Fluent API, attributes, conventions
+│   │   ├── CompressionPolicy/
 │   │   ├── ContinuousAggregate/
 │   │   ├── ContinuousAggregatePolicy/
 │   │   ├── Hypertable/
@@ -218,6 +241,7 @@ src/
 │   ├── MigrationExtensions/ # Typed migrationBuilder.* methods
 │   ├── Internals/          # Core diffing logic
 │   │   └── Features/
+│   │       ├── CompressionPolicies/
 │   │       ├── ContinuousAggregates/
 │   │       ├── ContinuousAggregatePolicies/
 │   │       ├── Hypertables/

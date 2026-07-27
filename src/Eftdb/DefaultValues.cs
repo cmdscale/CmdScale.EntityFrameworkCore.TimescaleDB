@@ -15,5 +15,18 @@
         public const string RetentionPolicyScheduleInterval = "1 day";
         public const int RetentionPolicyMaxRetries = -1;
         public const string RetentionPolicyMaxRuntime = "00:00:00";
+
+        /// <summary>
+        /// The default <c>schedule_interval</c> for <c>add_compression_policy()</c> when the
+        /// <c>chunk_time_interval</c> is at least 1 day.
+        /// </summary>
+        public const string CompressionPolicyScheduleInterval = "12 hours";
+
+        /// <summary>
+        /// The chunk time interval threshold below which the default <c>schedule_interval</c> for
+        /// <c>add_compression_policy()</c> becomes <c>chunk_time_interval / 2</c> instead of
+        /// <see cref="CompressionPolicyScheduleInterval"/>.
+        /// </summary>
+        public const string CompressionPolicyScheduleIntervalThreshold = "1 day";
     }
 }

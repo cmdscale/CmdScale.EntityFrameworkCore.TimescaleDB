@@ -41,6 +41,10 @@ Seamlessly define and manage **TimescaleDB hypertables** using standard EF Core 
 
 Take full control over how your hypertable data is organized on disk with **TimescaleDB's** reorder policies. By defining a reorder policy, you can automatically re-sort chunks of data by a specified index, significantly improving the performance of queries that scan large time ranges or specific index values.
 
+### Compression Policies
+
+Automate when TimescaleDB compresses chunks on a hypertable.
+
 ### Retention Policies
 
 Automatically drop old chunks from hypertables and continuous aggregates so storage stays bounded as your time-series data grows.

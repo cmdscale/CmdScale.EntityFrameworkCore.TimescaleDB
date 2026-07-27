@@ -30,7 +30,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
             (new ReorderPolicyScaffoldingExtractor(), new ReorderPolicyAnnotationApplier()),
             (new ContinuousAggregateScaffoldingExtractor(), new ContinuousAggregateAnnotationApplier()),
             (new ContinuousAggregatePolicyScaffoldingExtractor(), new ContinuousAggregatePolicyAnnotationApplier()),
-            (new RetentionPolicyScaffoldingExtractor(), new RetentionPolicyAnnotationApplier())
+            (new RetentionPolicyScaffoldingExtractor(), new RetentionPolicyAnnotationApplier()),
+            (new CompressionPolicyScaffoldingExtractor(), new CompressionPolicyAnnotationApplier())
         ];
 
         public override DatabaseModel Create(DbConnection connection, DatabaseModelFactoryOptions options)
