@@ -55,6 +55,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
 
             if (!string.IsNullOrEmpty(operation.ViewDefinition))
                 call.Arg("viewDefinition", code.Literal(operation.ViewDefinition));
+
+            if (operation.EnableCompression)
+                call.Arg("enableCompression", code.Literal(true));
+
+            if (operation.CompressionSegmentBy is { Count: > 0 })
+                call.Arg("compressionSegmentBy", CSharpGeneratorHelper.LiteralStringList(code, operation.CompressionSegmentBy));
+
+            if (operation.CompressionOrderBy is { Count: > 0 })
+                call.Arg("compressionOrderBy", CSharpGeneratorHelper.LiteralStringList(code, operation.CompressionOrderBy));
         }
 
         public void Generate(AlterContinuousAggregateOperation operation, IndentedStringBuilder builder)
@@ -84,6 +93,24 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
 
             if (operation.OldMaterializedOnly)
                 call.Arg("oldMaterializedOnly", code.Literal(true));
+
+            if (operation.EnableCompression)
+                call.Arg("enableCompression", code.Literal(true));
+
+            if (operation.CompressionSegmentBy is { Count: > 0 })
+                call.Arg("compressionSegmentBy", CSharpGeneratorHelper.LiteralStringList(code, operation.CompressionSegmentBy));
+
+            if (operation.CompressionOrderBy is { Count: > 0 })
+                call.Arg("compressionOrderBy", CSharpGeneratorHelper.LiteralStringList(code, operation.CompressionOrderBy));
+
+            if (operation.OldEnableCompression)
+                call.Arg("oldEnableCompression", code.Literal(true));
+
+            if (operation.OldCompressionSegmentBy is { Count: > 0 })
+                call.Arg("oldCompressionSegmentBy", CSharpGeneratorHelper.LiteralStringList(code, operation.OldCompressionSegmentBy));
+
+            if (operation.OldCompressionOrderBy is { Count: > 0 })
+                call.Arg("oldCompressionOrderBy", CSharpGeneratorHelper.LiteralStringList(code, operation.OldCompressionOrderBy));
         }
 
         public void Generate(DropContinuousAggregateOperation operation, IndentedStringBuilder builder)

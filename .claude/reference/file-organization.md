@@ -73,10 +73,14 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Configuration/CompressionPolicy/CompressionPolicyAnnotations.cs` | Annotation constants |
 | `Configuration/CompressionPolicy/CompressionPolicyAttribute.cs` | Data annotation |
 | `Configuration/CompressionPolicy/CompressionPolicyConvention.cs` | Convention processing |
+| `Configuration/CompressionPolicy/CompressionPolicyPrerequisiteValidationConvention.cs` | IModelFinalizedConvention that validates compression is enabled on any continuous aggregate that has a compression policy |
 | `Internals/Features/CompressionPolicies/CompressionPolicyDiffer.cs` | Diffing logic |
 | `Internals/Features/CompressionPolicies/CompressionPolicyModelExtractor.cs` | Model extraction |
 | `Internals/Features/CompressionPolicies/CompressionPolicyDefaultHelper.cs` | Dynamic schedule_interval default (12h when chunk interval >= 1 day, else half the chunk interval) |
+| `Internals/CompressionAnnotationExtractor.cs` | Shared helper for extracting segment-by and order-by column lists from entity annotations; used by both hypertable and continuous-aggregate model extractors |
+| `Internals/Features/CompressionDiffHelper.cs` | Shared comparison and rewrite helpers for compression differ logic; used by both hypertable and continuous-aggregate differs |
 | `Generators/CompressionPolicySqlGenerator.cs` | Runtime SQL generation |
+| `Generators/CompressionSettingsSqlHelper.cs` | Shared SQL-building helpers for compression settings (compress SET clause, alter diff, enable-state check); used by hypertable and continuous-aggregate SQL generators |
 | `MigrationExtensions/CompressionPolicyMigrationExtensions.cs` | Typed migrationBuilder methods |
 | `Operations/AddCompressionPolicyOperation.cs` | Migration operation |
 | `Operations/AlterCompressionPolicyOperation.cs` | Migration operation |
@@ -205,6 +209,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Scaffolding/ContinuousAggregatePolicyAnnotationApplier.cs` | Apply continuous aggregate policy annotations |
 | `Scaffolding/CompressionPolicyScaffoldingExtractor.cs` | Query compression policies from `timescaledb_information.jobs` joined with `_timescaledb_config.bgw_job` for timezone |
 | `Scaffolding/CompressionPolicyAnnotationApplier.cs` | Apply compression policy annotations; suppresses default schedule intervals to avoid phantom migrations |
+| `Scaffolding/CompressionSettingsScaffoldingHelper.cs` | Shared helper that reads `timescaledb_information.compression_settings`; used by both the hypertable and continuous-aggregate scaffolding extractors |
 | `Scaffolding/IntervalParsingHelper.cs` | Parses and normalizes PostgreSQL interval strings (e.g. `"01:00:00"` → `"1 hour"`) and integer offsets |
 | `Scaffolding/ViewDefinitionParser.cs` | Parses continuous aggregate view SQL to extract structured configuration for code generation |
 | `build/CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets` | MSBuild integration |

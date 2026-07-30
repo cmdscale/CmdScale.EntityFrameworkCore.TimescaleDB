@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -33,8 +33,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     x.Target.EnableCompression != x.Source.EnableCompression ||
                     !AreChunkSkipColumnsEqual(x.Target.ChunkSkipColumns, x.Source.ChunkSkipColumns) ||
                     !AreDimensionsEqual(x.Target.AdditionalDimensions, x.Source.AdditionalDimensions) ||
-                    !AreStringListsEqual(x.Target.CompressionSegmentBy, x.Source.CompressionSegmentBy) ||
-                    !AreOrderByListsEqual(x.Target.CompressionOrderBy, x.Source.CompressionOrderBy)
+                    !CompressionDiffHelper.AreStringListsEqual(x.Target.CompressionSegmentBy, x.Source.CompressionSegmentBy) ||
+                    !CompressionDiffHelper.AreOrderByListsEqual(x.Target.CompressionOrderBy, x.Source.CompressionOrderBy)
                 );
 
             foreach (var hypertable in updatedHypertables)
@@ -81,30 +81,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                 ChunkTimeInterval = source.ChunkTimeInterval,
                 EnableCompression = source.EnableCompression,
                 MigrateData = source.MigrateData,
-                ChunkSkipColumns = RewriteColumns(source.ChunkSkipColumns, schema, tableName, context),
-                CompressionSegmentBy = RewriteColumns(source.CompressionSegmentBy, schema, tableName, context),
-                CompressionOrderBy = RewriteOrderByColumns(source.CompressionOrderBy, schema, tableName, context),
+                ChunkSkipColumns = CompressionDiffHelper.RewriteColumns(source.ChunkSkipColumns, schema, tableName, context),
+                CompressionSegmentBy = CompressionDiffHelper.RewriteColumns(source.CompressionSegmentBy, schema, tableName, context),
+                CompressionOrderBy = CompressionDiffHelper.RewriteOrderByColumns(source.CompressionOrderBy, schema, tableName, context),
                 AdditionalDimensions = RewriteDimensions(source.AdditionalDimensions, schema, tableName, context),
             };
-        }
-
-        private static List<string>? RewriteColumns(IReadOnlyList<string>? columns, string schema, string table, FeatureDiffContext context)
-            => columns?.Select(c => context.ResolveColumn(schema, table, c)).ToList();
-
-        private static List<string>? RewriteOrderByColumns(IReadOnlyList<string>? columns, string schema, string table, FeatureDiffContext context)
-        {
-            // Order-by entries carry a direction suffix (e.g. "time DESC"); only the leading column name is renamed.
-            return columns?.Select(c =>
-            {
-                string[] parts = c.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 0)
-                {
-                    return c;
-                }
-
-                string column = context.ResolveColumn(schema, table, parts[0]);
-                return parts.Length > 1 ? $"{column} {parts[1]}" : column;
-            }).ToList();
         }
 
         private static List<Dimension>? RewriteDimensions(IReadOnlyList<Dimension>? dimensions, string schema, string table, FeatureDiffContext context)
@@ -116,59 +97,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                 Interval = d.Interval,
                 NumberOfPartitions = d.NumberOfPartitions,
             }).ToList();
-        }
-
-        private static bool AreStringListsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)
-        {
-            return (list1 ?? []).SequenceEqual(list2 ?? []);
-        }
-
-        /// <summary>
-        /// Compares two compression ORDER BY lists treating an implicit direction as ASC.
-        /// </summary>
-        private static bool AreOrderByListsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)
-        {
-            IReadOnlyList<string> l1 = list1 ?? [];
-            IReadOnlyList<string> l2 = list2 ?? [];
-
-            if (l1.Count != l2.Count)
-            {
-                return false;
-            }
-
-            return l1.Zip(l2).All(pair => NormalizeOrderByEntry(pair.First) == NormalizeOrderByEntry(pair.Second));
-        }
-
-        /// <summary>
-        /// Normalizes a compression ORDER BY entry to its canonical form with an explicit direction
-        /// keyword immediately after the column name.
-        /// Examples:
-        ///   "Value"              -> "Value ASC"
-        ///   "Value ASC"          -> "Value ASC"
-        ///   "Value DESC"         -> "Value DESC"
-        ///   "Value NULLS FIRST"  -> "Value ASC NULLS FIRST"
-        ///   "Value ASC NULLS FIRST" -> "Value ASC NULLS FIRST"
-        /// </summary>
-        private static string NormalizeOrderByEntry(string entry)
-        {
-            string trimmed = entry.Trim();
-            int spaceIndex = trimmed.IndexOf(' ');
-
-            if (spaceIndex < 0)
-            {
-                return trimmed + " ASC";
-            }
-
-            string columnPart = trimmed[..spaceIndex];
-            string suffix = trimmed[(spaceIndex + 1)..].TrimStart();
-
-            if (suffix.StartsWith("DESC", StringComparison.OrdinalIgnoreCase)
-                || suffix.StartsWith("ASC", StringComparison.OrdinalIgnoreCase))
-            {
-                return trimmed;
-            }
-
-            return $"{columnPart} ASC {suffix}";
         }
 
         private static bool AreChunkSkipColumnsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)

@@ -99,5 +99,42 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             ContinuousAggregateBuilderCore.Where(_builder, whereClause);
             return this;
         }
+
+        /// <summary>
+        /// Enables or disables columnstore (compression) on the continuous aggregate.
+        /// Corresponds to <c>ALTER MATERIALIZED VIEW ... SET (timescaledb.compress = true)</c>.
+        /// Enabling compression is a prerequisite for adding a compression policy to a continuous aggregate.
+        /// </summary>
+        /// <param name="enable">Whether to enable compression. Defaults to <see langword="true"/>.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public ContinuousAggregateStringBuilder<TEntity> WithCompression(bool enable = true)
+        {
+            ContinuousAggregateBuilderCore.EnableCompression(_builder, enable);
+            return this;
+        }
+
+        /// <summary>
+        /// Specifies the columns to segment by when compressing the continuous aggregate using column name strings.
+        /// Corresponds to <c>timescaledb.compress_segmentby</c>. Implicitly enables compression.
+        /// </summary>
+        /// <param name="segmentBy">A comma-separated list of column names to segment by.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public ContinuousAggregateStringBuilder<TEntity> WithCompressionSegmentBy(string segmentBy)
+        {
+            ContinuousAggregateBuilderCore.WithCompressionSegmentBy(_builder, segmentBy);
+            return this;
+        }
+
+        /// <summary>
+        /// Specifies the order-by clause for compression on the continuous aggregate using a raw SQL string.
+        /// Corresponds to <c>timescaledb.compress_orderby</c>. Implicitly enables compression.
+        /// </summary>
+        /// <param name="orderBy">A comma-separated list of column expressions (e.g., <c>"time DESC, value ASC NULLS LAST"</c>).</param>
+        /// <returns>The builder for method chaining.</returns>
+        public ContinuousAggregateStringBuilder<TEntity> WithCompressionOrderBy(string orderBy)
+        {
+            ContinuousAggregateBuilderCore.WithCompressionOrderBy(_builder, orderBy);
+            return this;
+        }
     }
 }

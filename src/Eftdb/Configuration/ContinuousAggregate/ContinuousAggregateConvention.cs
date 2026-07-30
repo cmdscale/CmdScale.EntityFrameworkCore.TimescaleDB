@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -31,6 +32,23 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.CreateGroupIndexes, continuousAggregateAttribute.CreateGroupIndexes);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.MaterializedOnly, continuousAggregateAttribute.MaterializedOnly);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WhereClause, continuousAggregateAttribute.Where);
+
+            if (continuousAggregateAttribute.EnableCompression)
+            {
+                entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+            }
+
+            if (continuousAggregateAttribute.CompressionSegmentBy is { Length: > 0 } segmentBy)
+            {
+                entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionSegmentBy, string.Join(", ", segmentBy));
+            }
+
+            if (continuousAggregateAttribute.CompressionOrderBy is { Length: > 0 } orderBy)
+            {
+                entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionOrderBy, string.Join(", ", orderBy));
+            }
 
             // Discover class-level TimeBucket configuration from [TimeBucketAttribute]
             TimeBucketAttribute? timeBucketAttr = entityType.ClrType?.GetCustomAttribute<TimeBucketAttribute>();

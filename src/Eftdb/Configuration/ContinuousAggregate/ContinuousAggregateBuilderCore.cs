@@ -1,4 +1,5 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -26,6 +27,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
 
         public static void Where(EntityTypeBuilder builder, string whereClause)
             => builder.HasAnnotation(ContinuousAggregateAnnotations.WhereClause, whereClause);
+
+        /// <summary>
+        /// Enables or disables columnstore (compression) on the continuous aggregate materialized view.
+        /// Maps to <c>ALTER MATERIALIZED VIEW ... SET (timescaledb.compress = true)</c>.
+        /// Enabling compression is a prerequisite for adding a compression policy to a continuous aggregate.
+        /// </summary>
+        public static void EnableCompression(EntityTypeBuilder builder, bool enable)
+            => builder.HasAnnotation(HypertableAnnotations.EnableCompression, enable);
+
+        /// <summary>
+        /// Sets the segment-by columns for compression on the continuous aggregate.
+        /// Implicitly enables compression. Maps to <c>timescaledb.compress_segmentby</c>.
+        /// </summary>
+        public static void WithCompressionSegmentBy(EntityTypeBuilder builder, string segmentBy)
+        {
+            builder.HasAnnotation(HypertableAnnotations.CompressionSegmentBy, segmentBy);
+            builder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+        }
+
+        /// <summary>
+        /// Sets the order-by clause for compression on the continuous aggregate.
+        /// Implicitly enables compression. Maps to <c>timescaledb.compress_orderby</c>.
+        /// </summary>
+        public static void WithCompressionOrderBy(EntityTypeBuilder builder, string orderBy)
+        {
+            builder.HasAnnotation(HypertableAnnotations.CompressionOrderBy, orderBy);
+            builder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+        }
 
         /// <summary>
         /// Appends an aggregate mapping in the <c>"alias:function:sourceColumn"</c> annotation format.

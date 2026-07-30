@@ -63,12 +63,13 @@ This document provides detailed architectural information for the CmdScale.Entit
 - `RetentionPolicyTypeBuilder.cs` - Fluent API: `WithRetentionPolicy()`; includes a scaffold-targeting overload that takes 6 positional string parameters and returns `RetentionPolicyStringBuilder<TEntity>`
 - `RetentionPolicyStringBuilder.cs` - String-based builder used by scaffolded `OnModelCreating` code; exposes `WithInitialStart(DateTime)` as a chained method (DateTime cannot be rendered as a positional literal via `MethodCallCodeFragment`)
 
-#### CompressionPolicy/ (5 files)
+#### CompressionPolicy/ (6 files)
 - `CompressionPolicyAttribute.cs` - Data annotation: `[CompressionPolicy(After = "7 days")]`; exactly one of `After`/`CreatedBefore` is required (XOR validated)
 - `CompressionPolicyConvention.cs` - IEntityTypeAddedConvention implementation
 - `CompressionPolicyAnnotations.cs` - Annotation constants
 - `CompressionPolicyTypeBuilder.cs` - Fluent API: `WithCompressionPolicy(after: "7 days", ...)`; optional `scheduleInterval`, `initialStart`, `timezone`, `ifNotExists`; includes scaffold-targeting overload returning `CompressionPolicyStringBuilder<TEntity>`
 - `CompressionPolicyStringBuilder.cs` - String-based builder used by scaffolded `OnModelCreating` code; exposes `WithInitialStart(DateTime)` as a chained method
+- `CompressionPolicyPrerequisiteValidationConvention.cs` - IModelFinalizedConvention that validates compression is enabled on any continuous aggregate before a compression policy is applied; runs at finalization so all fluent API is visible
 
 #### ContinuousAggregate/ (11 files)
 - `ContinuousAggregateAttribute.cs` - Entity-level attribute defining materialized view
@@ -143,6 +144,7 @@ Each `*SqlGenerator` exposes `static List<string> Generate(XxxOperation operatio
 | `ContinuousAggregateSqlGenerator.cs` | `CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous)` plus drop/alter SQL |
 | `ContinuousAggregatePolicySqlGenerator.cs` | `add_continuous_aggregate_policy()` / `remove_continuous_aggregate_policy()` |
 | `CompressionPolicySqlGenerator.cs` | `add_compression_policy()` / `remove_compression_policy()`; uses legacy function-name spelling (`compress_after`/`compress_created_before`) for pre-2.18 compatibility |
+| `CompressionSettingsSqlHelper.cs` | Shared SQL-building helpers for compression settings: builds the `SET (timescaledb.compress = ...)` clause, computes the changed-settings list for alter operations, and evaluates whether compression is enabled; used by both hypertable and continuous-aggregate SQL generators |
 | `PolicyJobSqlBuilder.cs` | Shared `alter_job` clause builder (schedule interval, max runtime, retries, retry period) used by reorder/retention/CA refresh policies |
 | `SqlBuilderHelper.cs` | `Regclass()`, `QualifiedIdentifier()`, `QuoteIdentifier()`, statement grouping, and `SELECT`→`PERFORM` rewriting for idempotent scripts |
 
@@ -164,6 +166,8 @@ Generated migrations call strongly-typed extension methods that construct a `Mig
 - `TimescaleMigrationsModelDiffer.cs` - Extends EF Core's MigrationsModelDiffer; orchestrates the feature differs, builds the `FeatureDiffContext`, implements `GetOperationPriority()`
 - `Features/IFeatureDiffer.cs` - Interface: `GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)`
 - `Features/FeatureDiffContext.cs` - Cross-cutting diff state passed to every feature differ
+- `Features/CompressionDiffHelper.cs` - Shared comparison and rewrite helpers for compression differ logic; used by both hypertable and continuous-aggregate differs; provides `AreStringListsEqual`, `AreOrderByListsEqual`, `NormalizeOrderByEntry`, `RewriteColumns`, and `RewriteOrderByColumns`
+- `CompressionAnnotationExtractor.cs` - Shared helpers for extracting segment-by and order-by column lists from entity-type annotations with CLR property → database column name resolution; used by both hypertable and continuous-aggregate model extractors
 - `ParentEntityTypeResolver.cs` - Resolves a continuous aggregate's parent `IEntityType` by matching CLR class name, EF Core short name, or database table name; handles both code-first and scaffolded models
 
 **Feature-specific:**
@@ -259,6 +263,7 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 - `ContinuousAggregateScaffoldingExtractor` + `ContinuousAggregateAnnotationApplier`
 - `ContinuousAggregatePolicyScaffoldingExtractor` + `ContinuousAggregatePolicyAnnotationApplier`
 - `CompressionPolicyScaffoldingExtractor` + `CompressionPolicyAnnotationApplier` — reads jobs from `timescaledb_information.jobs` joined with `_timescaledb_config.bgw_job` for timezone; applier suppresses default schedule intervals
+- `CompressionSettingsScaffoldingHelper` — shared helper that reads `timescaledb_information.compression_settings`; used by both `HypertableScaffoldingExtractor` and `ContinuousAggregateScaffoldingExtractor`
 
 **Phase 2 — Annotation code generation** (`TimescaleDbAnnotationCodeGenerator` + `AnnotationRenderers/`):
 EF Core's scaffolding pipeline calls `TimescaleDbAnnotationCodeGenerator` to convert those annotations into C# code. The dispatcher iterates its registered `IFeatureAnnotationRenderer` implementations:

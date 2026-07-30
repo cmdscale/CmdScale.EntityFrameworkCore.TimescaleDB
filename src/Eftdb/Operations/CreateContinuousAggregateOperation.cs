@@ -29,5 +29,23 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
         /// from the TimescaleDB catalog.
         /// </summary>
         public string? ViewDefinition { get; set; }
+
+        /// <summary>
+        /// Whether to enable columnstore (compression) on the continuous aggregate immediately after creation.
+        /// Corresponds to <c>ALTER MATERIALIZED VIEW ... SET (timescaledb.compress = true)</c>.
+        /// </summary>
+        public bool EnableCompression { get; set; }
+
+        /// <summary>
+        /// The columns to segment by for compression. Comma-separated database column names.
+        /// Corresponds to <c>timescaledb.compress_segmentby</c>.
+        /// </summary>
+        public IReadOnlyList<string>? CompressionSegmentBy { get; set; }
+
+        /// <summary>
+        /// The columns to order by within each compressed segment. Comma-separated SQL expressions
+        /// (e.g., <c>"time DESC"</c>). Corresponds to <c>timescaledb.compress_orderby</c>.
+        /// </summary>
+        public IReadOnlyList<string>? CompressionOrderBy { get; set; }
     }
 }

@@ -1,10 +1,13 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
     public class ContinuousAggregateSqlGenerator
     {
+        private const string CommunityWarning = "Skipping Community Edition features (compression) - not available in Apache Edition";
+        private const string AlterDdl = "ALTER MATERIALIZED VIEW";
+
         public static List<string> Generate(CreateContinuousAggregateOperation operation)
         {
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
@@ -42,6 +45,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
                 rawSqlBuilder.Append(';');
                 statements.Add(rawSqlBuilder.ToString());
+
+                CompressionSettingsSqlHelper.AppendCreateCompressionStatements(
+                    statements,
+                    operation.MaterializedViewName,
+                    operation.Schema,
+                    operation.EnableCompression,
+                    operation.CompressionSegmentBy,
+                    operation.CompressionOrderBy,
+                    AlterDdl,
+                    CommunityWarning);
+
                 return statements;
             }
 
@@ -155,6 +169,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             sqlBuilder.Append(';');
             statements.Add(sqlBuilder.ToString());
 
+            CompressionSettingsSqlHelper.AppendCreateCompressionStatements(
+                statements,
+                operation.MaterializedViewName,
+                operation.Schema,
+                operation.EnableCompression,
+                operation.CompressionSegmentBy,
+                operation.CompressionOrderBy,
+                AlterDdl,
+                CommunityWarning);
+
             return statements;
         }
 
@@ -195,6 +219,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             {
                 string materializedOnlyValue = operation.MaterializedOnly.ToString().ToLower();
                 statements.Add($"ALTER MATERIALIZED VIEW {qualifiedIdentifier} SET (timescaledb.materialized_only = {materializedOnlyValue});");
+            }
+
+            List<string> compressionSettings = CompressionSettingsSqlHelper.BuildAlterCompressionSettings(
+                operation.EnableCompression,
+                operation.CompressionSegmentBy,
+                operation.CompressionOrderBy,
+                operation.OldEnableCompression,
+                operation.OldCompressionSegmentBy,
+                operation.OldCompressionOrderBy);
+
+            if (compressionSettings.Count > 0)
+            {
+                string setClause = $"ALTER MATERIALIZED VIEW {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});";
+                statements.Add(SqlBuilderHelper.WrapCommunityFeatures([setClause], CommunityWarning));
             }
 
             return statements;

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
@@ -125,5 +126,38 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// to quote column references in compression segment/order-by lists, group-by clauses, etc.
         /// </summary>
         public static string QuoteIdentifier(string identifier) => $"\"{identifier}\"";
+
+        // TODO: Is this being generated inside a .Sql() call or in exxtension method in the migration? Also, what about scaffolding?
+        /// <summary>
+        /// Wraps SQL statements in a Community Edition license-guard DO block. Statements execute
+        /// only when the TimescaleDB license is not <c>apache</c>; otherwise the supplied warning
+        /// is raised and the block exits without executing them.
+        /// </summary>
+        /// <param name="sqlStatements">The statements to execute inside the guarded block.</param>
+        /// <param name="warningText">The text of the RAISE WARNING emitted on the Apache Edition path.</param>
+        internal static string WrapCommunityFeatures(List<string> sqlStatements, string warningText)
+        {
+            StringBuilder sb = new();
+            sb.AppendLine("DO $$");
+            sb.AppendLine("DECLARE");
+            sb.AppendLine("    license TEXT;");
+            sb.AppendLine("BEGIN");
+            sb.AppendLine("    license := current_setting('timescaledb.license', true);");
+            sb.AppendLine("    ");
+            sb.AppendLine("    IF license IS NULL OR license != 'apache' THEN");
+
+            foreach (string sql in sqlStatements)
+            {
+                string cleanSql = sql.TrimEnd(';').Replace("'", "''");
+                sb.AppendLine($"        EXECUTE '{cleanSql}';");
+            }
+
+            sb.AppendLine("    ELSE");
+            sb.AppendLine($"        RAISE WARNING '{warningText}';");
+            sb.AppendLine("    END IF;");
+            sb.AppendLine("END $$;");
+
+            return sb.ToString();
+        }
     }
 }

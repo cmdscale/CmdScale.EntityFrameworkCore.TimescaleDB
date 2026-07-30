@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore.Design;
@@ -119,13 +120,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
 
         /// <summary>
         /// Guards all three rendering paths: a compression policy annotation is only emitted when the
-        /// hypertable renderer already succeeded. The hypertable renderer consumes <c>IsHypertable</c>
-        /// on success. If <c>IsHypertable</c> is still present the hypertable renderer failed and the
-        /// compression policy annotations must be left for the <c>.HasAnnotation</c> fallback.
+        /// parent feature renderer already succeeded. For hypertables, the hypertable renderer consumes
+        /// <c>IsHypertable</c> on success — if it is still present the hypertable renderer failed.
+        /// For continuous aggregates, the CA renderer consumes <c>MaterializedViewName</c> on success —
+        /// if it is still present the CA renderer failed. Both checks must pass: the policy annotation
+        /// is left for the <c>.HasAnnotation</c> fallback when either parent renderer did not succeed.
         /// </summary>
         private static bool ShouldRender(IDictionary<string, IAnnotation> annotations)
             => Find(annotations, CompressionPolicyAnnotations.HasCompressionPolicy)?.Value is true
-            && Find(annotations, HypertableAnnotations.IsHypertable) is null;
+            && Find(annotations, HypertableAnnotations.IsHypertable) is null
+            && Find(annotations, ContinuousAggregateAnnotations.MaterializedViewName) is null;
 
         /// <summary>
         /// Builds positional arguments for the scaffold-targeting <c>WithCompressionPolicy</c> overload.

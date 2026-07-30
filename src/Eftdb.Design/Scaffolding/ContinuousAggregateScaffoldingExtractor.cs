@@ -15,7 +15,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             string SourceHypertableName,
             string SourceSchema,
             bool MaterializedOnly,
-            string? ChunkInterval
+            string? ChunkInterval,
+            bool CompressionEnabled = false,
+            List<string>? CompressionSegmentBy = null,
+            List<string>? CompressionOrderBy = null
         );
 
         public Dictionary<(string Schema, string TableName), object> Extract(DbConnection connection)
@@ -33,7 +36,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 using (DbCommand command = connection.CreateCommand())
                 {
                     // Query continuous aggregates from TimescaleDB information schema
-                    // This query supports TimescaleDB v2.16 and higher
+                    // This query supports TimescaleDB v2.16 and higher.
+                    // materialization_hypertable_schema/name identify the internal materialized hypertable
+                    // (_timescaledb_internal._materialized_hypertable_N) used to join compression settings.
                     command.CommandText = @"
                         SELECT
                             ca.view_schema,
@@ -42,7 +47,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                             ca.hypertable_schema,
                             ca.hypertable_name,
                             ca.materialized_only,
-                            dim.time_interval::text AS chunk_interval
+                            dim.time_interval::text AS chunk_interval,
+                            ca.compression_enabled,
+                            ca.materialization_hypertable_schema,
+                            ca.materialization_hypertable_name
                         FROM timescaledb_information.continuous_aggregates ca
                         LEFT JOIN _timescaledb_catalog.continuous_agg cagg
                             ON ca.view_schema = cagg.user_view_schema
@@ -64,6 +72,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         string hypertableName = reader.GetString(4);
                         bool materializedOnly = reader.GetBoolean(5);
                         string? chunkInterval = reader.IsDBNull(6) ? null : reader.GetString(6);
+                        bool compressionEnabled = !reader.IsDBNull(7) && reader.GetBoolean(7);
+                        string? matSchema = reader.IsDBNull(8) ? null : reader.GetString(8);
+                        string? matName = reader.IsDBNull(9) ? null : reader.GetString(9);
 
                         continuousAggregates[(viewSchema, viewName)] = new ContinuousAggregateInfo(
                             MaterializedViewName: viewName,
@@ -72,10 +83,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                             SourceHypertableName: hypertableName,
                             SourceSchema: hypertableSchema,
                             MaterializedOnly: materializedOnly,
-                            ChunkInterval: chunkInterval
+                            ChunkInterval: chunkInterval,
+                            CompressionEnabled: compressionEnabled,
+                            CompressionSegmentBy: [],
+                            CompressionOrderBy: []
                         );
+
+                        if (matSchema is not null && matName is not null)
+                        {
+                            _matHypertableToView[(matSchema, matName)] = (viewSchema, viewName);
+                        }
                     }
                 }
+
+                GetCompressionConfiguration(connection, continuousAggregates);
 
                 // Convert to object dictionary to match interface
                 return continuousAggregates.ToDictionary(
@@ -85,11 +106,48 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             }
             finally
             {
+                _matHypertableToView.Clear();
                 if (!wasOpen)
                 {
                     connection.Close();
                 }
             }
+        }
+
+        private readonly Dictionary<(string, string), (string ViewSchema, string ViewName)> _matHypertableToView = [];
+
+        private void GetCompressionConfiguration(
+            DbConnection connection,
+            Dictionary<(string, string), ContinuousAggregateInfo> continuousAggregates)
+        {
+            CompressionSettingsScaffoldingHelper.ReadCompressionSettings(
+                connection,
+                rawKey =>
+                {
+                    if (!_matHypertableToView.TryGetValue(rawKey, out (string ViewSchema, string ViewName) viewKey))
+                    {
+                        return (default, false);
+                    }
+
+                    return ((viewKey.ViewSchema, viewKey.ViewName), true);
+                },
+                (key, columnName, isSegmentBy, isOrderBy, isAscending, isNullsFirst) =>
+                {
+                    if (!continuousAggregates.TryGetValue(key, out ContinuousAggregateInfo? info))
+                    {
+                        return;
+                    }
+
+                    if (isSegmentBy)
+                    {
+                        info.CompressionSegmentBy?.Add(columnName);
+                    }
+
+                    if (isOrderBy)
+                    {
+                        info.CompressionOrderBy?.Add(CompressionSettingsScaffoldingHelper.BuildOrderByEntry(columnName, isAscending, isNullsFirst));
+                    }
+                });
         }
     }
 }

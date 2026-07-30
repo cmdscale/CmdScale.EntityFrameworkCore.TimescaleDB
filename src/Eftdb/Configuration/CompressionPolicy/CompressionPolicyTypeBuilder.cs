@@ -1,3 +1,5 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -92,6 +94,56 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
         /// <returns>A builder for chaining optional parameters not representable as literal constructor arguments.</returns>
         public static CompressionPolicyStringBuilder<TEntity> WithCompressionPolicy<TEntity>(
             this RetentionPolicyStringBuilder<TEntity> builder,
+            string? after,
+            string? createdBefore,
+            string? scheduleInterval,
+            string? timezone,
+            bool? ifNotExists) where TEntity : class
+        {
+            WriteCompressionPolicy(builder.EntityTypeBuilder, after, createdBefore, scheduleInterval, timezone, ifNotExists);
+            return new CompressionPolicyStringBuilder<TEntity>(builder.EntityTypeBuilder);
+        }
+
+        /// <summary>
+        /// Configures a TimescaleDB compression policy for a continuous aggregate, chained directly
+        /// after the <see cref="ContinuousAggregateStringBuilder{TEntity}"/> configuration.
+        /// Exactly one of <paramref name="after"/> or <paramref name="createdBefore"/> must be specified.
+        /// </summary>
+        /// <typeparam name="TEntity">The type of the entity being configured.</typeparam>
+        /// <param name="builder">The continuous aggregate builder being configured.</param>
+        /// <param name="after">The interval after which chunks are compressed. Mutually exclusive with <paramref name="createdBefore"/>.</param>
+        /// <param name="createdBefore">The interval relative to chunk creation time. Mutually exclusive with <paramref name="after"/>.</param>
+        /// <param name="scheduleInterval">The interval between policy job executions.</param>
+        /// <param name="timezone">The PostgreSQL time zone used when computing the initial start time.</param>
+        /// <param name="ifNotExists">When <see langword="true"/>, no error is raised if the policy already exists.</param>
+        /// <returns>A builder for chaining optional parameters not representable as literal constructor arguments.</returns>
+        public static CompressionPolicyStringBuilder<TEntity> WithCompressionPolicy<TEntity>(
+            this ContinuousAggregateStringBuilder<TEntity> builder,
+            string? after,
+            string? createdBefore,
+            string? scheduleInterval,
+            string? timezone,
+            bool? ifNotExists) where TEntity : class
+        {
+            WriteCompressionPolicy(builder.EntityTypeBuilder, after, createdBefore, scheduleInterval, timezone, ifNotExists);
+            return new CompressionPolicyStringBuilder<TEntity>(builder.EntityTypeBuilder);
+        }
+
+        /// <summary>
+        /// Configures a TimescaleDB compression policy for a continuous aggregate that already has a
+        /// refresh policy configured, chained after the refresh policy configuration.
+        /// Exactly one of <paramref name="after"/> or <paramref name="createdBefore"/> must be specified.
+        /// </summary>
+        /// <typeparam name="TEntity">The type of the entity being configured.</typeparam>
+        /// <param name="builder">The continuous aggregate policy builder being configured.</param>
+        /// <param name="after">The interval after which chunks are compressed. Mutually exclusive with <paramref name="createdBefore"/>.</param>
+        /// <param name="createdBefore">The interval relative to chunk creation time. Mutually exclusive with <paramref name="after"/>.</param>
+        /// <param name="scheduleInterval">The interval between policy job executions.</param>
+        /// <param name="timezone">The PostgreSQL time zone used when computing the initial start time.</param>
+        /// <param name="ifNotExists">When <see langword="true"/>, no error is raised if the policy already exists.</param>
+        /// <returns>A builder for chaining optional parameters not representable as literal constructor arguments.</returns>
+        public static CompressionPolicyStringBuilder<TEntity> WithCompressionPolicy<TEntity>(
+            this ContinuousAggregatePolicyStringBuilder<TEntity> builder,
             string? after,
             string? createdBefore,
             string? scheduleInterval,

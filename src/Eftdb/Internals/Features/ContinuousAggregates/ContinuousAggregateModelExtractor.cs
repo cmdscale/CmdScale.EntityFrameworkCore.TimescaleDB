@@ -1,4 +1,5 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -152,6 +153,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     ?? parentEntityType.GetSchema()
                     ?? DefaultValues.DefaultSchema;
 
+                bool enableCompression = entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value as bool? ?? false;
+                List<string>? compressionSegmentBy = CompressionAnnotationExtractor.ExtractSegmentByColumns(entityType, aggregateStoreIdentifier);
+                List<string>? compressionOrderBy = CompressionAnnotationExtractor.ExtractOrderByColumns(entityType, aggregateStoreIdentifier);
+
                 yield return new CreateContinuousAggregateOperation
                 {
                     Schema = schema,
@@ -167,7 +172,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     AggregateFunctions = aggregateFunctions,
                     GroupByColumns = groupByColumns,
                     WhereClause = whereClause,
-                    ViewDefinition = useRawDefinition ? viewDefinition : null
+                    ViewDefinition = useRawDefinition ? viewDefinition : null,
+                    EnableCompression = enableCompression || compressionSegmentBy?.Count > 0 || compressionOrderBy?.Count > 0,
+                    CompressionSegmentBy = compressionSegmentBy,
+                    CompressionOrderBy = compressionOrderBy,
                 };
             }
         }
