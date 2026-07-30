@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
@@ -15,10 +15,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             List<CreateContinuousAggregateOperation> sourceAggregates = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(source)];
             List<CreateContinuousAggregateOperation> targetAggregates = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(target)];
 
-            // Apply the parent table's rename so a renamed parent alone doesn't force a recreate.
             foreach (CreateContinuousAggregateOperation aggregate in sourceAggregates)
             {
                 (_, aggregate.ParentName) = context.ResolveTable(aggregate.Schema, aggregate.ParentName);
+                aggregate.CompressionSegmentBy = CompressionDiffHelper.RewriteColumns(aggregate.CompressionSegmentBy, aggregate.Schema, aggregate.MaterializedViewName, context);
+                aggregate.CompressionOrderBy = CompressionDiffHelper.RewriteOrderByColumns(aggregate.CompressionOrderBy, aggregate.Schema, aggregate.MaterializedViewName, context);
             }
 
             // Find new continuous aggregates - only compare by MaterializedViewName, not Schema
@@ -27,8 +28,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             operations.AddRange(newAggregates);
 
             // Find updated continuous aggregates
-            // Note: Only certain properties can be altered (ChunkInterval, CreateGroupIndexes, MaterializedOnly)
-            // For structural changes (time bucket, aggregates, group by, where), drop and recreate is required
+            // Note: Only certain properties can be altered (ChunkInterval, CreateGroupIndexes,
+            // MaterializedOnly, and compression settings).
+            // For structural changes (time bucket, aggregates, group by, where), drop and recreate is required.
             var updatedAggregates = targetAggregates
                 .Join(
                     sourceAggregates,
@@ -39,7 +41,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 .Where(x =>
                     x.Target.ChunkInterval != x.Source.ChunkInterval ||
                     x.Target.CreateGroupIndexes != x.Source.CreateGroupIndexes ||
-                    x.Target.MaterializedOnly != x.Source.MaterializedOnly
+                    x.Target.MaterializedOnly != x.Source.MaterializedOnly ||
+                    x.Target.EnableCompression != x.Source.EnableCompression ||
+                    !CompressionDiffHelper.AreStringListsEqual(x.Target.CompressionSegmentBy, x.Source.CompressionSegmentBy) ||
+                    !CompressionDiffHelper.AreOrderByListsEqual(x.Target.CompressionOrderBy, x.Source.CompressionOrderBy)
                 );
 
             foreach (var aggregate in updatedAggregates)
@@ -51,9 +56,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     ChunkInterval = aggregate.Target.ChunkInterval,
                     CreateGroupIndexes = aggregate.Target.CreateGroupIndexes,
                     MaterializedOnly = aggregate.Target.MaterializedOnly,
+                    EnableCompression = aggregate.Target.EnableCompression,
+                    CompressionSegmentBy = aggregate.Target.CompressionSegmentBy,
+                    CompressionOrderBy = aggregate.Target.CompressionOrderBy,
                     OldChunkInterval = aggregate.Source.ChunkInterval,
                     OldCreateGroupIndexes = aggregate.Source.CreateGroupIndexes,
-                    OldMaterializedOnly = aggregate.Source.MaterializedOnly
+                    OldMaterializedOnly = aggregate.Source.MaterializedOnly,
+                    OldEnableCompression = aggregate.Source.EnableCompression,
+                    OldCompressionSegmentBy = aggregate.Source.CompressionSegmentBy,
+                    OldCompressionOrderBy = aggregate.Source.CompressionOrderBy,
                 });
             }
 

@@ -1,4 +1,5 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.Linq.Expressions;
 
@@ -108,6 +109,74 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         {
             ContinuousAggregateBuilderCore.Where(EntityTypeBuilder, whereClause);
             return this;
+        }
+
+        /// <summary>
+        /// Enables or disables columnstore (compression) on the continuous aggregate.
+        /// Corresponds to <c>ALTER MATERIALIZED VIEW ... SET (timescaledb.compress = true)</c>.
+        /// Enabling compression is a prerequisite for adding a compression policy to a continuous aggregate.
+        /// </summary>
+        /// <param name="enable">Whether to enable compression. Defaults to <see langword="true"/>.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public ContinuousAggregateBuilder<TEntity, TSourceEntity> WithCompression(bool enable = true)
+        {
+            ContinuousAggregateBuilderCore.EnableCompression(EntityTypeBuilder, enable);
+            return this;
+        }
+
+        /// <summary>
+        /// Specifies the columns to segment by when compressing the continuous aggregate.
+        /// Corresponds to <c>timescaledb.compress_segmentby</c>. Implicitly enables compression.
+        /// </summary>
+        /// <param name="segmentByColumns">Lambda expressions selecting the properties to segment by.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public ContinuousAggregateBuilder<TEntity, TSourceEntity> WithCompressionSegmentBy(
+            params Expression<Func<TEntity, object>>[] segmentByColumns)
+        {
+            string[] columnNames = [.. segmentByColumns.Select(GetPropertyName<TEntity, object>)];
+            ContinuousAggregateBuilderCore.WithCompressionSegmentBy(EntityTypeBuilder, string.Join(", ", columnNames));
+            return this;
+        }
+
+        /// <summary>
+        /// Specifies the columns to order by within each compressed segment using explicit
+        /// <see cref="OrderBy"/> definitions. Corresponds to <c>timescaledb.compress_orderby</c>.
+        /// Implicitly enables compression.
+        /// </summary>
+        /// <param name="orderByRules"><see cref="OrderBy"/> instances describing the ordering.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public ContinuousAggregateBuilder<TEntity, TSourceEntity> WithCompressionOrderBy(
+            params OrderBy[] orderByRules)
+        {
+            ContinuousAggregateBuilderCore.WithCompressionOrderBy(EntityTypeBuilder, string.Join(", ", orderByRules.Select(r => r.ToSql())));
+            return this;
+        }
+
+        /// <summary>
+        /// Specifies the columns to order by within each compressed segment using an
+        /// <see cref="OrderBySelector{TEntity}"/> factory. Corresponds to <c>timescaledb.compress_orderby</c>.
+        /// Implicitly enables compression.
+        /// </summary>
+        /// <param name="orderSelector">A function that receives an <see cref="OrderBySelector{TEntity}"/> and returns the ordering rules.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public ContinuousAggregateBuilder<TEntity, TSourceEntity> WithCompressionOrderBy(
+            Func<OrderBySelector<TEntity>, IEnumerable<OrderBy>> orderSelector)
+        {
+            OrderBySelector<TEntity> selector = new();
+            return WithCompressionOrderBy([.. orderSelector(selector)]);
+        }
+
+        /// <summary>
+        /// Specifies the columns to order by within each compressed segment, one selector per column.
+        /// Corresponds to <c>timescaledb.compress_orderby</c>. Implicitly enables compression.
+        /// </summary>
+        /// <param name="orderSelectors">Per-column selector functions.</param>
+        /// <returns>The builder for method chaining.</returns>
+        public ContinuousAggregateBuilder<TEntity, TSourceEntity> WithCompressionOrderBy(
+            params Func<OrderBySelector<TEntity>, OrderBy>[] orderSelectors)
+        {
+            OrderBySelector<TEntity> selector = new();
+            return WithCompressionOrderBy([.. orderSelectors.Select(s => s(selector))]);
         }
 
         internal static string GetPropertyName<T, TProperty>(Expression<Func<T, TProperty>> propertyExpression)

@@ -138,12 +138,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
                 case DropContinuousAggregateOperation:
                     return -40;
 
+                case DropCompressionPolicyOperation:
+                    return -45;
+
                 // Reorder policies depend on hypertables
                 case DropReorderPolicyOperation:
                     return -20;
-
-                case DropCompressionPolicyOperation:
-                    return -25;
 
                 case CreateHypertableOperation:
                     return 10;
@@ -154,14 +154,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
                 case AlterReorderPolicyOperation:
                     return 20;
 
-                case AddCompressionPolicyOperation:
-                case AlterCompressionPolicyOperation:
-                    return 25;
-
                 case CreateContinuousAggregateOperation:
                     return 30;
                 case AlterContinuousAggregateOperation:
                     return 40;
+
+                case AddCompressionPolicyOperation:
+                case AlterCompressionPolicyOperation:
+                    return 45;
 
                 case AddContinuousAggregatePolicyOperation:
                     return 50;

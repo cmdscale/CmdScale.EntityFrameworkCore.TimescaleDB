@@ -192,55 +192,30 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
         private static void GetCompressionConfiguration(DbConnection connection, Dictionary<(string, string), HypertableInfo> hypertables)
         {
-            using DbCommand command = connection.CreateCommand();
+            CompressionSettingsScaffoldingHelper.ReadCompressionSettings(
+                 connection,
+                 rawKey =>
+                 {
+                     bool accepted = hypertables.ContainsKey(rawKey);
+                     return (rawKey, accepted);
+                 },
+                 (key, columnName, isSegmentBy, isOrderBy, isAscending, isNullsFirst) =>
+                 {
+                     if (!hypertables.TryGetValue(key, out HypertableInfo? info))
+                     {
+                         return;
+                     }
 
-            // This view provides the column-level details for compression.
-            // segmentby_column_index is not null for segment columns.
-            // orderby_column_index is not null for order columns.
-            command.CommandText = @"
-                SELECT 
-                    hypertable_schema, 
-                    hypertable_name, 
-                    attname, 
-                    segmentby_column_index, 
-                    orderby_column_index, 
-                    orderby_asc, 
-                    orderby_nullsfirst 
-                FROM timescaledb_information.compression_settings 
-                ORDER BY hypertable_schema, hypertable_name, segmentby_column_index, orderby_column_index;";
+                     if (isSegmentBy)
+                     {
+                         info.CompressionSegmentBy.Add(columnName);
+                     }
 
-            using DbDataReader reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                string schema = reader.GetString(0);
-                string name = reader.GetString(1);
-                string columnName = reader.GetString(2);
-
-                // Find the corresponding hypertable info
-                if (!hypertables.TryGetValue((schema, name), out HypertableInfo? info))
-                {
-                    continue;
-                }
-
-                // Handle SegmentBy
-                if (!reader.IsDBNull(3)) // segmentby_column_index
-                {
-                    info.CompressionSegmentBy.Add(columnName);
-                }
-
-                // Handle OrderBy
-                if (!reader.IsDBNull(4)) // orderby_column_index
-                {
-                    bool isAscending = reader.GetBoolean(5);
-                    bool isNullsFirst = reader.GetBoolean(6);
-
-                    string direction = isAscending ? "ASC" : "DESC";
-                    bool isDefaultNulls = (isAscending && !isNullsFirst) || (!isAscending && isNullsFirst);
-                    string nulls = isDefaultNulls ? "" : (isNullsFirst ? " NULLS FIRST" : " NULLS LAST");
-
-                    info.CompressionOrderBy.Add($"{columnName} {direction}{nulls}");
-                }
-            }
+                     if (isOrderBy)
+                     {
+                         info.CompressionOrderBy.Add(CompressionSettingsScaffoldingHelper.BuildOrderByEntry(columnName, isAscending, isNullsFirst));
+                     }
+                 });
         }
 
     }

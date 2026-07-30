@@ -21,7 +21,10 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IReadOnlyList<ContinuousAggregateFunction>? aggregateFunctions = null,
             IReadOnlyList<string>? groupByColumns = null,
             string? whereClause = null,
-            string? viewDefinition = null)
+            string? viewDefinition = null,
+            bool enableCompression = false,
+            IReadOnlyList<string>? compressionSegmentBy = null,
+            IReadOnlyList<string>? compressionOrderBy = null)
         {
             CreateContinuousAggregateOperation operation = new()
             {
@@ -39,6 +42,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 GroupByColumns = groupByColumns ?? [],
                 WhereClause = whereClause,
                 ViewDefinition = viewDefinition,
+                EnableCompression = enableCompression,
+                CompressionSegmentBy = compressionSegmentBy,
+                CompressionOrderBy = compressionOrderBy,
             };
 
             migrationBuilder.Operations.Add(operation);
@@ -52,9 +58,15 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             string? chunkInterval = null,
             bool createGroupIndexes = false,
             bool materializedOnly = false,
+            bool enableCompression = false,
+            IReadOnlyList<string>? compressionSegmentBy = null,
+            IReadOnlyList<string>? compressionOrderBy = null,
             string? oldChunkInterval = null,
             bool oldCreateGroupIndexes = false,
-            bool oldMaterializedOnly = false)
+            bool oldMaterializedOnly = false,
+            bool oldEnableCompression = false,
+            IReadOnlyList<string>? oldCompressionSegmentBy = null,
+            IReadOnlyList<string>? oldCompressionOrderBy = null)
         {
             AlterContinuousAggregateOperation operation = new()
             {
@@ -63,9 +75,15 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 ChunkInterval = chunkInterval,
                 CreateGroupIndexes = createGroupIndexes,
                 MaterializedOnly = materializedOnly,
+                EnableCompression = enableCompression,
+                CompressionSegmentBy = compressionSegmentBy,
+                CompressionOrderBy = compressionOrderBy,
                 OldChunkInterval = oldChunkInterval,
                 OldCreateGroupIndexes = oldCreateGroupIndexes,
                 OldMaterializedOnly = oldMaterializedOnly,
+                OldEnableCompression = oldEnableCompression,
+                OldCompressionSegmentBy = oldCompressionSegmentBy,
+                OldCompressionOrderBy = oldCompressionOrderBy,
             };
 
             migrationBuilder.Operations.Add(operation);

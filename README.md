@@ -58,6 +58,8 @@ Create and manage **TimescaleDB continuous aggregates** — automatically refres
 - **Group By Columns**: Add additional grouping dimensions beyond time.
 - **Filtering**: Apply WHERE clauses to filter source data.
 - **Refresh Policies**: Configure automatic refresh with customizable time windows, schedule intervals, and batching options.
+- **Compression**: Enable compression on the continuous aggregate's materialized view, with segment-by and order-by column control, using the same fluent API as hypertables (`.WithCompression()`, `.WithCompressionSegmentBy()`, `.WithCompressionOrderBy()`).
+- **Compression Policies**: Schedule automatic compression of the continuous aggregate's chunks via `.WithCompressionPolicy()` or `[CompressionPolicy]`, independent of the hypertable's own compression policy.
 
 ### Query Functions
 

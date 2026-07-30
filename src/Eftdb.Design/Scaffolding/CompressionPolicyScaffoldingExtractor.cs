@@ -6,6 +6,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 {
     /// <summary>
     /// Extracts compression policy metadata from a TimescaleDB database for scaffolding.
+    /// Handles both hypertable and continuous aggregate compression policies.
     /// </summary>
     public sealed class CompressionPolicyScaffoldingExtractor : ITimescaleFeatureExtractor
     {
@@ -32,16 +33,28 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
                 using (DbCommand command = connection.CreateCommand())
                 {
+                    // For hypertables the jobs view reports the user-facing schema/name directly.
+                    // For continuous aggregates the jobs view reports the internal materialization
+                    // hypertable (_timescaledb_internal._materialized_hypertable_N). The LEFT JOIN
+                    // against _timescaledb_catalog.continuous_agg maps those back to the user-facing
+                    // view schema/name so the result key matches the scaffolded CAgg entity.
                     command.CommandText = @"
                         SELECT
-                            j.hypertable_schema,
-                            j.hypertable_name,
+                            COALESCE(cagg.user_view_schema, j.hypertable_schema) AS effective_schema,
+                            COALESCE(cagg.user_view_name,   j.hypertable_name)   AS effective_name,
                             j.config,
                             j.initial_start,
                             j.schedule_interval::text,
                             bgw.timezone
                         FROM timescaledb_information.jobs AS j
                         LEFT JOIN _timescaledb_config.bgw_job AS bgw ON bgw.id = j.job_id
+                        LEFT JOIN _timescaledb_catalog.continuous_agg AS cagg
+                            ON cagg.mat_hypertable_id = (
+                                SELECT id
+                                FROM _timescaledb_catalog.hypertable
+                                WHERE schema_name = j.hypertable_schema
+                                  AND table_name  = j.hypertable_name
+                            )
                         WHERE j.proc_name IN ('policy_compression', 'policy_columnstore');";
 
                     using DbDataReader reader = command.ExecuteReader();

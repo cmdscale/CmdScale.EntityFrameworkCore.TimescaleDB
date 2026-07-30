@@ -64,5 +64,31 @@
         /// The clause should be a valid SQL string without the "WHERE" keyword itself (e.g., "device_id = 'sensor-1'").
         /// </summary>
         public string? Where { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether columnstore (compression) is enabled on the continuous aggregate.
+        /// Corresponds to <c>ALTER MATERIALIZED VIEW ... SET (timescaledb.compress = true)</c>.
+        /// Enabling compression is a prerequisite for adding a <c>[CompressionPolicy]</c> to a continuous aggregate.
+        /// </summary>
+        public bool EnableCompression { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets the columns to segment by when compressing the continuous aggregate.
+        /// Maps to <c>timescaledb.compress_segmentby</c>. Setting this implicitly enables compression.
+        /// </summary>
+        /// <example>
+        /// <code>[ContinuousAggregate(..., CompressionSegmentBy = new[] { "device_id" })]</code>
+        /// </example>
+        public string[]? CompressionSegmentBy { get; set; }
+
+        /// <summary>
+        /// Gets or sets the columns to order by within each compressed segment.
+        /// Maps to <c>timescaledb.compress_orderby</c>. Setting this implicitly enables compression.
+        /// Use SQL syntax for direction and null ordering (e.g., <c>"time DESC"</c>, <c>"value ASC NULLS LAST"</c>).
+        /// </summary>
+        /// <example>
+        /// <code>[ContinuousAggregate(..., CompressionOrderBy = new[] { "bucket DESC" })]</code>
+        /// </example>
+        public string[]? CompressionOrderBy { get; set; }
     }
 }

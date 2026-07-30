@@ -1,6 +1,7 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPolicy;
 using Microsoft.EntityFrameworkCore;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
@@ -17,14 +18,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
         WithNoData = true,
         CreateGroupIndexes = true,
         MaterializedOnly = false,
-        Where = "\"temperature\" > -50 AND \"humidity\" >= 0")]
+        Where = "\"temperature\" > -50 AND \"humidity\" >= 0",
+        EnableCompression = true,
+        CompressionSegmentBy = ["AverageTemperature"],
+        CompressionOrderBy = ["RecordCount DESC"])]
     [TimeBucket("1 day", nameof(WeatherData.Time), GroupBy = true)]
     [ContinuousAggregatePolicy(
         StartOffset = "30 days",
         EndOffset = "1 day",
         ScheduleInterval = "1 hour",
-
         RefreshNewestFirst = true)]
+    [CompressionPolicy(After = "90 days", ScheduleInterval = "1 day")]
     public class WeatherAggregate
     {
         // Avg aggregate function

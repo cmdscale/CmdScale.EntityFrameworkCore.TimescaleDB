@@ -6,6 +6,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
     public class HypertableSqlGenerator
     {
+        private const string CommunityWarning = "Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition";
+
         public static List<string> Generate(CreateHypertableOperation operation)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
@@ -54,7 +56,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (hasOrderBy)
             {
-                string orderList = QuoteOrderByList(operation.CompressionOrderBy!);
+                string orderList = CompressionSettingsSqlHelper.QuoteOrderByList(operation.CompressionOrderBy!);
                 compressionSettings.Add($"timescaledb.compress_orderby = '{orderList}'");
             }
 
@@ -95,7 +97,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (communityStatements.Count > 0)
             {
-                statements.Add(WrapCommunityFeatures(communityStatements));
+                statements.Add(SqlBuilderHelper.WrapCommunityFeatures(communityStatements, CommunityWarning));
             }
             return statements;
         }
@@ -133,15 +135,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 return !(oldList ?? []).SequenceEqual(newList ?? []);
             }
 
-            bool newCompressionState = operation.EnableCompression
-                                    || (operation.ChunkSkipColumns?.Count > 0)
-                                    || (operation.CompressionSegmentBy?.Count > 0)
-                                    || (operation.CompressionOrderBy?.Count > 0);
+            bool newCompressionState = CompressionSettingsSqlHelper.IsCompressionEnabled(
+                operation.EnableCompression, operation.CompressionSegmentBy, operation.CompressionOrderBy, operation.ChunkSkipColumns);
 
-            bool oldCompressionState = operation.OldEnableCompression
-                                    || (operation.OldChunkSkipColumns?.Count > 0)
-                                    || (operation.OldCompressionSegmentBy?.Count > 0)
-                                    || (operation.OldCompressionOrderBy?.Count > 0);
+            bool oldCompressionState = CompressionSettingsSqlHelper.IsCompressionEnabled(
+                operation.OldEnableCompression, operation.OldCompressionSegmentBy, operation.OldCompressionOrderBy, operation.OldChunkSkipColumns);
 
             if (newCompressionState != oldCompressionState)
             {
@@ -159,7 +157,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (ListsChanged(operation.OldCompressionOrderBy, operation.CompressionOrderBy))
             {
                 string val = (operation.CompressionOrderBy?.Count > 0)
-                    ? $"'{QuoteOrderByList(operation.CompressionOrderBy)}'"
+                    ? $"'{CompressionSettingsSqlHelper.QuoteOrderByList(operation.CompressionOrderBy)}'"
                     : "''";
                 compressionSettings.Add($"timescaledb.compress_orderby = {val}");
             }
@@ -236,53 +234,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (communityStatements.Count > 0)
             {
-                statements.Add(WrapCommunityFeatures(communityStatements));
+                statements.Add(SqlBuilderHelper.WrapCommunityFeatures(communityStatements, CommunityWarning));
             }
             return statements;
-        }
-
-        /// <summary>
-        /// Wraps multiple SQL statements in a single license check block to ensure they only run on Community Edition.
-        /// </summary>
-        private static string WrapCommunityFeatures(List<string> sqlStatements)
-        {
-            StringBuilder sb = new();
-            sb.AppendLine("DO $$");
-            sb.AppendLine("DECLARE");
-            sb.AppendLine("    license TEXT;");
-            sb.AppendLine("BEGIN");
-            sb.AppendLine("    license := current_setting('timescaledb.license', true);");
-            sb.AppendLine("    ");
-            sb.AppendLine("    IF license IS NULL OR license != 'apache' THEN");
-
-            foreach (string sql in sqlStatements)
-            {
-                string cleanSql = sql.TrimEnd(';').Replace("'", "''");
-                sb.AppendLine($"        EXECUTE '{cleanSql}';");
-            }
-
-            sb.AppendLine("    ELSE");
-            sb.AppendLine("        RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';");
-            sb.AppendLine("    END IF;");
-            sb.AppendLine("END $$;");
-
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// Quotes the column name within an ORDER BY clause while preserving direction/nulls.
-        /// Example: Timestamp DESC -> "Timestamp" DESC
-        /// </summary>
-        private static string QuoteOrderByList(IEnumerable<string> orderByClauses)
-        {
-            return string.Join(", ", orderByClauses.Select(clause =>
-            {
-                string[] parts = clause.Split(' ', 2);
-                string col = parts[0];
-                string suffix = parts.Length > 1 ? " " + parts[1] : "";
-
-                return SqlBuilderHelper.QuoteIdentifier(col) + suffix;
-            }));
         }
     }
 }

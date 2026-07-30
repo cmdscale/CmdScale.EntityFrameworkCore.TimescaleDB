@@ -39,6 +39,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
         private static readonly MethodInfo WithNoDataMethod = BuilderMethod("WithNoData");
         private static readonly MethodInfo CreateGroupIndexesMethod = BuilderMethod("CreateGroupIndexes");
         private static readonly MethodInfo WithChunkIntervalMethod = BuilderMethod("WithChunkInterval");
+        private static readonly MethodInfo WithCompressionMethod = BuilderMethod("WithCompression");
+        private static readonly MethodInfo WithCompressionSegmentByMethod = BuilderMethod("WithCompressionSegmentBy");
+        private static readonly MethodInfo WithCompressionOrderByMethod = BuilderMethod("WithCompressionOrderBy");
 
         public IReadOnlyList<MethodCallCodeFragment> GenerateFluentApiCalls(
             IEntityType entityType, IDictionary<string, IAnnotation> annotations)
@@ -124,6 +127,27 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 call = call.Chain(WithChunkIntervalMethod, IntervalParsingHelper.NormalizeInterval(chunkInterval));
             }
 
+            bool compressionConfigured = false;
+
+            string segmentBy = GetString(annotations, HypertableAnnotations.CompressionSegmentBy) ?? "";
+            if (!string.IsNullOrWhiteSpace(segmentBy))
+            {
+                call = call.Chain(WithCompressionSegmentByMethod, segmentBy);
+                compressionConfigured = true;
+            }
+
+            string orderBy = GetString(annotations, HypertableAnnotations.CompressionOrderBy) ?? "";
+            if (!string.IsNullOrWhiteSpace(orderBy))
+            {
+                call = call.Chain(WithCompressionOrderByMethod, orderBy);
+                compressionConfigured = true;
+            }
+
+            if (!compressionConfigured && Find(annotations, HypertableAnnotations.EnableCompression)?.Value is true)
+            {
+                call = call.Chain(WithCompressionMethod);
+            }
+
             ConsumeAllCaAnnotations(annotations);
             return [call];
         }
@@ -152,6 +176,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             {
                 return [];
             }
+
+            bool enableCompression = Find(annotations, HypertableAnnotations.EnableCompression)?.Value is true;
+            string? compressionSegmentBy = GetString(annotations, HypertableAnnotations.CompressionSegmentBy);
+            string? compressionOrderBy = GetString(annotations, HypertableAnnotations.CompressionOrderBy);
 
             ConsumeAllCaAnnotations(annotations);
 
@@ -197,6 +225,26 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             if (!string.IsNullOrWhiteSpace(parsed.WhereClause))
             {
                 caNamedArgs[nameof(ContinuousAggregateAttribute.Where)] = parsed.WhereClause;
+            }
+
+            bool hasSegmentBy = !string.IsNullOrWhiteSpace(compressionSegmentBy);
+            bool hasOrderBy = !string.IsNullOrWhiteSpace(compressionOrderBy);
+
+            if (enableCompression && !hasSegmentBy && !hasOrderBy)
+            {
+                caNamedArgs[nameof(ContinuousAggregateAttribute.EnableCompression)] = true;
+            }
+
+            if (hasSegmentBy)
+            {
+                caNamedArgs[nameof(ContinuousAggregateAttribute.CompressionSegmentBy)] =
+                    SplitColumns(compressionSegmentBy);
+            }
+
+            if (hasOrderBy)
+            {
+                caNamedArgs[nameof(ContinuousAggregateAttribute.CompressionOrderBy)] =
+                    SplitColumns(compressionOrderBy);
             }
 
             return [
@@ -287,7 +335,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 ContinuousAggregateAnnotations.GroupByColumns,
                 ContinuousAggregateAnnotations.WhereClause,
                 ContinuousAggregateAnnotations.WithNoData,
-                ContinuousAggregateAnnotations.CreateGroupIndexes);
+                ContinuousAggregateAnnotations.CreateGroupIndexes,
+                HypertableAnnotations.EnableCompression,
+                HypertableAnnotations.CompressionSegmentBy,
+                HypertableAnnotations.CompressionOrderBy);
         }
     }
 }

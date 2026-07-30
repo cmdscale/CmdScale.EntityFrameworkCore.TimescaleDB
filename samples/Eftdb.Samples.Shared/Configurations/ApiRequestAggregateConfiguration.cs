@@ -1,6 +1,7 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
 {
+    /// <summary>
+    /// Fluent API configuration for the <see cref="ApiRequestAggregate"/> continuous aggregate.
+    /// </summary>
     public class ApiRequestAggregateConfiguration : IEntityTypeConfiguration<ApiRequestAggregate>
     {
         public void Configure(EntityTypeBuilder<ApiRequestAggregate> builder)
@@ -18,7 +22,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
                 .AddAggregateFunction(x => x.MaxDurationMs, x => x.DurationMs, EAggregateFunction.Max)
                 .AddAggregateFunction(x => x.MinDurationMs, x => x.DurationMs, EAggregateFunction.Min)
                 .AddGroupByColumn(x => x.ServiceName)
+                .WithCompression()
+                .WithCompressionSegmentBy(x => x.ServiceName)
+                .WithCompressionOrderBy(
+                    s => s.ByDescending(x => x.TimeBucket))
                 .WithRefreshPolicy(startOffset: "2 days", endOffset: "1 hour", scheduleInterval: "1 hour");
+
+            builder.WithCompressionPolicy(after: "30 days", scheduleInterval: "1 day");
+
             builder.WithRetentionPolicy(
                 dropAfter: "90 days",
                 scheduleInterval: "1 day",
