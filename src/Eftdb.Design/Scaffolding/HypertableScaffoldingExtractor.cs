@@ -1,6 +1,7 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using System.Data;
 using System.Data.Common;
+using System.Text.Json;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 {
@@ -16,7 +17,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             List<string> CompressionSegmentBy,
             List<string> CompressionOrderBy,
             List<string> ChunkSkipColumns,
-            List<Dimension> AdditionalDimensions
+            List<Dimension> AdditionalDimensions,
+            string? CompressionSparseIndex,
+            string? CompressChunkTimeInterval
         );
 
         public Dictionary<(string Schema, string TableName), object> Extract(DbConnection connection)
@@ -34,7 +37,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
                 GetHypertableSettings(connection, hypertables, compressionSettings);
                 GetChunkSkipColumns(connection, hypertables);
-                GetCompressionConfiguration(connection, hypertables);
+
+                bool usedNewView = GetColumnstoreSettings(connection, hypertables);
+                if (!usedNewView)
+                {
+                    GetCompressionConfiguration(connection, hypertables);
+                }
 
                 // Convert to object dictionary to match interface
                 return hypertables.ToDictionary(
@@ -132,7 +140,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         CompressionSegmentBy: [],
                         CompressionOrderBy: [],
                         ChunkSkipColumns: [],
-                        AdditionalDimensions: []
+                        AdditionalDimensions: [],
+                        CompressionSparseIndex: null,
+                        CompressChunkTimeInterval: null
                     );
                 }
                 // For all other dimensions, add them to the AdditionalDimensions list
@@ -190,6 +200,118 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             }
         }
 
+        /// <summary>
+        /// Reads segmentby, orderby, sparse_index, and compress_interval_length from
+        /// <c>timescaledb_information.hypertable_columnstore_settings</c> in a single query.
+        /// Returns <see langword="true"/> when the view exists and was used; <see langword="false"/>
+        /// when the view is absent (TimescaleDB older than 2.18) so the caller can fall back to
+        /// <see cref="GetCompressionConfiguration"/>.
+        /// </summary>
+        private static bool GetColumnstoreSettings(DbConnection connection, Dictionary<(string, string), HypertableInfo> hypertables)
+        {
+            using (DbCommand checkCommand = connection.CreateCommand())
+            {
+                checkCommand.CommandText = @"
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.views
+                        WHERE table_schema = 'timescaledb_information'
+                          AND table_name = 'hypertable_columnstore_settings'
+                    );";
+
+                object? exists = checkCommand.ExecuteScalar();
+                if (exists is not true)
+                {
+                    return false;
+                }
+            }
+
+            using DbCommand command = connection.CreateCommand();
+
+            command.CommandText = @"
+                SELECT
+                    ht.schema_name,
+                    ht.table_name,
+                    hcs.segmentby,
+                    hcs.orderby,
+                    hcs.index,
+                    hcs.compress_interval_length
+                FROM timescaledb_information.hypertable_columnstore_settings AS hcs
+                JOIN _timescaledb_catalog.hypertable AS ht
+                    ON format('%I.%I', ht.schema_name, ht.table_name)::regclass = hcs.hypertable
+                WHERE ht.schema_name NOT IN (
+                    '_timescaledb_internal',
+                    '_timescaledb_catalog',
+                    '_timescaledb_config',
+                    '_timescaledb_cache'
+                );";
+
+            using DbDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                string schema = reader.GetString(0);
+                string name = reader.GetString(1);
+
+                if (!hypertables.TryGetValue((schema, name), out HypertableInfo? info))
+                {
+                    continue;
+                }
+
+                List<string> segmentBy = [];
+                if (!reader.IsDBNull(2))
+                {
+                    string segmentByText = reader.GetString(2);
+                    foreach (string col in segmentByText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        segmentBy.Add(col);
+                    }
+                }
+
+                List<string> orderBy = [];
+                if (!reader.IsDBNull(3))
+                {
+                    string orderByText = reader.GetString(3);
+                    foreach (string token in orderByText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        orderBy.Add(CompressionSettingsScaffoldingHelper.ParseColumnstoreOrderByToken(token));
+                    }
+                }
+
+                string? sparseIndex = null;
+                if (!reader.IsDBNull(4))
+                {
+                    sparseIndex = ParseSparseIndexJson(reader.GetString(4));
+                }
+
+                string? compressChunkTimeInterval = null;
+                if (!reader.IsDBNull(5))
+                {
+                    compressChunkTimeInterval = IntervalParsingHelper.NormalizeInterval(reader.GetString(5));
+                }
+
+                bool updated = segmentBy.Count > 0 || orderBy.Count > 0
+                    || sparseIndex != null || compressChunkTimeInterval != null;
+
+                if (updated)
+                {
+                    hypertables[(schema, name)] = info with
+                    {
+                        CompressionSegmentBy = segmentBy.Count > 0 ? segmentBy : info.CompressionSegmentBy,
+                        CompressionOrderBy = orderBy.Count > 0 ? orderBy : info.CompressionOrderBy,
+                        CompressionSparseIndex = sparseIndex ?? info.CompressionSparseIndex,
+                        CompressChunkTimeInterval = compressChunkTimeInterval ?? info.CompressChunkTimeInterval,
+                    };
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Fallback path for TimescaleDB servers older than 2.18 that do not have
+        /// <c>timescaledb_information.hypertable_columnstore_settings</c>. Reads segmentby and
+        /// orderby from the legacy row-per-column <c>timescaledb_information.compression_settings</c> view.
+        /// </summary>
         private static void GetCompressionConfiguration(DbConnection connection, Dictionary<(string, string), HypertableInfo> hypertables)
         {
             CompressionSettingsScaffoldingHelper.ReadCompressionSettings(
@@ -216,6 +338,72 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                          info.CompressionOrderBy.Add(CompressionSettingsScaffoldingHelper.BuildOrderByEntry(columnName, isAscending, isNullsFirst));
                      }
                  });
+        }
+
+        /// <summary>
+        /// Parses the <c>index</c> JSON array from <c>hypertable_columnstore_settings</c> and
+        /// reconstructs the canonical sparse-index annotation string used by the runtime library.
+        /// </summary>
+        /// <returns>
+        /// A comma-separated string of entries in <c>type(column)</c> form (e.g.
+        /// <c>"bloom(device_id), minmax(value)"</c>), or <see langword="null"/> when no
+        /// user-configured entries are present in the array.
+        /// </returns>
+        private static string? ParseSparseIndexJson(string indexJson)
+        {
+            List<string> entries = [];
+
+            using JsonDocument doc = JsonDocument.Parse(indexJson);
+            foreach (JsonElement element in doc.RootElement.EnumerateArray())
+            {
+                if (!element.TryGetProperty("source", out JsonElement sourceElement) ||
+                    !string.Equals(sourceElement.GetString(), "config", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!element.TryGetProperty("type", out JsonElement typeElement))
+                {
+                    continue;
+                }
+
+                string? type = typeElement.GetString();
+                if (string.IsNullOrEmpty(type))
+                {
+                    continue;
+                }
+
+                if (!element.TryGetProperty("column", out JsonElement columnElement))
+                {
+                    continue;
+                }
+
+                string columns;
+                if (columnElement.ValueKind == JsonValueKind.Array)
+                {
+                    List<string> cols = [];
+                    foreach (JsonElement col in columnElement.EnumerateArray())
+                    {
+                        string? colName = col.GetString();
+                        if (!string.IsNullOrEmpty(colName))
+                        {
+                            cols.Add(colName);
+                        }
+                    }
+                    columns = string.Join(",", cols);
+                }
+                else
+                {
+                    columns = columnElement.GetString() ?? string.Empty;
+                }
+
+                if (!string.IsNullOrEmpty(columns))
+                {
+                    entries.Add($"{type}({columns})");
+                }
+            }
+
+            return entries.Count > 0 ? string.Join(", ", entries) : null;
         }
 
     }

@@ -46,6 +46,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             {
                 table[HypertableAnnotations.AdditionalDimensions] = JsonSerializer.Serialize(info.AdditionalDimensions);
             }
+
+            if (info.CompressionSparseIndex != null)
+            {
+                table[HypertableAnnotations.CompressionSparseIndex] = info.CompressionSparseIndex;
+            }
+
+            if (!string.IsNullOrWhiteSpace(info.CompressChunkTimeInterval))
+            {
+                table[HypertableAnnotations.CompressChunkTimeInterval] = info.CompressChunkTimeInterval;
+            }
         }
 
         /// <summary>

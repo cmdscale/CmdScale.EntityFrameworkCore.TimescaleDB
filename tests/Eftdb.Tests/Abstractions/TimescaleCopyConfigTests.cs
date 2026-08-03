@@ -19,7 +19,7 @@ public class TimescaleCopyConfigTests
     [Fact]
     public void Constructor_ExcludesProperty_When_Type_Has_No_NpgsqlDbType_Mapping()
     {
-        // Arrange & 
+        // Arrange & Act
         TimescaleCopyConfig<EntityWithUnsupportedType> config = new();
 
         // Assert

@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
@@ -2470,8 +2471,7 @@ public class ContinuousAggregateBuilderTests
         // Act & Assert
         ArgumentException ex = Assert.Throws<ArgumentException>((Action)(() =>
         {
-            _ = ContinuousAggregateBuilder<BinaryExpressionEntity, BinaryExpressionEntity>
-                .GetPropertyName(expression);
+            _ = ExpressionHelper.GetPropertyName(expression);
         }));
 
         Assert.Contains("simple property access expression", ex.Message);

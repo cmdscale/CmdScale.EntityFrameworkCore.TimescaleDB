@@ -37,7 +37,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Add_MinimalPolicy_GeneratesOnlyAddReorderPolicy()
         {
-            // Arrange - Minimal reorder policy with only required fields (no alter_job when using defaults)
+            // Arrange
             AddReorderPolicyOperation operation = new()
             {
                 TableName = "metrics",
@@ -52,14 +52,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - Should only generate add_reorder_policy, not alter_job
+            // Assert
             Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
         }
 
         [Fact]
         public void DesignTime_Add_WithAllOptions_GeneratesCorrectCode()
         {
-            // Arrange - Policy with all optional parameters
+            // Arrange
             DateTime initialStart = new(2025, 1, 1, 12, 0, 0, DateTimeKind.Utc);
             AddReorderPolicyOperation operation = new()
             {
@@ -90,7 +90,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Add_WithUnlimitedRetries_UsesNegativeOne()
         {
-            // Arrange - MaxRetries = -1 means unlimited (TimescaleDB convention)
+            // Arrange
             AddReorderPolicyOperation operation = new()
             {
                 TableName = "important_data",
@@ -102,14 +102,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - Should use max_retries => -1 for unlimited
+            // Assert
             Assert.Contains("max_retries => -1", result);
         }
 
         [Fact]
         public void DesignTime_Add_WithNoMaxRuntime_UsesZeroInterval()
         {
-            // Arrange - MaxRuntime = "00:00:00" means no limit (TimescaleDB convention)
+            // Arrange
             AddReorderPolicyOperation operation = new()
             {
                 TableName = "data",
@@ -121,7 +121,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - Should use INTERVAL '00:00:00' for no limit
+            // Assert
             Assert.Contains("INTERVAL '00:00:00'", result);
         }
 
@@ -141,7 +141,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - Should use ISO 8601 format with microseconds and Z suffix
+            // Assert
             Assert.Contains("2025-03-15T10:30:45", result);
             Assert.Contains("Z", result);
         }
@@ -153,7 +153,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Add_MinimalPolicy_GeneratesOnlyAddReorderPolicy()
         {
-            // Arrange - Minimal policy without custom scheduling
+            // Arrange
             AddReorderPolicyOperation operation = new()
             {
                 TableName = "simple_table",
@@ -164,7 +164,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             List<string> statements = GetRuntimeSqlStatements(operation);
 
-            // Assert - Should only generate add_reorder_policy (uses TimescaleDB defaults)
+            // Assert
             Assert.Single(statements);
             Assert.Contains("SELECT add_reorder_policy('public.\"simple_table\"', 'simple_idx')", statements[0]);
             Assert.DoesNotContain("alter_job", statements[0]);
@@ -173,7 +173,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Add_WithoutInitialStart_OmitsParameter()
         {
-            // Arrange - No InitialStart specified
+            // Arrange
             AddReorderPolicyOperation operation = new()
             {
                 TableName = "test",
@@ -184,27 +184,27 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Should not include initial_start parameter
+            // Assert
             Assert.DoesNotContain("initial_start =>", result);
         }
 
         [Fact]
         public void Runtime_Add_WithCustomSchedule_QueriesCorrectJobView()
         {
-            // Arrange - Add custom schedule to trigger alter_job generation
+            // Arrange
             AddReorderPolicyOperation operation = new()
             {
                 TableName = "my_table",
                 Schema = "my_schema",
                 IndexName = "my_idx",
-                ScheduleInterval = "6 hours" // Non-default triggers alter_job
+                ScheduleInterval = "6 hours"
             };
 
             // Act
             List<string> statements = GetRuntimeSqlStatements(operation);
-            string alterJobSql = statements[1]; // alter_job is the second statement
+            string alterJobSql = statements[1];
 
-            // Assert - Must query timescaledb_information.jobs to find job_id
+            // Assert
             Assert.Equal(2, statements.Count);
             Assert.Contains("timescaledb_information.jobs", alterJobSql);
             Assert.Contains("proc_name = 'policy_reorder'", alterJobSql);
@@ -269,7 +269,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Alter_MaxRetries_GeneratesCorrectCode()
         {
-            // Arrange - Changing from unlimited (-1) to limited (3)
+            // Arrange
             AlterReorderPolicyOperation operation = new()
             {
                 TableName = "test",
@@ -319,7 +319,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Alter_MultipleProperties_GeneratesCombinedStatement()
         {
-            // Arrange - Altering multiple job properties at once
+            // Arrange
             AlterReorderPolicyOperation operation = new()
             {
                 TableName = "complex",
@@ -335,7 +335,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - All changes should be in one alter_job call
+            // Assert
             Assert.Contains("schedule_interval => INTERVAL '2 days'", result);
             Assert.Contains("max_runtime => INTERVAL '2 hours'", result);
             Assert.Contains("max_retries => 10", result);
@@ -344,7 +344,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Alter_NoChanges_GeneratesNoSQL()
         {
-            // Arrange - Nothing changed
+            // Arrange
             AlterReorderPolicyOperation operation = new()
             {
                 TableName = "unchanged",
@@ -358,7 +358,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Should generate empty result
+            // Assert
             Assert.Empty(result.Trim());
         }
 
@@ -389,7 +389,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Alter_ChangingToUnlimitedRetries_UsesNegativeOne()
         {
-            // Arrange - Changing to unlimited retries
+            // Arrange
             AlterReorderPolicyOperation operation = new()
             {
                 TableName = "test",
@@ -468,7 +468,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Runtime uses single quotes
+            // Assert
             Assert.Contains("SELECT remove_reorder_policy('public.\"remove_this\"', if_exists => true)", result);
             Assert.EndsWith(";", result.Trim());
         }
@@ -486,7 +486,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - if_exists => true prevents errors
+            // Assert
             Assert.Contains("if_exists => true", result);
         }
 
@@ -497,22 +497,22 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Add_DefaultValues_MatchTimescaleDBDefaults()
         {
-            // Arrange - Using default values from DefaultValues.cs
+            // Arrange
             AddReorderPolicyOperation operation = new()
             {
                 TableName = "test",
                 Schema = "public",
                 IndexName = "idx",
-                ScheduleInterval = "1 day",      // Default
-                MaxRuntime = "00:00:00",         // Default (no limit)
-                MaxRetries = -1,                 // Default (unlimited)
-                RetryPeriod = "00:05:00"         // Default (5 minutes)
+                ScheduleInterval = "1 day",
+                MaxRuntime = "00:00:00",
+                MaxRetries = -1,
+                RetryPeriod = "00:05:00"
             };
 
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Should match TimescaleDB defaults
+            // Assert
             Assert.Contains("schedule_interval => INTERVAL '1 day'", result);
             Assert.Contains("max_runtime => INTERVAL '00:00:00'", result);
             Assert.Contains("max_retries => -1", result);
@@ -522,19 +522,19 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Add_WithCustomSchedule_RequiresAlterJob_AfterAddReorderPolicy()
         {
-            // Arrange - Provide custom schedule to trigger alter_job
+            // Arrange
             AddReorderPolicyOperation operation = new()
             {
                 TableName = "test",
                 Schema = "public",
                 IndexName = "idx",
-                ScheduleInterval = "12 hours" // Triggers alter_job
+                ScheduleInterval = "12 hours"
             };
 
             // Act
             List<string> statements = GetRuntimeSqlStatements(operation);
 
-            // Assert - add_reorder_policy must come before alter_job
+            // Assert
             Assert.Equal(2, statements.Count);
             Assert.Contains("add_reorder_policy", statements[0]);
             Assert.Contains("alter_job", statements[1]);
@@ -555,7 +555,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Must identify correct job by schema and table name
+            // Assert
             Assert.Contains("hypertable_schema = 'specific_schema'", result);
             Assert.Contains("hypertable_name = 'specific_table'", result);
             Assert.Contains("proc_name = 'policy_reorder'", result);
@@ -564,7 +564,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Add_IntervalFormat_AcceptsVariousFormats()
         {
-            // Arrange - TimescaleDB accepts various interval formats
+            // Arrange
             AddReorderPolicyOperation operation = new()
             {
                 TableName = "test",
@@ -578,7 +578,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - All interval formats should work
+            // Assert
             Assert.Contains("INTERVAL '2 days'", result);
             Assert.Contains("INTERVAL '30 minutes'", result);
             Assert.Contains("INTERVAL '1 hour'", result);
@@ -587,7 +587,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Drop_SafeOperation_UsesIfExists()
         {
-            // Arrange - Drop should be safe operation
+            // Arrange
             DropReorderPolicyOperation operation = new()
             {
                 TableName = "maybe_has_policy",
@@ -597,7 +597,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - if_exists prevents errors if policy doesn't exist
+            // Assert
             Assert.Contains("if_exists => true", result);
         }
 

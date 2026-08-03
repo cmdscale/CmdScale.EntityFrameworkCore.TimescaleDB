@@ -85,8 +85,6 @@ public class MigrationSnapshotGenerationTests
         Assert.Contains($"HasAnnotation(\"{ContinuousAggregateAnnotations.AggregateFunctions}\"", snapshot);
         Assert.Contains($"HasAnnotation(\"{ContinuousAggregateAnnotations.GroupByColumns}\"", snapshot);
 
-        // Snapshots use the non-generic EntityTypeBuilder; the library's fluent extensions would not compile
-        // there and must never be emitted outside scaffolding.
         Assert.DoesNotContain(".IsHypertable(", snapshot);
         Assert.DoesNotContain(".IsContinuousAggregate(", snapshot);
         Assert.DoesNotContain(".AddAggregateFunction(", snapshot);

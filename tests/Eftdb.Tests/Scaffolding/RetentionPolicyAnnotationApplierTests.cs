@@ -34,12 +34,10 @@ public class RetentionPolicyAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - verify mandatory annotations are set
+        // Assert
         Assert.Equal(true, table[RetentionPolicyAnnotations.HasRetentionPolicy]);
         Assert.Equal("30 days", table[RetentionPolicyAnnotations.DropAfter]);
         Assert.Null(table[RetentionPolicyAnnotations.DropCreatedBefore]);
-
-        // Optional annotations should NOT be set when using defaults
         Assert.Null(table[RetentionPolicyAnnotations.InitialStart]);
         Assert.Null(table[RetentionPolicyAnnotations.ScheduleInterval]);
         Assert.Null(table[RetentionPolicyAnnotations.MaxRuntime]);
@@ -196,7 +194,7 @@ public class RetentionPolicyAnnotationApplierTests
             DropAfter: "30 days",
             DropCreatedBefore: null,
             InitialStart: null,
-            ScheduleInterval: DefaultValues.RetentionPolicyScheduleInterval, // "1 day"
+            ScheduleInterval: DefaultValues.RetentionPolicyScheduleInterval,
             MaxRuntime: DefaultValues.RetentionPolicyMaxRuntime,
             MaxRetries: DefaultValues.RetentionPolicyMaxRetries,
             RetryPeriod: DefaultValues.RetentionPolicyScheduleInterval
@@ -249,7 +247,7 @@ public class RetentionPolicyAnnotationApplierTests
             DropCreatedBefore: null,
             InitialStart: null,
             ScheduleInterval: DefaultValues.RetentionPolicyScheduleInterval,
-            MaxRuntime: DefaultValues.RetentionPolicyMaxRuntime, // "00:00:00"
+            MaxRuntime: DefaultValues.RetentionPolicyMaxRuntime,
             MaxRetries: DefaultValues.RetentionPolicyMaxRetries,
             RetryPeriod: DefaultValues.RetentionPolicyScheduleInterval
         );
@@ -302,7 +300,7 @@ public class RetentionPolicyAnnotationApplierTests
             InitialStart: null,
             ScheduleInterval: DefaultValues.RetentionPolicyScheduleInterval,
             MaxRuntime: DefaultValues.RetentionPolicyMaxRuntime,
-            MaxRetries: DefaultValues.RetentionPolicyMaxRetries, // -1
+            MaxRetries: DefaultValues.RetentionPolicyMaxRetries,
             RetryPeriod: DefaultValues.RetentionPolicyScheduleInterval
         );
 
@@ -335,7 +333,7 @@ public class RetentionPolicyAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - 0 is different from default (-1), so it should be applied
+        // Assert
         Assert.Equal(0, table[RetentionPolicyAnnotations.MaxRetries]);
     }
 
@@ -381,7 +379,7 @@ public class RetentionPolicyAnnotationApplierTests
             ScheduleInterval: DefaultValues.RetentionPolicyScheduleInterval,
             MaxRuntime: DefaultValues.RetentionPolicyMaxRuntime,
             MaxRetries: DefaultValues.RetentionPolicyMaxRetries,
-            RetryPeriod: DefaultValues.RetentionPolicyScheduleInterval // "1 day"
+            RetryPeriod: DefaultValues.RetentionPolicyScheduleInterval
         );
 
         // Act
@@ -414,7 +412,7 @@ public class RetentionPolicyAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - verify ALL annotations are applied
+        // Assert
         Assert.Equal(true, table[RetentionPolicyAnnotations.HasRetentionPolicy]);
         Assert.Equal("90 days", table[RetentionPolicyAnnotations.DropAfter]);
         Assert.Null(table[RetentionPolicyAnnotations.DropCreatedBefore]);
@@ -439,10 +437,10 @@ public class RetentionPolicyAnnotationApplierTests
             DropAfter: "60 days",
             DropCreatedBefore: null,
             InitialStart: initialStart,
-            ScheduleInterval: DefaultValues.RetentionPolicyScheduleInterval, // default - should NOT be applied
-            MaxRuntime: "01:30:00", // non-default - should be applied
-            MaxRetries: DefaultValues.RetentionPolicyMaxRetries, // default - should NOT be applied
-            RetryPeriod: "00:15:00" // non-default - should be applied
+            ScheduleInterval: DefaultValues.RetentionPolicyScheduleInterval,
+            MaxRuntime: "01:30:00",
+            MaxRetries: DefaultValues.RetentionPolicyMaxRetries,
+            RetryPeriod: "00:15:00"
         );
 
         // Act
@@ -452,9 +450,9 @@ public class RetentionPolicyAnnotationApplierTests
         Assert.Equal(true, table[RetentionPolicyAnnotations.HasRetentionPolicy]);
         Assert.Equal("60 days", table[RetentionPolicyAnnotations.DropAfter]);
         Assert.Equal(initialStart, table[RetentionPolicyAnnotations.InitialStart]);
-        Assert.Null(table[RetentionPolicyAnnotations.ScheduleInterval]); // default
+        Assert.Null(table[RetentionPolicyAnnotations.ScheduleInterval]);
         Assert.Equal("01:30:00", table[RetentionPolicyAnnotations.MaxRuntime]);
-        Assert.Null(table[RetentionPolicyAnnotations.MaxRetries]); // default
+        Assert.Null(table[RetentionPolicyAnnotations.MaxRetries]);
         Assert.Equal("00:15:00", table[RetentionPolicyAnnotations.RetryPeriod]);
     }
 
@@ -501,12 +499,10 @@ public class RetentionPolicyAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - table properties should be preserved
+        // Assert
         Assert.Equal("existing_table", table.Name);
         Assert.Equal("custom_schema", table.Schema);
         Assert.Equal("Pre-existing table comment", table.Comment);
-
-        // And annotations should still be applied
         Assert.Equal(true, table[RetentionPolicyAnnotations.HasRetentionPolicy]);
         Assert.Equal("30 days", table[RetentionPolicyAnnotations.DropAfter]);
     }

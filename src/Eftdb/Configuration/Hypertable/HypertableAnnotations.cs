@@ -14,5 +14,16 @@
         public const string ChunkTimeInterval = "TimescaleDB:ChunkTimeInterval";
         public const string ChunkSkipColumns = "TimescaleDB:ChunkSkipColumns";
         public const string AdditionalDimensions = "TimescaleDB:AdditionalDimensions";
+
+        /// <summary>
+        /// Sparse index configuration for the columnstore.
+        /// </summary>
+        public const string CompressionSparseIndex = "TimescaleDB:CompressionSparseIndex";
+
+        /// <summary>
+        /// The minimum time interval to be used for merging chunks during compression.
+        /// Must be a multiple of the hypertable's <c>chunk_time_interval</c>.
+        /// </summary>
+        public const string CompressChunkTimeInterval = "TimescaleDB:CompressChunkTimeInterval";
     }
 }

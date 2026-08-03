@@ -22,8 +22,6 @@ public class TimeColumnStoreTypeValidationConventionTests
 
     #region Should_Allow_Custom_TimeColumn_Mapped_To_Timestamp
 
-    // Stands in for a custom time type (e.g. NodaTime Instant) mapped to a timestamp store type via a
-    // value converter. The .NET type is unknown to the library; validity comes from the store mapping.
     private readonly struct CustomInstant(DateTime utcDateTime)
     {
         public DateTime UtcDateTime { get; } = utcDateTime;
@@ -272,7 +270,6 @@ public class TimeColumnStoreTypeValidationConventionTests
 
     #region Should_Allow_All_Relevant_NodaTime_Time_Column_Types
 
-    // NodaTime date/time types whose Npgsql store mapping is a valid TimescaleDB time dimension.
     private class NodaInstantEntity
     {
         public Instant Time { get; set; }
@@ -364,7 +361,6 @@ public class TimeColumnStoreTypeValidationConventionTests
     {
         using NodaTimeValidContext context = new();
 
-        // Building the model runs the validation convention; a non-time store type would throw here.
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(entityClrType)!;
 
@@ -376,8 +372,6 @@ public class TimeColumnStoreTypeValidationConventionTests
 
     #region Should_Throw_For_NonDimension_NodaTime_Types
 
-    // NodaTime temporal types whose Npgsql store mapping is NOT a valid TimescaleDB time dimension
-    // (per the Npgsql NodaTime mapping table). Every one must be rejected by the validation convention.
     [Hypertable("Time")]
     private class NodaLocalTimeEntity
     {
@@ -420,8 +414,6 @@ public class TimeColumnStoreTypeValidationConventionTests
         public double Value { get; set; }
     }
 
-    // A single generic context validates each type in isolation: the convention throws during model
-    // finalization, so each NodaTime type needs its own one-entity model.
     private class NodaHypertableContext<TEntity> : DbContext where TEntity : class
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -437,12 +429,12 @@ public class TimeColumnStoreTypeValidationConventionTests
     }
 
     [Theory]
-    [InlineData(typeof(NodaLocalTimeEntity))]    // time without time zone
-    [InlineData(typeof(NodaOffsetTimeEntity))]   // time with time zone
-    [InlineData(typeof(NodaPeriodEntity))]       // interval
-    [InlineData(typeof(NodaDurationEntity))]     // interval
-    [InlineData(typeof(NodaIntervalEntity))]     // tstzrange
-    [InlineData(typeof(NodaDateIntervalEntity))] // daterange
+    [InlineData(typeof(NodaLocalTimeEntity))]
+    [InlineData(typeof(NodaOffsetTimeEntity))]
+    [InlineData(typeof(NodaPeriodEntity))]
+    [InlineData(typeof(NodaDurationEntity))]
+    [InlineData(typeof(NodaIntervalEntity))]
+    [InlineData(typeof(NodaDateIntervalEntity))]
     public void Should_Throw_For_NonDimension_NodaTime_Types(Type entityClrType)
     {
         Type contextType = typeof(NodaHypertableContext<>).MakeGenericType(entityClrType);

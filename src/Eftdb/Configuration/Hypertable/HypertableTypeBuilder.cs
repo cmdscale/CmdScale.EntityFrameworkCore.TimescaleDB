@@ -1,4 +1,5 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.Linq.Expressions;
@@ -72,7 +73,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
             EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, TProperty>> timePropertyExpression) where TEntity : class
         {
-            string propertyName = GetPropertyName(timePropertyExpression);
+            string propertyName = ExpressionHelper.GetPropertyName(timePropertyExpression);
 
             entityTypeBuilder.HasAnnotation(HypertableAnnotations.IsHypertable, true);
             entityTypeBuilder.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, propertyName);
@@ -128,7 +129,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, object>> column,
             string interval) where TEntity : class
-            => AddDimension(entityTypeBuilder, Dimension.CreateRange(GetPropertyName(column), interval));
+            => AddDimension(entityTypeBuilder, Dimension.CreateRange(ExpressionHelper.GetPropertyName(column), interval));
 
         /// <summary>
         /// Adds a hash (space) partitioning dimension to the hypertable.
@@ -141,7 +142,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             Expression<Func<TEntity, object>> column,
             int numberOfPartitions) where TEntity : class
-            => AddDimension(entityTypeBuilder, Dimension.CreateHash(GetPropertyName(column), numberOfPartitions));
+            => AddDimension(entityTypeBuilder, Dimension.CreateHash(ExpressionHelper.GetPropertyName(column), numberOfPartitions));
 
         /// <summary>
         /// Sets the time interval for each chunk of the hypertable.
@@ -177,7 +178,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             params Expression<Func<TEntity, object>>[] chunkSkipColumns) where TEntity : class
         {
-            string[] columnNames = [.. chunkSkipColumns.Select(GetPropertyName)];
+            string[] columnNames = [.. chunkSkipColumns.Select(ExpressionHelper.GetPropertyName)];
             entityTypeBuilder.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, string.Join(",", columnNames));
             return entityTypeBuilder;
         }
@@ -212,7 +213,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
             this EntityTypeBuilder<TEntity> entityTypeBuilder,
             params Expression<Func<TEntity, object>>[] segmentByColumns) where TEntity : class
         {
-            string[] columnNames = [.. segmentByColumns.Select(GetPropertyName)];
+            string[] columnNames = [.. segmentByColumns.Select(ExpressionHelper.GetPropertyName)];
 
             entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionSegmentBy, string.Join(", ", columnNames));
             entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
@@ -272,6 +273,91 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         }
 
         /// <summary>
+        /// Configures sparse indexes for the columnstore using typed <see cref="SparseIndex"/> entries.
+        /// </summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type.</param>
+        /// <param name="indexes">One or more sparse index entries to configure.</param>
+        public static EntityTypeBuilder<TEntity> WithSparseIndex<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            params SparseIndex[] indexes) where TEntity : class
+        {
+            string annotationValue = string.Join(", ", indexes.Select(i => i.ToSql()));
+            return entityTypeBuilder.WithSparseIndex(annotationValue);
+        }
+
+        /// <summary>
+        /// Configures sparse indexes for the columnstore using selector lambdas, one per entry.
+        /// </summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type.</param>
+        /// <param name="selectors">One or more selector functions that produce a <see cref="SparseIndex"/> per entry.</param>
+        public static EntityTypeBuilder<TEntity> WithSparseIndex<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            params Func<SparseIndexSelector<TEntity>, SparseIndex>[] selectors) where TEntity : class
+        {
+            SparseIndexSelector<TEntity> selector = new();
+            SparseIndex[] indexes = [.. selectors.Select(s => s(selector))];
+            return entityTypeBuilder.WithSparseIndex(indexes);
+        }
+
+        /// <summary>
+        /// Configures sparse indexes for the columnstore using a raw string.
+        /// Accepts a comma-separated list of <c>bloom(column)</c> and <c>minmax(column)</c> entries.
+        /// </summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type.</param>
+        /// <param name="sparseIndex">
+        /// A comma-separated list of sparse index definitions, e.g. <c>"bloom(device_id), minmax(temperature)"</c>.
+        /// </param>
+        public static EntityTypeBuilder<TEntity> WithSparseIndex<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string sparseIndex) where TEntity : class
+        {
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionSparseIndex, sparseIndex ?? string.Empty);
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+            return entityTypeBuilder;
+        }
+
+        /// <summary>
+        /// Explicitly disables auto-created sparse indexes on the columnstore
+        /// (sets <c>timescaledb.sparse_index = ''</c>).
+        /// </summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type.</param>
+        public static EntityTypeBuilder<TEntity> WithoutAutoSparseIndexes<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder) where TEntity : class
+        {
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionSparseIndex, string.Empty);
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+            return entityTypeBuilder;
+        }
+
+        /// <summary>
+        /// Sets the minimum time interval to use when merging chunks during compression.
+        /// The value must be a multiple of the hypertable's <c>chunk_time_interval</c>.
+        /// </summary>
+        /// <remarks>
+        /// WARNING: Chunk merges are irreversible — decreasing the value later cannot un-merge already merged chunks.
+        /// Calling this method implicitly enables compression on the hypertable.
+        /// </remarks>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="entityTypeBuilder">The builder for the entity type.</param>
+        /// <param name="interval">
+        /// A PostgreSQL interval string specifying the chunk merge interval, e.g. <c>"24 hours"</c>.
+        /// </param>
+        public static EntityTypeBuilder<TEntity> WithCompressChunkTimeInterval<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string interval) where TEntity : class
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(interval);
+
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressChunkTimeInterval, interval);
+            entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+            return entityTypeBuilder;
+        }
+
+        /// <summary>
         /// Specifies whether existing data should be migrated when converting a table to a hypertable.
         /// </summary>
         /// <remarks>
@@ -290,27 +376,5 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
             return entityTypeBuilder;
         }
 
-        /// <summary>
-        /// Extracts the property name from a member access lambda expression.
-        /// </summary>
-        /// <typeparam name="TEntity">The entity type.</typeparam>
-        /// <typeparam name="TProperty">The type of the selected property.</typeparam>
-        /// <param name="propertyExpression">The expression to parse.</param>
-        /// <returns>The name of the property.</returns>
-        /// <exception cref="ArgumentException">Thrown if the expression is not a valid property expression.</exception>
-        private static string GetPropertyName<TEntity, TProperty>(Expression<Func<TEntity, TProperty>> propertyExpression)
-        {
-            if (propertyExpression.Body is MemberExpression memberExpression)
-            {
-                return memberExpression.Member.Name;
-            }
-
-            if (propertyExpression.Body is UnaryExpression unaryExpression && unaryExpression.Operand is MemberExpression unaryMemberExpression)
-            {
-                return unaryMemberExpression.Member.Name;
-            }
-
-            throw new ArgumentException("Expression is not a valid property expression.", nameof(propertyExpression));
-        }
     }
 }

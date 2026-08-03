@@ -118,7 +118,6 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
         await CreateDatabaseViaMigrationAsync(context);
 
         DateTime baseTime = new(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc);
-        // Insert 12 rows: 10:00 through 10:11
         for (int i = 0; i < 12; i++)
         {
             DateTime ts = baseTime.AddMinutes(i);
@@ -127,7 +126,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
                 TestContext.Current.CancellationToken);
         }
 
-        // Act — group into 5-minute buckets and sum
+        // Act
         var results = await context.Metrics
             .GroupBy(m => EF.Functions.TimeBucket(TimeSpan.FromMinutes(5), m.Timestamp))
             .Select(g => new
@@ -139,18 +138,15 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
             .OrderBy(r => r.Bucket)
             .ToListAsync(TestContext.Current.CancellationToken);
 
-        // Assert — expect 3 buckets: [10:00-10:05), [10:05-10:10), [10:10-10:15)
+        // Assert
         Assert.Equal(3, results.Count);
 
-        // First bucket: minutes 0-4, values 1+2+3+4+5 = 15
         Assert.Equal(5, results[0].Count);
         Assert.Equal(15, results[0].Total);
 
-        // Second bucket: minutes 5-9, values 6+7+8+9+10 = 40
         Assert.Equal(5, results[1].Count);
         Assert.Equal(40, results[1].Total);
 
-        // Third bucket: minutes 10-11, values 11+12 = 23
         Assert.Equal(2, results[2].Count);
         Assert.Equal(23, results[2].Total);
     }
@@ -197,7 +193,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
                 TestContext.Current.CancellationToken);
         }
 
-        // Act — bucket SequenceNumber into groups of 5
+        // Act
         var results = await context.Metrics
             .GroupBy(m => EF.Functions.TimeBucket(5, m.SequenceNumber))
             .Select(g => new
@@ -208,7 +204,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
             .OrderBy(r => r.Bucket)
             .ToListAsync(TestContext.Current.CancellationToken);
 
-        // Assert — expect 4 buckets: [0-5), [5-10), [10-15), [15-20)
+        // Assert
         Assert.Equal(4, results.Count);
         Assert.All(results, r => Assert.Equal(5, r.Count));
     }

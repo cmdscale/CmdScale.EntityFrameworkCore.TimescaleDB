@@ -1223,4 +1223,148 @@ public class CompressionPolicyDifferTests
     }
 
     #endregion
+
+    // ── B5: null scheduleInterval equals computed default for day-or-longer chunk interval ──
+
+    #region Should_Suppress_Alter_When_Null_Becomes_Computed_Default_On_Day_Chunk_Interval
+
+    private class MetricEntity18
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class DayChunkNullScheduleContext18 : DbContext
+    {
+        public DbSet<MetricEntity18> Metrics => Set<MetricEntity18>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity18>(entity =>
+            {
+                entity.ToTable("Metrics18");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithCompressionPolicy(after: "7 days");
+            });
+        }
+    }
+
+    private class DayChunkExplicitDefaultScheduleContext18 : DbContext
+    {
+        public DbSet<MetricEntity18> Metrics => Set<MetricEntity18>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity18>(entity =>
+            {
+                entity.ToTable("Metrics18");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithCompressionPolicy(after: "7 days", scheduleInterval: "12 hours");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Suppress_Alter_When_Null_Becomes_Computed_Default_On_Day_Chunk_Interval()
+    {
+        // Arrange
+        using DayChunkNullScheduleContext18 sourceContext = new();
+        using DayChunkExplicitDefaultScheduleContext18 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+        CompressionPolicyDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Empty(operations.OfType<AlterCompressionPolicyOperation>());
+    }
+
+    #endregion
+
+    // ── B5: adding a policy produces exactly one Add and no Drop ──
+
+    #region Should_Produce_Exactly_One_Add_And_No_Drop_When_Policy_Added
+
+    private class MetricEntity19
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class NoPolicyContext19 : DbContext
+    {
+        public DbSet<MetricEntity19> Metrics => Set<MetricEntity19>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity19>(entity =>
+            {
+                entity.ToTable("Metrics19");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    private class WithPolicyContext19 : DbContext
+    {
+        public DbSet<MetricEntity19> Metrics => Set<MetricEntity19>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity19>(entity =>
+            {
+                entity.ToTable("Metrics19");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithCompressionPolicy(after: "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Produce_Exactly_One_Add_And_No_Drop_When_Policy_Added()
+    {
+        // Arrange
+        using NoPolicyContext19 sourceContext = new();
+        using WithPolicyContext19 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+        CompressionPolicyDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        List<AddCompressionPolicyOperation> addOps = [.. operations.OfType<AddCompressionPolicyOperation>()];
+        List<DropCompressionPolicyOperation> dropOps = [.. operations.OfType<DropCompressionPolicyOperation>()];
+
+        Assert.Single(addOps);
+        Assert.Empty(dropOps);
+        Assert.Equal("Metrics19", addOps[0].TableName);
+    }
+
+    #endregion
 }

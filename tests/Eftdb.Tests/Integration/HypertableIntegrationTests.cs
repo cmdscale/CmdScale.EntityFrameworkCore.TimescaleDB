@@ -139,7 +139,6 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         }
 
         await using NpgsqlCommand command = connection.CreateCommand();
-        // This view contains the exact details of how compression is configured per column
         command.CommandText = @"
                 SELECT 
                     attname, 
@@ -447,7 +446,7 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         await CreateDatabaseViaMigrationAsync(context);
 
         bool isCompressed = await IsCompressionEnabledAsync(context, "segment_by_metrics");
-        Assert.True(isCompressed, "Compression should be implicitly enabled by SegmentBy");
+        Assert.True(isCompressed);
 
         List<CompressionSettingInfo> settings = await GetCompressionSettingsAsync(context, "segment_by_metrics");
 
@@ -501,16 +500,14 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
 
         List<CompressionSettingInfo> settings = await GetCompressionSettingsAsync(context, "order_by_metrics");
 
-        // Verify Timestamp (DESC)
         CompressionSettingInfo tsSetting = settings.First(s => s.ColumnName == "Timestamp");
-        Assert.NotNull(tsSetting.OrderByIndex); // Should be ordered
-        Assert.False(tsSetting.IsAscending);    // DESC
+        Assert.NotNull(tsSetting.OrderByIndex);
+        Assert.False(tsSetting.IsAscending);
 
-        // Verify Value (ASC, NULLS FIRST)
         CompressionSettingInfo valSetting = settings.First(s => s.ColumnName == "Value");
         Assert.NotNull(valSetting.OrderByIndex);
-        Assert.True(valSetting.IsAscending);    // ASC (Default)
-        Assert.True(valSetting.IsNullsFirst);   // NULLS FIRST
+        Assert.True(valSetting.IsAscending);
+        Assert.True(valSetting.IsNullsFirst);
     }
 
     #endregion
@@ -552,11 +549,9 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
 
         List<CompressionSettingInfo> settings = await GetCompressionSettingsAsync(context, "full_comp_metrics");
 
-        // DeviceId should be Segment #1
         CompressionSettingInfo deviceSetting = settings.First(s => s.ColumnName == "DeviceId");
         Assert.Equal(1, deviceSetting.SegmentByIndex);
 
-        // Timestamp should be Order #1 (DESC)
         CompressionSettingInfo tsSetting = settings.First(s => s.ColumnName == "Timestamp");
         Assert.Equal(1, tsSetting.OrderByIndex);
         Assert.False(tsSetting.IsAscending);

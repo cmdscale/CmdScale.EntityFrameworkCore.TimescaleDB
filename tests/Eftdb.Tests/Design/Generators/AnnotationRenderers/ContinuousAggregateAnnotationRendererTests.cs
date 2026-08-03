@@ -1150,7 +1150,6 @@ public class ContinuousAggregateAnnotationRendererTests
         // Assert
         MethodCallCodeFragment root = Assert.Single(result, f => f.Method == "IsContinuousAggregate");
 
-        // The parent resolved by CLR name renders as nameof(ApiLogEntity), not a raw string.
         Assert.IsType<CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationRenderers.NameOfCodeFragment>(root.Arguments[1]);
     }
 

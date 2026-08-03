@@ -141,10 +141,6 @@ public class FeatureDiffContextTests
     [Fact]
     public void ResolveColumn_Keys_On_Post_Rename_Table_Name()
     {
-        // Per the XML remark, the column-rename map is keyed by the POST-rename table name because EF Core
-        // emits RenameColumnOperation against the already-renamed table. Resolving with the new table name
-        // succeeds; resolving with the old table name does not.
-
         // Arrange
         FeatureDiffContext context = new()
         {
@@ -160,7 +156,7 @@ public class FeatureDiffContextTests
 
         // Assert
         Assert.Equal("new_value", resolvedWithNewTable);
-        Assert.Equal("old_value", resolvedWithOldTable); // identity: old table name is not a key
+        Assert.Equal("old_value", resolvedWithOldTable);
     }
 
     #endregion
@@ -196,10 +192,6 @@ public class FeatureDiffContextTests
     [Fact]
     public void ResolveTable_Requires_Normalized_Schema_Key()
     {
-        // The maps store concrete (normalized) schemas. Callers must normalize a missing schema to
-        // DefaultValues.DefaultSchema before building/querying. This test documents that resolving with the
-        // normalized schema key works, while a null/blank key misses the entry and resolves to identity.
-
         // Arrange
         FeatureDiffContext context = new()
         {
@@ -215,7 +207,7 @@ public class FeatureDiffContextTests
 
         // Assert
         Assert.Equal((DefaultValues.DefaultSchema, "new_metrics"), resolvedWithNormalizedKey);
-        Assert.Equal(("", "old_metrics"), resolvedWithBlankKey); // blank schema is not the stored key -> identity
+        Assert.Equal(("", "old_metrics"), resolvedWithBlankKey);
     }
 
     #endregion

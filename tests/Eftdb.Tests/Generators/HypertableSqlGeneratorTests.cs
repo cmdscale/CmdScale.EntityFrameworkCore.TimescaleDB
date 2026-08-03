@@ -7,16 +7,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 {
     public class HypertableSqlGeneratorTests
     {
-        /// <summary>
-        /// A helper to run the generator and capture its string output.
-        /// </summary>
         private static string GetGeneratedCode(dynamic operation)
         {
             List<string> statements = HypertableSqlGenerator.Generate(operation);
             return string.Join("\n", statements);
         }
-
-        // --- Tests for CreateHypertableOperation ---
 
         [Fact]
         public void Generate_Create_with_minimal_details_generates_correct_sql()
@@ -68,7 +63,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""custom_schema"".""FullTable"" SET (timescaledb.compress = true)';
+                        EXECUTE 'ALTER TABLE ""custom_schema"".""FullTable"" SET (timescaledb.enable_columnstore = true)';
                         EXECUTE 'SET timescaledb.enable_chunk_skipping = ''ON''';
                         EXECUTE 'SELECT enable_chunk_skipping(''custom_schema.""FullTable""'', ''DeviceId'')';
                     ELSE
@@ -106,7 +101,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""custom_schema"".""Metrics"" SET (timescaledb.compress = true)';
+                        EXECUTE 'ALTER TABLE ""custom_schema"".""Metrics"" SET (timescaledb.enable_columnstore = true)';
                         EXECUTE 'SET timescaledb.enable_chunk_skipping = ''ON''';
                         EXECUTE 'SELECT enable_chunk_skipping(''custom_schema.""Metrics""'', ''device_id'')';
                     ELSE
@@ -121,8 +116,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
         }
-
-        // --- Tests for AlterHypertableOperation ---
 
         [Fact]
         public void Generate_Alter_when_changing_compression_generates_correct_sql()
@@ -144,7 +137,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""SensorData"" SET (timescaledb.compress = true)';
+                        EXECUTE 'ALTER TABLE ""public"".""SensorData"" SET (timescaledb.enable_columnstore = true)';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -172,7 +165,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 CompressionOrderBy = ["Timestamp DESC", "Value ASC NULLS LAST"]
             };
 
-            // Expected: implicit compress=true, plus segmentby/orderby strings
             string expected = @"
                 SELECT create_hypertable('public.""CompressedTable""', 'Timestamp');
                 DO $$
@@ -182,7 +174,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""CompressedTable"" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""TenantId"", ""DeviceId""'', timescaledb.compress_orderby = ''""Timestamp"" DESC, ""Value"" ASC NULLS LAST'')';
+                        EXECUTE 'ALTER TABLE ""public"".""CompressedTable"" SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = ''""TenantId"", ""DeviceId""'', timescaledb.orderby = ''""Timestamp"" DESC, ""Value"" ASC NULLS LAST'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -204,7 +196,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 TableName = "Metrics",
                 Schema = "public",
-                // Adding segment by configuration
                 CompressionSegmentBy = ["DeviceId"],
                 OldCompressionSegmentBy = []
             };
@@ -217,7 +208,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""Metrics"" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""DeviceId""'')';
+                        EXECUTE 'ALTER TABLE ""public"".""Metrics"" SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = ''""DeviceId""'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -239,7 +230,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 TableName = "Metrics",
                 Schema = "public",
-                // Changing from ASC to DESC
                 CompressionOrderBy = ["Timestamp DESC"],
                 OldCompressionOrderBy = ["Timestamp ASC"]
             };
@@ -252,7 +242,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""Metrics"" SET (timescaledb.compress_orderby = ''""Timestamp"" DESC'')';
+                        EXECUTE 'ALTER TABLE ""public"".""Metrics"" SET (timescaledb.orderby = ''""Timestamp"" DESC'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -276,15 +266,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 Schema = "public",
                 EnableCompression = true,
                 OldEnableCompression = true,
-
-                // Removing both settings
                 CompressionSegmentBy = [],
                 OldCompressionSegmentBy = ["DeviceId"],
                 CompressionOrderBy = null,
                 OldCompressionOrderBy = ["Timestamp DESC"]
             };
 
-            // TimescaleDB requires setting the value to '' (empty string) to clear it
             string expected = @"
                 DO $$
                 DECLARE
@@ -293,7 +280,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""Metrics"" SET (timescaledb.compress_segmentby = '''', timescaledb.compress_orderby = '''')';
+                        EXECUTE 'ALTER TABLE ""public"".""Metrics"" SET (timescaledb.segmentby = '''', timescaledb.orderby = '''')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -387,7 +374,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""Logs"" SET (timescaledb.compress = false)';
+                        EXECUTE 'ALTER TABLE ""public"".""Logs"" SET (timescaledb.enable_columnstore = false)';
                         EXECUTE 'SELECT disable_chunk_skipping(''public.""Logs""'', ''trace_id'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
@@ -401,8 +388,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
         }
-
-        // --- Tests for MigrateData Parameter ---
 
         [Fact]
         public void Generate_Create_When_MigrateData_Is_False_Does_Not_Include_Migrate_Data_Parameter()
@@ -479,7 +464,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""custom_schema"".""CompleteTable"" SET (timescaledb.compress = true)';
+                        EXECUTE 'ALTER TABLE ""custom_schema"".""CompleteTable"" SET (timescaledb.enable_columnstore = true)';
                         EXECUTE 'SET timescaledb.enable_chunk_skipping = ''ON''';
                         EXECUTE 'SELECT enable_chunk_skipping(''custom_schema.""CompleteTable""'', ''DeviceId'')';
                     ELSE
@@ -498,13 +483,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Generate_Create_Default_MigrateData_Does_Not_Include_Parameter()
         {
-            // Arrange - CreateHypertableOperation with default MigrateData (false)
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "DefaultTable",
                 Schema = "public",
                 TimeColumnName = "Timestamp"
-                // MigrateData not explicitly set, defaults to false
             };
 
             string expected = @"
@@ -517,6 +501,73 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Assert
             Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
             Assert.DoesNotContain("migrate_data", result);
+        }
+
+        [Fact]
+        public void Legacy_Generate_Create_WithCompression_Emits_Legacy_Names()
+        {
+            // Arrange
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "LegacyTable",
+                Schema = "public",
+                TimeColumnName = "ts",
+                EnableCompression = true,
+                CompressionSegmentBy = ["device_id"],
+                CompressionOrderBy = ["ts DESC"]
+            };
+
+            // Act
+            List<string> statements = HypertableSqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+            string result = string.Join("\n", statements);
+
+            // Assert
+            Assert.Contains("timescaledb.compress = true", result);
+            Assert.Contains("timescaledb.compress_segmentby", result);
+            Assert.Contains("timescaledb.compress_orderby", result);
+            Assert.DoesNotContain("enable_columnstore", result);
+        }
+
+        [Fact]
+        public void Legacy_Generate_Alter_EnableCompression_Emits_compress_Name()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "LegacyAlter",
+                Schema = "public",
+                EnableCompression = true,
+                OldEnableCompression = false
+            };
+
+            // Act
+            List<string> statements = HypertableSqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+            string result = string.Join("\n", statements);
+
+            // Assert
+            Assert.Contains("timescaledb.compress = true", result);
+            Assert.DoesNotContain("enable_columnstore", result);
+        }
+
+        [Fact]
+        public void Legacy_Generate_Alter_DisableCompression_Emits_compress_False()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "LegacyDisable",
+                Schema = "public",
+                EnableCompression = false,
+                OldEnableCompression = true
+            };
+
+            // Act
+            List<string> statements = HypertableSqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+            string result = string.Join("\n", statements);
+
+            // Assert
+            Assert.Contains("timescaledb.compress = false", result);
+            Assert.DoesNotContain("enable_columnstore", result);
         }
     }
 }

@@ -12,9 +12,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration;
 /// </summary>
 public abstract class MigrationTestBase
 {
-    /// <summary>
-    /// Simulates "dotnet ef migrations add" by comparing two models and generating operations.
-    /// </summary>
     protected static IReadOnlyList<MigrationOperation> GenerateMigrationOperations(
         DbContext? sourceContext,
         DbContext targetContext)
@@ -27,10 +24,6 @@ public abstract class MigrationTestBase
         return differ.GetDifferences(sourceModel, targetModel);
     }
 
-    /// <summary>
-    /// Simulates "dotnet ef database update" by generating SQL from operations and executing them.
-    /// Groups commands with SET statements to maintain PostgreSQL session state.
-    /// </summary>
     protected static async Task ApplyMigrationAsync(
         DbContext context,
         IReadOnlyList<MigrationOperation> operations)
@@ -46,22 +39,17 @@ public abstract class MigrationTestBase
         {
             string sql = command.CommandText.Trim();
 
-            // Check if this is a SET command
             if (sql.StartsWith("SET ", StringComparison.OrdinalIgnoreCase))
             {
-                // Add SET to current batch
                 currentBatch.Add(sql.TrimEnd(';'));
             }
             else
             {
-                // Add command to batch
                 currentBatch.Add(sql.TrimEnd(';'));
 
-                // Execute the batch (SET + command, or just command if no SET)
                 string batchSql = string.Join(";\n", currentBatch);
                 await context.Database.ExecuteSqlRawAsync(batchSql);
 
-                // Clear batch for next iteration
                 currentBatch.Clear();
             }
         }
@@ -74,9 +62,6 @@ public abstract class MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Complete migration workflow: generate operations and apply them.
-    /// </summary>
     protected static async Task ExecuteMigrationAsync(
         DbContext? sourceContext,
         DbContext targetContext)
@@ -90,13 +75,9 @@ public abstract class MigrationTestBase
     /// </summary>
     protected static async Task CreateDatabaseViaMigrationAsync(DbContext context)
     {
-        // Generate operations from null (empty database) to current model
         await ExecuteMigrationAsync(null, context);
     }
 
-    /// <summary>
-    /// Simulates altering the database by comparing two different contexts.
-    /// </summary>
     protected static async Task AlterDatabaseViaMigrationAsync(
         DbContext oldContext,
         DbContext newContext)

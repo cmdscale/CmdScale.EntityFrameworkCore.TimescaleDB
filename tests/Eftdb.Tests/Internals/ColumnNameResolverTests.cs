@@ -94,7 +94,7 @@ public class ColumnNameResolverTests
     [Fact]
     public void Should_Resolve_Clr_Property_Name_Under_Snake_Case_Convention()
     {
-        // Arrange — passing the CLR property name should yield the snake_case column.
+        // Arrange
         using SnakeCaseClrContext context = new();
         (IEntityType entityType, StoreObjectIdentifier storeIdentifier) = GetEntityAndStoreIdentifier(context, "Metrics");
 
@@ -137,8 +137,7 @@ public class ColumnNameResolverTests
     [Fact]
     public void Should_Resolve_Value_Already_In_Column_Name_Form_Via_Reverse_Lookup()
     {
-        // Arrange — feeding the snake_case column name (as the scaffolder emits) must
-        // still resolve to the matching column via reverse lookup.
+        // Arrange
         using ReverseLookupContext context = new();
         (IEntityType entityType, StoreObjectIdentifier storeIdentifier) = GetEntityAndStoreIdentifier(context, "Metrics");
 

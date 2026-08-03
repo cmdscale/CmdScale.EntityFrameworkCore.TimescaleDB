@@ -19,9 +19,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
     /// </summary>
     public class HypertableSqlGeneratorComprehensiveTests
     {
-        /// <summary>
-        /// Helper to run the generator and capture the SQL output.
-        /// </summary>
         private static string GetDesignTimeCode(dynamic operation) => GetRuntimeSql(operation);
 
         private static string GetRuntimeSql(dynamic operation)
@@ -35,7 +32,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_WithRangeDimension_GeneratesCorrectCode()
         {
-            // Arrange - Test by_range() dimension syntax
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "events",
@@ -63,7 +60,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_WithMultipleDimensions_GeneratesCorrectOrder()
         {
-            // Arrange - Test multiple dimensions (hash + range)
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "distributed_events",
@@ -92,13 +89,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_WithChunkTimeIntervalAsMicroseconds_GeneratesCorrectCode()
         {
-            // Arrange - Test bigint interval (microseconds)
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "high_freq_data",
                 Schema = "public",
                 TimeColumnName = "ts",
-                ChunkTimeInterval = "86400000000" // 1 day in microseconds
+                ChunkTimeInterval = "86400000000"
             };
 
             string expected = @"
@@ -115,7 +112,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_CompressionWithoutChunkSkipping_GeneratesCorrectCode()
         {
-            // Arrange - Compression enabled but no chunk skipping
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "compressed_data",
@@ -133,7 +130,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""compressed_data"" SET (timescaledb.compress = true)';
+                        EXECUTE 'ALTER TABLE ""public"".""compressed_data"" SET (timescaledb.enable_columnstore = true)';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -150,21 +147,21 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Create_ChunkSkippingAutoEnablesCompression_GeneratesCorrectCode()
         {
-            // Arrange - Chunk skipping automatically enables compression (TimescaleDB requirement)
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "skippable_chunks",
                 Schema = "public",
                 TimeColumnName = "timestamp",
-                EnableCompression = false, // Explicitly false
+                EnableCompression = false,
                 ChunkSkipColumns = ["device_id", "sensor_type"]
             };
 
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - Compression should be auto-enabled
-            Assert.Contains("timescaledb.compress = true", result);
+            // Assert
+            Assert.Contains("timescaledb.enable_columnstore = true", result);
         }
 
         #endregion
@@ -185,7 +182,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Runtime uses single quotes (not doubled)
+            // Assert
             Assert.Contains("SELECT create_hypertable('public.\"simple_table\"', 'time')", result);
             Assert.EndsWith(";", result.Trim());
         }
@@ -193,7 +190,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Create_WithIntervalString_UsesIntervalKeyword()
         {
-            // Arrange - String intervals should use INTERVAL keyword
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "timed_data",
@@ -213,7 +210,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Create_WithNumericInterval_UsesBigintCast()
         {
-            // Arrange - Numeric intervals should use ::bigint cast
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "numeric_interval",
@@ -248,7 +245,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Must use by_hash() with partition count
+            // Assert
             Assert.Contains("add_dimension('public.\"partitioned\"', by_hash('location_id', 8))", result);
         }
 
@@ -270,14 +267,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Must use by_range() with interval
+            // Assert
             Assert.Contains("add_dimension('public.\"ranged\"', by_range('secondary_time', INTERVAL '30 days'))", result);
         }
 
         [Fact]
         public void Runtime_Create_WithRangeDimension_IntegerInterval_GeneratesNumericByRangeSyntax()
         {
-            // Arrange - Range dimension with integer interval (no INTERVAL keyword)
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "integer_ranged",
@@ -292,7 +289,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Integer intervals should NOT use INTERVAL keyword
+            // Assert
             Assert.Contains("add_dimension('public.\"integer_ranged\"', by_range('sensor_id', 10000))", result);
             Assert.DoesNotContain("INTERVAL", result);
         }
@@ -300,7 +297,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Create_WithRangeDimension_TimeInterval_GeneratesIntervalByRangeSyntax()
         {
-            // Arrange - Range dimension with time-based interval
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "time_ranged",
@@ -315,14 +312,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Time-based intervals should use INTERVAL keyword
+            // Assert
             Assert.Contains("add_dimension('public.\"time_ranged\"', by_range('processed_time', INTERVAL '1 hour'))", result);
         }
 
         [Fact]
         public void DesignTime_Create_WithRangeDimension_IntegerInterval_GeneratesCorrectCode()
         {
-            // Arrange - Design-time code for integer range dimension
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "integer_partitions",
@@ -371,7 +368,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""segmented_data"" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""tenant_id"", ""device_id""'')';
+                        EXECUTE 'ALTER TABLE ""public"".""segmented_data"" SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = ''""tenant_id"", ""device_id""'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -406,7 +403,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""ordered_data"" SET (timescaledb.compress = true, timescaledb.compress_orderby = ''""time"" DESC, ""value"" ASC NULLS LAST'')';
+                        EXECUTE 'ALTER TABLE ""public"".""ordered_data"" SET (timescaledb.enable_columnstore = true, timescaledb.orderby = ''""time"" DESC, ""value"" ASC NULLS LAST'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -429,7 +426,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TableName = "full_compression",
                 Schema = "public",
                 TimeColumnName = "time",
-                // Explicit enable + segment + order
                 EnableCompression = true,
                 CompressionSegmentBy = ["tenant_id"],
                 CompressionOrderBy = ["time DESC"]
@@ -440,9 +436,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             Assert.Contains("ALTER TABLE \"public\".\"full_compression\" SET", result);
-            Assert.Contains("timescaledb.compress = true", result);
-            Assert.Contains("timescaledb.compress_segmentby = ''\"tenant_id\"''", result);
-            Assert.Contains("timescaledb.compress_orderby = ''\"time\" DESC''", result);
+            Assert.Contains("timescaledb.enable_columnstore = true", result);
+            Assert.Contains("timescaledb.segmentby = ''\"tenant_id\"''", result);
+            Assert.Contains("timescaledb.orderby = ''\"time\" DESC''", result);
         }
 
         #endregion
@@ -480,8 +476,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 TableName = "metrics",
                 Schema = "public",
-                ChunkTimeInterval = "86400000000", // Numeric (microseconds)
-                OldChunkTimeInterval = "1 day" // String interval
+                ChunkTimeInterval = "86400000000",
+                OldChunkTimeInterval = "1 day"
             };
 
             string expected = @"
@@ -498,7 +494,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Alter_AddingDimension_GeneratesCorrectCode()
         {
-            // Arrange - Adding a new dimension to existing hypertable
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "expandable",
@@ -524,7 +520,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Alter_RemovingDimension_GeneratesWarningComment()
         {
-            // Arrange - TimescaleDB does NOT support removing dimensions
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "cannot_remove",
@@ -539,7 +535,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - Should include warning comment
+            // Assert
             Assert.Contains("WARNING", result);
             Assert.Contains("does not support removing dimensions", result);
             Assert.Contains("old_column", result);
@@ -548,7 +544,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Alter_RemovingDimension_EmitsExactWarningCommentLine()
         {
-            // Arrange - removing a dimension is unsupported; the generator emits a SQL comment
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "cannot_remove",
@@ -563,7 +559,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - the comment must start with the "-- WARNING:" prefix and list the dimension
+            // Assert
             Assert.Contains(
                 "-- WARNING: TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: 'old_column'",
                 result);
@@ -572,14 +568,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Alter_ModifyingDimension_GeneratesAddForNew()
         {
-            // Arrange - Changing dimension parameters (adds new, warns about old)
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "modified_dims",
                 Schema = "public",
                 AdditionalDimensions =
                 [
-                    Dimension.CreateHash("location", 8) // Changed from 4 to 8 partitions
+                    Dimension.CreateHash("location", 8)
                 ],
                 OldAdditionalDimensions =
                 [
@@ -590,7 +586,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetDesignTimeCode(operation);
 
-            // Assert - New dimension added (old one cannot be removed)
+            // Assert
             Assert.Contains("by_hash('location', 8)", result);
         }
 
@@ -614,7 +610,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""decompress"" SET (timescaledb.compress = false)';
+                        EXECUTE 'ALTER TABLE ""public"".""decompress"" SET (timescaledb.enable_columnstore = false)';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -631,7 +627,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void DesignTime_Alter_AddingChunkSkipColumn_GeneratesCorrectSequence()
         {
-            // Arrange - Adding new chunk skip columns
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "add_skip",
@@ -737,7 +733,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("ALTER TABLE \"public\".\"enable_compress\" SET (timescaledb.compress = true)", result);
+            Assert.Contains("ALTER TABLE \"public\".\"enable_compress\" SET (timescaledb.enable_columnstore = true)", result);
         }
 
         [Fact]
@@ -756,7 +752,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("ALTER TABLE \"public\".\"disable_compress\" SET (timescaledb.compress = false)", result);
+            Assert.Contains("ALTER TABLE \"public\".\"disable_compress\" SET (timescaledb.enable_columnstore = false)", result);
         }
 
         [Fact]
@@ -774,7 +770,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Must SET enable_chunk_skipping = 'ON' before enable_chunk_skipping()
+            // Assert
             Assert.Contains("SET timescaledb.enable_chunk_skipping = ''ON''", result);
             Assert.Contains("enable_chunk_skipping(''public.\"skip_test\"'', ''new_col'')", result);
         }
@@ -782,7 +778,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Alter_AddingRangeDimension_WithIntegerInterval_GeneratesCorrectSQL()
         {
-            // Arrange - Adding range dimension with integer interval
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "events",
@@ -797,7 +793,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Integer range should not use INTERVAL keyword
+            // Assert
             Assert.Contains("add_dimension('public.\"events\"', by_range('event_id', 1000))", result);
             Assert.DoesNotContain("INTERVAL", result);
         }
@@ -805,7 +801,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Runtime_Alter_AddingRangeDimension_WithTimeInterval_GeneratesCorrectSQL()
         {
-            // Arrange - Adding range dimension with time-based interval
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "logs",
@@ -820,14 +816,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Time-based range should use INTERVAL keyword
+            // Assert
             Assert.Contains("add_dimension('public.\"logs\"', by_range('ingestion_time', INTERVAL '2 hours'))", result);
         }
 
         [Fact]
         public void DesignTime_Alter_AddingRangeDimension_WithIntegerInterval_GeneratesCorrectCode()
         {
-            // Arrange - Design-time code for adding integer range dimension
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "metrics",
@@ -874,7 +870,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                     license := current_setting('timescaledb.license', true);
 
                     IF license IS NULL OR license != 'apache' THEN
-                        EXECUTE 'ALTER TABLE ""public"".""metrics"" SET (timescaledb.compress = true, timescaledb.compress_segmentby = ''""device_id""'')';
+                        EXECUTE 'ALTER TABLE ""public"".""metrics"" SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = ''""device_id""'')';
                     ELSE
                         RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
                     END IF;
@@ -896,7 +892,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 TableName = "metrics",
                 Schema = "public",
-                // Changing from ASC to DESC
                 CompressionOrderBy = ["time DESC"],
                 OldCompressionOrderBy = ["time ASC"]
             };
@@ -905,9 +900,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            // Note: EnableCompression=true is NOT generated if it hasn't changed state (implicit false->false or true->true)
-            // But we do expect the update to the specific setting.
-            Assert.Contains("timescaledb.compress_orderby = ''\"time\" DESC''", result);
+            Assert.Contains("timescaledb.orderby = ''\"time\" DESC''", result);
         }
 
         [Fact]
@@ -918,7 +911,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 TableName = "metrics",
                 Schema = "public",
-                // Removing the setting
                 CompressionSegmentBy = [],
                 OldCompressionSegmentBy = ["device_id"]
             };
@@ -927,8 +919,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            // TimescaleDB requires setting the value to an empty string '' to unset it
-            Assert.Contains("timescaledb.compress_segmentby = ''", result);
+            Assert.Contains("timescaledb.segmentby = ''", result);
         }
 
         [Fact]
@@ -939,7 +930,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 TableName = "metrics",
                 Schema = "public",
-                // Removing the setting
                 CompressionOrderBy = null,
                 OldCompressionOrderBy = ["time DESC"]
             };
@@ -948,7 +938,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("timescaledb.compress_orderby = ''", result);
+            Assert.Contains("timescaledb.orderby = ''", result);
         }
 
         [Fact]
@@ -959,17 +949,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 TableName = "metrics",
                 Schema = "public",
-
-                // Enable compression (was off)
-                // Since SegmentBy was set, compression was turned on implicitly before; now explicitly enabling it
                 EnableCompression = true,
                 OldEnableCompression = false,
-
-                // Change SegmentBy
                 CompressionSegmentBy = ["new_col"],
                 OldCompressionSegmentBy = ["old_col"],
-
-                // Remove OrderBy
                 CompressionOrderBy = [],
                 OldCompressionOrderBy = ["time DESC"]
             };
@@ -978,10 +961,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            // Should be a single ALTER TABLE statement with 3 settings
             Assert.Contains("ALTER TABLE \"public\".\"metrics\" SET", result);
-            Assert.Contains("timescaledb.compress_segmentby = ''\"new_col\"''", result);
-            Assert.Contains("timescaledb.compress_orderby = ''''", result);
+            Assert.Contains("timescaledb.segmentby = ''\"new_col\"''", result);
+            Assert.Contains("timescaledb.orderby = ''''", result);
         }
 
         #endregion
@@ -991,7 +973,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_ChunkSkipping_RequiresCompression()
         {
-            // Arrange - TimescaleDB requires compression for chunk skipping
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "test",
@@ -1004,14 +986,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Compression must be automatically enabled
-            Assert.Contains("timescaledb.compress = true", result);
+            // Assert
+            Assert.Contains("timescaledb.enable_columnstore = true", result);
         }
 
         [Fact]
         public void Alter_AddingChunkSkipping_AutoEnablesCompression()
         {
-            // Arrange - Adding chunk skip columns when compression is disabled
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "test",
@@ -1025,14 +1007,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Compression should be auto-enabled
-            Assert.Contains("ALTER TABLE \"public\".\"test\" SET (timescaledb.compress = true)", result);
+            // Assert
+            Assert.Contains("ALTER TABLE \"public\".\"test\" SET (timescaledb.enable_columnstore = true)", result);
         }
 
         [Fact]
         public void Alter_RemovingAllChunkSkipColumns_CanDisableCompression()
         {
-            // Arrange - Removing all chunk skip columns when compression not explicitly enabled
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "test",
@@ -1046,15 +1028,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Compression can be disabled when no chunk skipping
-            Assert.Contains("timescaledb.compress = false", result);
+            // Assert
+            Assert.Contains("timescaledb.enable_columnstore = false", result);
             Assert.Contains("disable_chunk_skipping", result);
         }
 
         [Fact]
         public void Alter_KeepingExplicitCompression_WhenRemovingChunkSkipping()
         {
-            // Arrange - Compression explicitly enabled, removing chunk skip columns
+            // Arrange
             AlterHypertableOperation operation = new()
             {
                 TableName = "test",
@@ -1068,7 +1050,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string result = GetRuntimeSql(operation);
 
-            // Assert - Compression should remain enabled
+            // Assert
             Assert.DoesNotContain("timescaledb.compress = false", result);
             Assert.Contains("disable_chunk_skipping", result);
         }
@@ -1076,7 +1058,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_EmptyHypertable_OnlyGeneratesCreateStatement()
         {
-            // Arrange - Minimal hypertable
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "minimal",
@@ -1095,7 +1077,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void Create_Dimensions_GeneratedAfterHypertableCreation()
         {
-            // Arrange - Dimensions must be added after create_hypertable
+            // Arrange
             CreateHypertableOperation operation = new()
             {
                 TableName = "test",
@@ -1111,7 +1093,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
             string[] lines = result.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-            // Assert - create_hypertable must come before add_dimension
+            // Assert
             int createIndex = Array.FindIndex(lines, l => l.Contains("create_hypertable"));
             int dimensionIndex = Array.FindIndex(lines, l => l.Contains("add_dimension"));
             Assert.True(createIndex < dimensionIndex, "create_hypertable must execute before add_dimension");
@@ -1133,7 +1115,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
             string[] lines = result.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-            // Assert - create_hypertable must come before ALTER TABLE
+            // Assert
             int createIndex = Array.FindIndex(lines, l => l.Contains("create_hypertable"));
             int compressIndex = Array.FindIndex(lines, l => l.Contains("ALTER TABLE"));
             Assert.True(createIndex < compressIndex, "create_hypertable must execute before compression settings");
@@ -1155,10 +1137,83 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
             string[] lines = result.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-            // Assert - Compression (ALTER TABLE) must come before chunk skipping
+            // Assert
             int compressIndex = Array.FindIndex(lines, l => l.Contains("ALTER TABLE") && l.Contains("compress"));
             int skipIndex = Array.FindIndex(lines, l => l.Contains("enable_chunk_skipping"));
             Assert.True(compressIndex < skipIndex, "Compression must be enabled before chunk skipping");
+        }
+
+        #endregion
+
+        #region Legacy mode
+
+        [Fact]
+        public void Legacy_Create_WithCompression_EmitsLegacyOptionNames()
+        {
+            // Arrange
+            CreateHypertableOperation operation = new()
+            {
+                TableName = "legacy_create",
+                Schema = "public",
+                TimeColumnName = "ts",
+                EnableCompression = true,
+                CompressionSegmentBy = ["device_id"],
+                CompressionOrderBy = ["ts DESC"]
+            };
+
+            // Act
+            List<string> statements = HypertableSqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+            string result = string.Join("\n", statements);
+
+            // Assert
+            Assert.Contains("timescaledb.compress = true", result);
+            Assert.Contains("timescaledb.compress_segmentby", result);
+            Assert.Contains("timescaledb.compress_orderby", result);
+            Assert.DoesNotContain("enable_columnstore", result);
+            Assert.DoesNotContain("timescaledb.segmentby =", result);
+            Assert.DoesNotContain("timescaledb.orderby =", result);
+        }
+
+        [Fact]
+        public void Legacy_Alter_EnableCompression_EmitsLegacyCompressName()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "legacy_alter_enable",
+                Schema = "public",
+                EnableCompression = true,
+                OldEnableCompression = false
+            };
+
+            // Act
+            List<string> statements = HypertableSqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+            string result = string.Join("\n", statements);
+
+            // Assert
+            Assert.Contains("timescaledb.compress = true", result);
+            Assert.DoesNotContain("enable_columnstore", result);
+        }
+
+        [Fact]
+        public void Legacy_Alter_DisableCompression_EmitsLegacyCompressFalse()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "legacy_alter_disable",
+                Schema = "public",
+                EnableCompression = false,
+                OldEnableCompression = true
+            };
+
+            // Act
+            List<string> statements = HypertableSqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+            string result = string.Join("\n", statements);
+
+            // Assert
+            Assert.Contains("timescaledb.compress = false", result);
+            Assert.DoesNotContain("enable_columnstore", result);
         }
 
         #endregion

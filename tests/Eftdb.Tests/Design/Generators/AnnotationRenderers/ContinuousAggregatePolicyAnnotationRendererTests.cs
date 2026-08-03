@@ -125,7 +125,7 @@ public class ContinuousAggregatePolicyAnnotationRendererTests
         Dictionary<string, IAnnotation> annotations = Annotations(
             (ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true),
             (ContinuousAggregatePolicyAnnotations.StartOffset, "1 month"),
-            (ContinuousAggregateAnnotations.MaterializedViewName, "policy_ca_view")); // still present
+            (ContinuousAggregateAnnotations.MaterializedViewName, "policy_ca_view"));
 
         // Act
         IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
@@ -737,7 +737,7 @@ public class ContinuousAggregatePolicyAnnotationRendererTests
     [Fact]
     public void GenerateFluentApiCalls_Does_Not_Chain_InitialStart_When_Value_Is_Not_DateTime()
     {
-        // Arrange.
+        // Arrange
         using PolicyTestContext context = new();
         IEntityType entityType = GetEntityType<PolicyCaEntity>(context);
         Dictionary<string, IAnnotation> annotations = Annotations(

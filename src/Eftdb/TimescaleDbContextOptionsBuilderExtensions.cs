@@ -39,25 +39,66 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
         /// <summary>
         /// Configures the DbContext to use TimescaleDB-aware migrations and conventions.
         /// </summary>
+        /// <typeparam name="TContext">The type of the DbContext.</typeparam>
+        /// <param name="optionsBuilder">The options builder for the DbContext.</param>
+        /// <param name="configure">An action to configure TimescaleDB-specific options.</param>
+        public static DbContextOptionsBuilder<TContext> UseTimescaleDb<TContext>(
+            this DbContextOptionsBuilder<TContext> optionsBuilder,
+            Action<TimescaleDbOptions> configure)
+            where TContext : DbContext
+        {
+            ((DbContextOptionsBuilder)optionsBuilder).UseTimescaleDb(configure);
+            return optionsBuilder;
+        }
+
+        /// <summary>
+        /// Configures the DbContext to use TimescaleDB-aware migrations and conventions.
+        /// </summary>
         /// <param name="optionsBuilder">The options builder for the DbContext.</param>
         public static DbContextOptionsBuilder UseTimescaleDb(this DbContextOptionsBuilder optionsBuilder)
         {
-            TimescaleDbOptionsExtension extension = optionsBuilder.Options.FindExtension<TimescaleDbOptionsExtension>() ?? new TimescaleDbOptionsExtension();
+            return ApplyTimescaleDbExtension(optionsBuilder, configure: null);
+        }
+
+        /// <summary>
+        /// Configures the DbContext to use TimescaleDB-aware migrations and conventions.
+        /// </summary>
+        /// <param name="optionsBuilder">The options builder for the DbContext.</param>
+        /// <param name="configure">An action to configure TimescaleDB-specific options.</param>
+        public static DbContextOptionsBuilder UseTimescaleDb(
+            this DbContextOptionsBuilder optionsBuilder,
+            Action<TimescaleDbOptions> configure)
+        {
+            return ApplyTimescaleDbExtension(optionsBuilder, configure);
+        }
+
+        private static DbContextOptionsBuilder ApplyTimescaleDbExtension(
+            DbContextOptionsBuilder optionsBuilder,
+            Action<TimescaleDbOptions>? configure)
+        {
+            TimescaleDbOptions options = new();
+            configure?.Invoke(options);
+
+            TimescaleDbOptionsExtension extension = (configure != null || optionsBuilder.Options.FindExtension<TimescaleDbOptionsExtension>() is null)
+                ? new TimescaleDbOptionsExtension(options)
+                : optionsBuilder.Options.FindExtension<TimescaleDbOptionsExtension>()!;
+
             ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
 
             return optionsBuilder;
         }
 
         /// <summary>
-        /// The internal options extension that carries the TimescaeDB configuration.
+        /// The internal options extension that carries the TimescaleDB configuration.
         /// </summary>
-        private class TimescaleDbOptionsExtension : IDbContextOptionsExtension
+        private class TimescaleDbOptionsExtension(TimescaleDbOptions timescaleDbOptions) : IDbContextOptionsExtension
         {
             private DbContextOptionsExtensionInfo? _info;
             public DbContextOptionsExtensionInfo Info => _info ??= new ExtensionInfo(this);
 
             public void ApplyServices(IServiceCollection services)
             {
+                services.AddSingleton(timescaleDbOptions);
                 services.AddSingleton<IConventionSetPlugin, TimescaleDbConventionSetPlugin>();
                 services.AddScoped<IMigrationsModelDiffer, TimescaleMigrationsModelDiffer>();
                 services.Replace(ServiceDescriptor.Scoped<IMigrationsSqlGenerator, TimescaleDbMigrationsSqlGenerator>());
@@ -92,6 +133,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 conventionSet.EntityTypeAddedConventions.Add(new CompressionPolicyConvention());
                 conventionSet.ModelFinalizedConventions.Add(new TimeColumnStoreTypeValidationConvention());
                 conventionSet.ModelFinalizedConventions.Add(new CompressionPolicyPrerequisiteValidationConvention());
+                conventionSet.ModelFinalizedConventions.Add(new SparseIndexValidationConvention());
                 return conventionSet;
             }
         }

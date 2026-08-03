@@ -71,10 +71,124 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
         }
 
         /// <summary>
-        /// Resolves a CLR property name or database column name to the database column name.
-        /// Falls back to the input string when no matching property is found.
+        /// Extracts and resolves <c>timescaledb.sparse_index</c> entries from the entity's annotations.
         /// </summary>
-        private static string ResolveColumnName(IEntityType entityType, StoreObjectIdentifier storeIdentifier, string propertyName)
-            => entityType.FindProperty(propertyName)?.GetColumnName(storeIdentifier) ?? propertyName;
+        internal static string? ExtractSparseIndex(IEntityType entityType, StoreObjectIdentifier storeIdentifier)
+        {
+            var annotation = entityType.FindAnnotation(HypertableAnnotations.CompressionSparseIndex);
+            if (annotation == null)
+            {
+                return null;
+            }
+
+            string raw = annotation.Value as string ?? string.Empty;
+
+            if (raw.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            List<string> canonicalEntries = [];
+            foreach (string entry in SplitSparseIndexEntries(raw))
+            {
+                string trimmed = entry.Trim();
+                if (trimmed.Length == 0)
+                {
+                    continue;
+                }
+
+                int parenOpen = trimmed.IndexOf('(');
+                int parenClose = trimmed.LastIndexOf(')');
+
+                if (parenOpen < 0 || parenClose < parenOpen)
+                {
+                    canonicalEntries.Add(trimmed);
+                    continue;
+                }
+
+                string funcName = trimmed[..parenOpen].Trim();
+                string argsPart = trimmed[(parenOpen + 1)..parenClose];
+
+                List<string> resolvedColumns = [];
+                foreach (string col in argsPart.Split(',', StringSplitOptions.TrimEntries))
+                {
+                    if (col.Length > 0)
+                    {
+                        resolvedColumns.Add(ResolveColumnName(entityType, storeIdentifier, col));
+                    }
+                }
+
+                canonicalEntries.Add($"{funcName}({string.Join(",", resolvedColumns)})");
+            }
+
+            return string.Join(", ", canonicalEntries);
+        }
+
+        /// <summary>
+        /// Splits a sparse-index annotation value into individual entries using paren-aware splitting.
+        /// A top-level comma (one not inside parentheses) separates entries.
+        /// </summary>
+        internal static IEnumerable<string> SplitSparseIndexEntries(string value)
+        {
+            int depth = 0;
+            int start = 0;
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if (c == '(')
+                {
+                    depth++;
+                }
+                else if (c == ')')
+                {
+                    depth--;
+                }
+                else if (c == ',' && depth == 0)
+                {
+                    yield return value[start..i];
+                    start = i + 1;
+                }
+            }
+
+            if (start < value.Length)
+            {
+                yield return value[start..];
+            }
+        }
+
+        /// <summary>
+        /// Resolves a CLR property name or database column name to the database column name.
+        /// Falls back to a case-insensitive property and column lookup, then to the input string
+        /// when no match is found. Shared by extractors and validation conventions so that both
+        /// resolve references identically.
+        /// </summary>
+        internal static string ResolveColumnName(IEntityType entityType, StoreObjectIdentifier storeIdentifier, string propertyName)
+        {
+            string? exact = entityType.FindProperty(propertyName)?.GetColumnName(storeIdentifier);
+            if (!string.IsNullOrEmpty(exact))
+            {
+                return exact;
+            }
+
+            foreach (IProperty property in entityType.GetProperties())
+            {
+                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    string? resolved = property.GetColumnName(storeIdentifier);
+                    if (!string.IsNullOrEmpty(resolved))
+                    {
+                        return resolved;
+                    }
+                }
+
+                string? columnName = property.GetColumnName(storeIdentifier);
+                if (string.Equals(columnName, propertyName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return columnName!;
+                }
+            }
+
+            return propertyName;
+        }
     }
 }

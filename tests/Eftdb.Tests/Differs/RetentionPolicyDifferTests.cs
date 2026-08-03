@@ -299,7 +299,7 @@ public class RetentionPolicyDifferTests
                 entity.ToTable("Metrics");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp);
-                entity.WithRetentionPolicy(dropAfter: "14 days"); // <-- Changed from "7 days"
+                entity.WithRetentionPolicy(dropAfter: "14 days");
             });
         }
     }
@@ -368,7 +368,7 @@ public class RetentionPolicyDifferTests
                 entity.ToTable("Metrics");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp);
-                entity.WithRetentionPolicy(dropCreatedBefore: "30 days"); // <-- Changed from dropAfter: "7 days"
+                entity.WithRetentionPolicy(dropCreatedBefore: "30 days");
             });
         }
     }
@@ -441,7 +441,7 @@ public class RetentionPolicyDifferTests
                 entity.IsHypertable(x => x.Timestamp);
                 entity.WithRetentionPolicy(
                     dropAfter: "7 days",
-                    scheduleInterval: "12:00:00" // <-- Changed from default "1 day"
+                    scheduleInterval: "12:00:00"
                 );
             });
         }
@@ -516,7 +516,7 @@ public class RetentionPolicyDifferTests
                 entity.IsHypertable(x => x.Timestamp);
                 entity.WithRetentionPolicy(
                     dropAfter: "7 days",
-                    maxRetries: 10 // <-- Changed from 5
+                    maxRetries: 10
                 );
             });
         }
@@ -591,7 +591,7 @@ public class RetentionPolicyDifferTests
                 entity.IsHypertable(x => x.Timestamp);
                 entity.WithRetentionPolicy(
                     dropAfter: "7 days",
-                    initialStart: new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc) // <-- Changed from 2025-01-01
+                    initialStart: new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc)
                 );
             });
         }
@@ -662,12 +662,12 @@ public class RetentionPolicyDifferTests
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp);
                 entity.WithRetentionPolicy(
-                    dropAfter: "30 days", // <-- Changed from "7 days"
+                    dropAfter: "30 days",
                     initialStart: new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    scheduleInterval: "06:00:00", // <-- Changed from default "1 day"
-                    maxRuntime: "02:00:00", // <-- Changed from default "00:00:00"
-                    maxRetries: 3, // <-- Changed from default -1
-                    retryPeriod: "00:15:00" // <-- Changed from default "1 day"
+                    scheduleInterval: "06:00:00",
+                    maxRuntime: "02:00:00",
+                    maxRetries: 3,
+                    retryPeriod: "00:15:00"
                 );
             });
         }
@@ -1108,7 +1108,7 @@ public class RetentionPolicyDifferTests
                 entity.IsHypertable(x => x.Timestamp);
                 entity.WithRetentionPolicy(
                     dropAfter: "7 days",
-                    maxRuntime: "02:00:00" // <-- Changed from "00:30:00"
+                    maxRuntime: "02:00:00"
                 );
             });
         }
@@ -1183,7 +1183,7 @@ public class RetentionPolicyDifferTests
                 entity.IsHypertable(x => x.Timestamp);
                 entity.WithRetentionPolicy(
                     dropAfter: "7 days",
-                    retryPeriod: "00:30:00" // <-- Changed from "00:05:00"
+                    retryPeriod: "00:30:00"
                 );
             });
         }

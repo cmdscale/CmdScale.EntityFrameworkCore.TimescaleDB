@@ -159,7 +159,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             Assert.Contains("maxRetries: 5", result);
             Assert.Contains("retryPeriod: \"15 minutes\"", result);
 
-            // Assert.
             Assert.Contains("oldIndexName: \"old_ix\"", result);
             Assert.Contains("oldInitialStart:", result);
             Assert.Contains("oldScheduleInterval: \"1 day\"", result);

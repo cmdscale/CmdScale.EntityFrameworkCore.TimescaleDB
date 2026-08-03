@@ -309,7 +309,7 @@ public class ContinuousAggregateCompressionConventionTests
         // Arrange
         using CompCAggPolicyContext6 ctx = new();
 
-        // Act — should not throw
+        // Act
         IModel model = GetModel(ctx);
 
         // Assert

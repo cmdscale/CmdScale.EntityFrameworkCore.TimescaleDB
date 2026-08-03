@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.Linq.Expressions;
@@ -163,7 +164,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             string parentName = typeof(TSourceEntity).Name;
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.ParentName, parentName);
 
-            string timeBucketSourceColumn = ContinuousAggregateBuilder<TEntity, TSourceEntity>.GetPropertyName(propertyExpression);
+            string timeBucketSourceColumn = ExpressionHelper.GetPropertyName(propertyExpression);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, timeBucketSourceColumn);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, timeBucketWidth);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketGroupBy, timeBucketGroupBy);

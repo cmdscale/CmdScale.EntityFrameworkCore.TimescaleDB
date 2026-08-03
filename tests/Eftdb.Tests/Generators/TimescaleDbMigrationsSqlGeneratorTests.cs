@@ -126,7 +126,7 @@ public class TimescaleDbMigrationsSqlGeneratorTests
         // Act
         string sql = GenerateSql(operations, MigrationsSqlGenerationOptions.Idempotent | MigrationsSqlGenerationOptions.Script);
 
-        // Assert — DDL statement passes through unchanged; SELECT inside CREATE ... AS SELECT must not be replaced
+        // Assert
         Assert.Contains("SELECT", sql);
         Assert.Contains("CREATE MATERIALIZED VIEW", sql);
     }
@@ -160,8 +160,7 @@ public class TimescaleDbMigrationsSqlGeneratorTests
     [Fact]
     public void Should_Suppress_Transaction_For_CreateContinuousAggregate()
     {
-        // Arrange — CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous) cannot run
-        // inside a transaction, so the generator must mark the command as transaction-suppressed.
+        // Arrange
         CreateContinuousAggregateOperation operation = new()
         {
             Schema = "public",
@@ -247,7 +246,7 @@ public class TimescaleDbMigrationsSqlGeneratorTests
         // Act
         IReadOnlyList<MigrationCommand> commands = GenerateCommands(operations);
 
-        // Assert — only continuous aggregate creation suppresses the transaction
+        // Assert
         Assert.All(commands, c => Assert.False(c.TransactionSuppressed));
     }
 

@@ -1,13 +1,19 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 using NodaTime;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
 {
-    /// <summary>
-    /// Annotation-configured hypertable whose time column is a NodaTime <see cref="LocalDateTime"/>.
-    /// </summary>
-    [Hypertable(nameof(ObservedAt), ChunkTimeInterval = "1 day", EnableCompression = true, CompressionSegmentBy = new[] { "Station" }, CompressionOrderBy = new[] { "ObservedAt DESC" })]
+    [Hypertable(
+        nameof(ObservedAt),
+        ChunkTimeInterval = "1 day",
+        EnableCompression = true,
+        CompressionSegmentBy = new[] { "Station" },
+        CompressionOrderBy = new[] { "ObservedAt DESC" },
+        CompressChunkTimeInterval = "7 days")]
+    [SparseIndex(ESparseIndexType.Bloom, nameof(EnvironmentReading.Station))]
+    [SparseIndex(ESparseIndexType.MinMax, nameof(EnvironmentReading.Pressure))]
     [PrimaryKey(nameof(Id), nameof(ObservedAt))]
     public class EnvironmentReading
     {

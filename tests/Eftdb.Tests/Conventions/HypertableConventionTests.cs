@@ -176,9 +176,7 @@ public class HypertableConventionTests
         IEntityType entityType = model.FindEntityType(typeof(SegmentByEntity))!;
 
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
-        // Should implicitly enable compression
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
-        // Should join array with comma space
         Assert.Equal("TenantId, DeviceId", entityType.FindAnnotation(HypertableAnnotations.CompressionSegmentBy)?.Value);
     }
 
@@ -219,9 +217,7 @@ public class HypertableConventionTests
         IEntityType entityType = model.FindEntityType(typeof(OrderByEntity))!;
 
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
-        // Should implicitly enable compression
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
-        // Should preserve raw SQL strings joined by comma space
         Assert.Equal("Timestamp DESC, Value ASC NULLS LAST", entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy)?.Value);
     }
 
@@ -262,11 +258,7 @@ public class HypertableConventionTests
         IEntityType entityType = model.FindEntityType(typeof(EmptyCompressionSettingsEntity))!;
 
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
-
-        // Should NOT enable compression because arrays are empty
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.EnableCompression));
-
-        // Should NOT set the segment/order annotations
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.CompressionSegmentBy));
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy));
     }
@@ -471,9 +463,7 @@ public class HypertableConventionTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(EmptyChunkIntervalEntity))!;
 
-        // ChunkTimeInterval annotation should be null when the attribute property is empty
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval));
-        // But IsHypertable should still be set
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
         Assert.Equal("Timestamp", entityType.FindAnnotation(HypertableAnnotations.HypertableTimeColumn)?.Value);
     }
@@ -514,10 +504,8 @@ public class HypertableConventionTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(EmptyChunkSkipColumnsEntity))!;
 
-        // Empty ChunkSkipColumns should NOT enable compression or set ChunkSkipColumns annotation
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.EnableCompression));
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns));
-        // But IsHypertable should still be set
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
     }
 
@@ -557,7 +545,6 @@ public class HypertableConventionTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(NoCompressionEntity))!;
 
-        // EnableCompression should be null (not set) when false
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.EnableCompression));
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
     }
@@ -598,8 +585,6 @@ public class HypertableConventionTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(DefaultChunkIntervalEntity))!;
 
-        // When ChunkTimeInterval is not explicitly set, it uses the DefaultValues.ChunkTimeInterval
-        // and should still be applied as an annotation
         Assert.Equal(DefaultValues.ChunkTimeInterval, entityType.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value);
     }
 
@@ -639,7 +624,6 @@ public class HypertableConventionTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(SingleChunkSkipColumnEntity))!;
 
-        // Single column should be stored without extra commas
         Assert.Equal("Value", entityType.FindAnnotation(HypertableAnnotations.ChunkSkipColumns)?.Value);
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
     }
@@ -806,9 +790,7 @@ public class HypertableConventionTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(MigrateDataFalseEntity))!;
 
-        // MigrateData annotation should be null when the attribute property is false
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.MigrateData));
-        // But IsHypertable should still be set
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
     }
 
@@ -848,9 +830,7 @@ public class HypertableConventionTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(MigrateDataDefaultEntity))!;
 
-        // When MigrateData is not explicitly set in attribute, annotation should be null
         Assert.Null(entityType.FindAnnotation(HypertableAnnotations.MigrateData));
-        // But IsHypertable should still be set
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
     }
 

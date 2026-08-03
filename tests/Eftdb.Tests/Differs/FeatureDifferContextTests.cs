@@ -75,7 +75,7 @@ public class FeatureDifferContextTests
         {
             modelBuilder.Entity<HtRenameMetricTarget>(entity =>
             {
-                entity.ToTable("ht_rename_new"); // <-- Renamed from ht_rename_old
+                entity.ToTable("ht_rename_new");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp);
             });
@@ -105,7 +105,7 @@ public class FeatureDifferContextTests
         // Act
         IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel, context);
 
-        // Assert - a pure rename should produce no hypertable operations at all
+        // Assert
         Assert.DoesNotContain(operations, op => op is CreateHypertableOperation);
         Assert.DoesNotContain(operations, op => op is AlterHypertableOperation);
     }
@@ -122,7 +122,7 @@ public class FeatureDifferContextTests
 
     private class HtOrderByMetricTarget
     {
-        public DateTime Moment { get; set; } // <-- Renamed from Timestamp
+        public DateTime Moment { get; set; }
         public double Value { get; set; }
     }
 
@@ -169,10 +169,6 @@ public class FeatureDifferContextTests
     [Fact]
     public void HypertableDiffer_Rewrites_OrderBy_Column_On_Rename_And_Preserves_Direction()
     {
-        // The time column AND the compression order-by reference the same renamed column. With a column-rename
-        // context, the source order-by ("Timestamp DESC") rewrites to ("Moment DESC") and compares equal to the
-        // target, so no AlterHypertableOperation is emitted.
-
         // Arrange
         using HtOrderBySourceContext sourceContext = new();
         using HtOrderByTargetContext targetContext = new();
@@ -184,7 +180,6 @@ public class FeatureDifferContextTests
         {
             ColumnRenames = new Dictionary<(string, string, string), string>
             {
-                // Keyed on the post-rename table name (table name unchanged here).
                 [(DefaultValues.DefaultSchema, "ht_orderby_rename", "Timestamp")] = "Moment",
             },
         };
@@ -194,7 +189,7 @@ public class FeatureDifferContextTests
         // Act
         IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel, context);
 
-        // Assert - the order-by column rename is resolved (direction suffix preserved), so no alter is produced.
+        // Assert
         Assert.DoesNotContain(operations, op => op is AlterHypertableOperation);
         Assert.DoesNotContain(operations, op => op is CreateHypertableOperation);
     }
@@ -245,7 +240,7 @@ public class FeatureDifferContextTests
                 entity.ToTable("rp_rename_metrics");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp);
-                entity.WithReorderPolicy("rp_idx_new"); // <-- Index renamed from rp_idx_old
+                entity.WithReorderPolicy("rp_idx_new");
                 entity.HasIndex(x => x.Timestamp).HasDatabaseName("rp_idx_new");
             });
         }
@@ -274,7 +269,7 @@ public class FeatureDifferContextTests
         // Act
         IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel, context);
 
-        // Assert - only the index changed, and that change is a known rename, so no alter is needed.
+        // Assert
         Assert.DoesNotContain(operations, op => op is AlterReorderPolicyOperation);
         Assert.DoesNotContain(operations, op => op is AddReorderPolicyOperation);
         Assert.DoesNotContain(operations, op => op is DropReorderPolicyOperation);
@@ -330,10 +325,6 @@ public class FeatureDifferContextTests
     [Fact]
     public void RetentionPolicyDiffer_Readds_Policy_When_Aggregate_Is_Recreated()
     {
-        // Source and target are identical, so a normal diff would produce nothing. But the orchestrator has
-        // decided to recreate the "ret_cascade_view" aggregate, which cascades to drop its retention policy.
-        // The differ must therefore re-add the retention policy.
-
         // Arrange
         using RetCascadeContext sourceContext = new();
         using RetCascadeContext targetContext = new();
@@ -360,7 +351,6 @@ public class FeatureDifferContextTests
         Assert.NotNull(addOp);
         Assert.Equal("30 days", addOp.DropAfter);
 
-        // It must NOT also drop the policy for the recreated view.
         Assert.DoesNotContain(operations, op => op is DropRetentionPolicyOperation);
     }
 
@@ -414,9 +404,6 @@ public class FeatureDifferContextTests
     [Fact]
     public void ContinuousAggregatePolicyDiffer_Readds_Refresh_Policy_When_Aggregate_Is_Recreated()
     {
-        // Identical source/target: a normal diff yields nothing. With the view marked as recreated, the refresh
-        // policy is dropped by the recreate cascade and must be re-added without a matching remove.
-
         // Arrange
         using CapCascadeContext sourceContext = new();
         using CapCascadeContext targetContext = new();
@@ -442,7 +429,6 @@ public class FeatureDifferContextTests
             .FirstOrDefault(op => op.MaterializedViewName == "cap_cascade_view");
         Assert.NotNull(addOp);
 
-        // No remove for the recreated view.
         Assert.DoesNotContain(operations, op =>
             op is RemoveContinuousAggregatePolicyOperation remove && remove.MaterializedViewName == "cap_cascade_view");
     }
@@ -512,7 +498,7 @@ public class FeatureDifferContextTests
         {
             modelBuilder.Entity<CaParentRenameTargetMetric>(entity =>
             {
-                entity.ToTable("ca_parent_new"); // <-- Parent table renamed from ca_parent_old
+                entity.ToTable("ca_parent_new");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp);
             });
@@ -532,10 +518,6 @@ public class FeatureDifferContextTests
     [Fact]
     public void ContinuousAggregateDiffer_Treats_Parent_Table_Rename_As_Rename_Not_Recreate()
     {
-        // Only the CA's parent hypertable was renamed. With the rename in the context, the differ should NOT
-        // drop and recreate the aggregate. (CA column/where-clause rewriting is explicitly out of scope; only
-        // the parent-table rename is asserted here.)
-
         // Arrange
         using CaParentRenameSourceContext sourceContext = new();
         using CaParentRenameTargetContext targetContext = new();

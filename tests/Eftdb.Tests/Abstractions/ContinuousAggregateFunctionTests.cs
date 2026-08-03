@@ -44,8 +44,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Abstractions
         [Fact]
         public void RoundTrip_AnnotationValue_FeedsContinuousAggregateGenerator()
         {
-            // Arrange — the wire format produced by ContinuousAggregateFunction must be
-            // parseable by ContinuousAggregateSqlGenerator's ':'-delimited parser.
+            // Arrange
             ContinuousAggregateFunction function = new("avg_t", EAggregateFunction.Avg, "temp");
 
             CreateContinuousAggregateOperation operation = new()
@@ -63,7 +62,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Abstractions
             List<string> statements = ContinuousAggregateSqlGenerator.Generate(operation);
             string sql = string.Join("\n", statements);
 
-            // Assert — Avg maps to AVG("temp") with the alias "avg_t"
+            // Assert
             Assert.Contains("AVG(\"temp\") AS \"avg_t\"", sql);
         }
 

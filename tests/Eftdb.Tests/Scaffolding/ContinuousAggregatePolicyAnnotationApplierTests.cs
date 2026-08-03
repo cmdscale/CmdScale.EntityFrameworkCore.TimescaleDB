@@ -276,7 +276,7 @@ public class ContinuousAggregatePolicyAnnotationApplierTests
             ScheduleInterval: "1 hour",
             InitialStart: null,
             IncludeTieredData: null,
-            BucketsPerBatch: 1, // default value
+            BucketsPerBatch: 1,
             MaxBatchesPerExecution: null,
             RefreshNewestFirst: null
         );
@@ -328,7 +328,7 @@ public class ContinuousAggregatePolicyAnnotationApplierTests
             InitialStart: null,
             IncludeTieredData: null,
             BucketsPerBatch: null,
-            MaxBatchesPerExecution: 0, // default value
+            MaxBatchesPerExecution: 0,
             RefreshNewestFirst: null
         );
 
@@ -380,7 +380,7 @@ public class ContinuousAggregatePolicyAnnotationApplierTests
             IncludeTieredData: null,
             BucketsPerBatch: null,
             MaxBatchesPerExecution: null,
-            RefreshNewestFirst: true // default value
+            RefreshNewestFirst: true
         );
 
         _applier.ApplyAnnotations(table, info);
@@ -459,9 +459,9 @@ public class ContinuousAggregatePolicyAnnotationApplierTests
             ScheduleInterval: "1 hour",
             InitialStart: null,
             IncludeTieredData: null,
-            BucketsPerBatch: 1,            // default - should NOT be applied
-            MaxBatchesPerExecution: 0,      // default - should NOT be applied
-            RefreshNewestFirst: true        // default - should NOT be applied
+            BucketsPerBatch: 1,
+            MaxBatchesPerExecution: 0,
+            RefreshNewestFirst: true
         );
 
         _applier.ApplyAnnotations(table, info);

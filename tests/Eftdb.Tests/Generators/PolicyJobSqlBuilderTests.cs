@@ -4,8 +4,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 {
     public class PolicyJobSqlBuilderTests
     {
-        // --- BuildJobClauses ---
-
         #region BuildJobClauses_AllProvided_EmitsFourClauses
 
         [Fact]
@@ -68,7 +66,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void BuildJobClauses_MaxRetriesZero_IsEmitted()
         {
-            // Arrange — 0 is a valid value distinct from null; uses a null check, not truthiness
+            // Arrange
             int maxRetries = 0;
 
             // Act
@@ -92,7 +90,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             List<string> clauses = PolicyJobSqlBuilder.BuildJobClauses(null, null, maxRetries, null);
 
-            // Assert — bare int, not wrapped in INTERVAL or quotes
+            // Assert
             Assert.Single(clauses);
             Assert.Equal("max_retries => 7", clauses[0]);
             Assert.DoesNotContain("INTERVAL", clauses[0]);
@@ -100,14 +98,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
-        // --- BuildChangedJobClauses ---
-
         #region BuildChangedJobClauses_OnlyDifferingValuesProduceClauses
 
         [Fact]
         public void BuildChangedJobClauses_OnlyDifferingValuesProduceClauses()
         {
-            // Arrange — only scheduleInterval changes
+            // Arrange
             List<string> clauses = PolicyJobSqlBuilder.BuildChangedJobClauses(
                 scheduleInterval: "2 days", oldScheduleInterval: "1 day",
                 maxRuntime: "1 hour", oldMaxRuntime: "1 hour",
@@ -163,8 +159,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         [Fact]
         public void BuildChangedJobClauses_NewValueNullWhileOldSet_NoClause()
         {
-            // Arrange — a value cannot be cleared via alter_job: a null/whitespace new value
-            // while the old value is set produces no clause (documented limitation).
+            // Arrange
             List<string> clauses = PolicyJobSqlBuilder.BuildChangedJobClauses(
                 scheduleInterval: null, oldScheduleInterval: "1 day",
                 maxRuntime: "  ", oldMaxRuntime: "1 hour",
@@ -176,8 +171,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         #endregion
-
-        // --- BuildAlterJobSql ---
 
         #region BuildAlterJobSql_ProducesExpectedStatement
 
@@ -209,7 +202,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             // Act
             string sql = PolicyJobSqlBuilder.BuildAlterJobSql("TestTable", "public", "policy_retention", clauses);
 
-            // Assert — no leading/trailing whitespace
+            // Assert
             Assert.Equal(sql, sql.Trim());
             Assert.StartsWith("SELECT alter_job", sql);
         }

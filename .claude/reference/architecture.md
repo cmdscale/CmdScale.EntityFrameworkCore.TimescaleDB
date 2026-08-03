@@ -35,19 +35,23 @@ This document provides detailed architectural information for the CmdScale.Entit
 | File | Purpose |
 |------|---------|
 | `TimescaleDbServiceCollectionExtensions.cs` | Registers `IMigrationsModelDiffer`, `IConventionSetPlugin` |
-| `TimescaleDbContextOptionsBuilderExtensions.cs` | Service registration via `UseTimescaleDb()` |
+| `TimescaleDbContextOptionsBuilderExtensions.cs` | Service registration via `UseTimescaleDb()` and `UseTimescaleDb(o => o.UseLegacyCompressionSql())` |
+| `TimescaleDbOptions.cs` | Provider options: `UseLegacyCompressionSql()` opts into pre-2.18 compression API naming |
 | `TimescaleDbMigrationsSqlGenerator.cs` | Runtime SQL generator for `dotnet ef database update` |
 
 ### Configuration/ - Feature Subsystems
 
 > When adding new features, follow the same directory structure pattern.
 
-#### Hypertable/ (5 files)
-- `HypertableAttribute.cs` - Data annotation: `[Hypertable("TimeColumn", ChunkTimeInterval = "1 day")]`
+#### Hypertable/ (8 files)
+- `HypertableAttribute.cs` - Data annotation: `[Hypertable("TimeColumn", ChunkTimeInterval = "1 day", CompressChunkTimeInterval = "7 days", DisableAutoSparseIndexes = true)]`
 - `DimensionAttribute.cs` - Data annotation for additional partitioning dimensions: `[Dimension("Col", EDimensionType.Range, "1 month")]`
-- `HypertableConvention.cs` - IEntityTypeAddedConvention implementation; processes both `[Hypertable]` and `[Dimension]` attributes
+- `HypertableConvention.cs` - IEntityTypeAddedConvention implementation; processes `[Hypertable]`, `[Dimension]`, and `[SparseIndex]` attributes
 - `HypertableAnnotations.cs` - Annotation constants
-- `HypertableTypeBuilder.cs` - Fluent API: `IsHypertable()`, `WithChunkTimeInterval()`, `HasRangeDimension()`, `HasHashDimension()`, etc.
+- `HypertableTypeBuilder.cs` - Fluent API: `IsHypertable()`, `WithChunkTimeInterval()`, `WithSparseIndex()`, `WithoutAutoSparseIndexes()`, `WithCompressChunkTimeInterval()`, `HasRangeDimension()`, `HasHashDimension()`, etc.
+- `SparseIndex.cs` - `SparseIndex` value type and `SparseIndexSelector<TEntity>` typed fluent builder for `.Bloom()`/`.MinMax()` entries
+- `SparseIndexAttribute.cs` - `[SparseIndex(ESparseIndexType.Bloom, nameof(Col))]` data annotation; AllowMultiple; `DisableAutoSparseIndexes` on `[Hypertable]` for disabling auto-generated indexes
+- `SparseIndexValidationConvention.cs` - IModelFinalizedConvention validating sparse index entries against compression segmentby/orderby constraints, arity rules, and duplicate detection
 
 #### ReorderPolicy/ (5 files)
 - `ReorderPolicyAttribute.cs` - Data annotation: `[ReorderPolicy("index_name")]`
@@ -105,6 +109,7 @@ This document provides detailed architectural information for the CmdScale.Entit
 | `Dimension.cs` | Represents range/hash partitioning with factory methods |
 | `EDimensionType.cs` | Enum: `Range`, `Hash` |
 | `EAggregateFunction.cs` | Enum: `Avg`, `Sum`, `Min`, `Max`, `Count`, `First`, `Last` |
+| `ESparseIndexType.cs` | Enum: `Bloom`, `MinMax` — identifies the sparse index function |
 | `ContinuousAggregateFunction.cs` | Strongly-typed `(Alias, Function, SourceColumn)` for continuous-aggregate columns; `ToAnnotationValue()` serializes to the `alias:Function:sourceColumn` wire format |
 
 ### Operations/ - Migration Operations
@@ -143,8 +148,8 @@ Each `*SqlGenerator` exposes `static List<string> Generate(XxxOperation operatio
 | `RetentionPolicySqlGenerator.cs` | `add_retention_policy()`, `remove_retention_policy()`, `alter_job` tuning |
 | `ContinuousAggregateSqlGenerator.cs` | `CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous)` plus drop/alter SQL |
 | `ContinuousAggregatePolicySqlGenerator.cs` | `add_continuous_aggregate_policy()` / `remove_continuous_aggregate_policy()` |
-| `CompressionPolicySqlGenerator.cs` | `add_compression_policy()` / `remove_compression_policy()`; uses legacy function-name spelling (`compress_after`/`compress_created_before`) for pre-2.18 compatibility |
-| `CompressionSettingsSqlHelper.cs` | Shared SQL-building helpers for compression settings: builds the `SET (timescaledb.compress = ...)` clause, computes the changed-settings list for alter operations, and evaluates whether compression is enabled; used by both hypertable and continuous-aggregate SQL generators |
+| `CompressionPolicySqlGenerator.cs` | `CALL add_columnstore_policy()` / `CALL remove_columnstore_policy()` (2.18+ default); falls back to `add_compression_policy` / `remove_compression_policy` when `UseLegacyCompressionSql()` is set |
+| `CompressionSettingsSqlHelper.cs` | Shared SQL-building helpers for compression settings: builds the `SET (timescaledb.enable_columnstore = ...)` / `SET (timescaledb.compress = ...)` clause depending on legacy mode, computes changed-settings list for alter operations; used by both hypertable and continuous-aggregate SQL generators |
 | `PolicyJobSqlBuilder.cs` | Shared `alter_job` clause builder (schedule interval, max runtime, retries, retry period) used by reorder/retention/CA refresh policies |
 | `SqlBuilderHelper.cs` | `Regclass()`, `QualifiedIdentifier()`, `QuoteIdentifier()`, statement grouping, and `SELECT`→`PERFORM` rewriting for idempotent scripts |
 
@@ -167,7 +172,8 @@ Generated migrations call strongly-typed extension methods that construct a `Mig
 - `Features/IFeatureDiffer.cs` - Interface: `GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)`
 - `Features/FeatureDiffContext.cs` - Cross-cutting diff state passed to every feature differ
 - `Features/CompressionDiffHelper.cs` - Shared comparison and rewrite helpers for compression differ logic; used by both hypertable and continuous-aggregate differs; provides `AreStringListsEqual`, `AreOrderByListsEqual`, `NormalizeOrderByEntry`, `RewriteColumns`, and `RewriteOrderByColumns`
-- `CompressionAnnotationExtractor.cs` - Shared helpers for extracting segment-by and order-by column lists from entity-type annotations with CLR property → database column name resolution; used by both hypertable and continuous-aggregate model extractors
+- `CompressionAnnotationExtractor.cs` - Shared helpers for extracting segment-by, order-by, and sparse-index column lists from entity-type annotations with CLR property → database column name resolution; used by both hypertable and continuous-aggregate model extractors
+- `ExpressionHelper.cs` - Shared static helper: `GetPropertyName<T, TProperty>(Expression)` consolidates lambda-to-property-name extraction across the fluent API
 - `ParentEntityTypeResolver.cs` - Resolves a continuous aggregate's parent `IEntityType` by matching CLR class name, EF Core short name, or database table name; handles both code-first and scaffolded models
 
 **Feature-specific:**
@@ -263,7 +269,7 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 - `ContinuousAggregateScaffoldingExtractor` + `ContinuousAggregateAnnotationApplier`
 - `ContinuousAggregatePolicyScaffoldingExtractor` + `ContinuousAggregatePolicyAnnotationApplier`
 - `CompressionPolicyScaffoldingExtractor` + `CompressionPolicyAnnotationApplier` — reads jobs from `timescaledb_information.jobs` joined with `_timescaledb_config.bgw_job` for timezone; applier suppresses default schedule intervals
-- `CompressionSettingsScaffoldingHelper` — shared helper that reads `timescaledb_information.compression_settings`; used by both `HypertableScaffoldingExtractor` and `ContinuousAggregateScaffoldingExtractor`
+- `CompressionSettingsScaffoldingHelper` — shared helper that reads `timescaledb_information.hypertable_columnstore_settings` (2.18+) with fallback to `compression_settings` (pre-2.18); provides segmentby, orderby, sparse index, and compress_chunk_time_interval; used by both `HypertableScaffoldingExtractor` and `ContinuousAggregateScaffoldingExtractor`
 
 **Phase 2 — Annotation code generation** (`TimescaleDbAnnotationCodeGenerator` + `AnnotationRenderers/`):
 EF Core's scaffolding pipeline calls `TimescaleDbAnnotationCodeGenerator` to convert those annotations into C# code. The dispatcher iterates its registered `IFeatureAnnotationRenderer` implementations:

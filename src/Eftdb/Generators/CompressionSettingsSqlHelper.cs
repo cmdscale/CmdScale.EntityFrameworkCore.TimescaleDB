@@ -26,6 +26,24 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         }
 
         /// <summary>
+        /// Returns the option name for enabling compression/columnstore.
+        /// </summary>
+        internal static string CompressOptionName(bool useLegacy)
+            => useLegacy ? "timescaledb.compress" : "timescaledb.enable_columnstore";
+
+        /// <summary>
+        /// Returns the option name for the segment-by setting.
+        /// </summary>
+        internal static string SegmentByOptionName(bool useLegacy)
+            => useLegacy ? "timescaledb.compress_segmentby" : "timescaledb.segmentby";
+
+        /// <summary>
+        /// Returns the option name for the order-by setting.
+        /// </summary>
+        internal static string OrderByOptionName(bool useLegacy)
+            => useLegacy ? "timescaledb.compress_orderby" : "timescaledb.orderby";
+
+        /// <summary>
         /// Appends a community-feature-guarded compression statement to <paramref name="statements"/>
         /// when compression is configured for a newly created relation (hypertable or materialized view).
         /// </summary>
@@ -37,6 +55,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// <param name="compressionOrderBy">Order-by column list, or <see langword="null"/>.</param>
         /// <param name="alterDdl">The DDL keyword phrase used to target the relation (e.g., <c>"ALTER TABLE"</c> or <c>"ALTER MATERIALIZED VIEW"</c>).</param>
         /// <param name="warningText">The RAISE WARNING text for the Apache Edition path.</param>
+        /// <param name="useLegacy">When <see langword="true"/>, emits pre-2.18 compression option names.</param>
         internal static void AppendCreateCompressionStatements(
             List<string> statements,
             string relationName,
@@ -45,7 +64,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             IReadOnlyList<string>? compressionSegmentBy,
             IReadOnlyList<string>? compressionOrderBy,
             string alterDdl,
-            string warningText)
+            string warningText,
+            bool useLegacy = false)
         {
             bool hasSegmentBy = compressionSegmentBy is { Count: > 0 };
             bool hasOrderBy = compressionOrderBy is { Count: > 0 };
@@ -57,18 +77,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             List<string> compressionSettings = [];
 
-            compressionSettings.Add("timescaledb.compress = true");
+            compressionSettings.Add($"{CompressOptionName(useLegacy)} = true");
 
             if (hasSegmentBy)
             {
                 string segmentList = string.Join(", ", compressionSegmentBy!.Select(SqlBuilderHelper.QuoteIdentifier));
-                compressionSettings.Add($"timescaledb.compress_segmentby = '{segmentList}'");
+                compressionSettings.Add($"{SegmentByOptionName(useLegacy)} = '{segmentList}'");
             }
 
             if (hasOrderBy)
             {
                 string orderList = QuoteOrderByList(compressionOrderBy!);
-                compressionSettings.Add($"timescaledb.compress_orderby = '{orderList}'");
+                compressionSettings.Add($"{OrderByOptionName(useLegacy)} = '{orderList}'");
             }
 
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(relationName, schema);
@@ -86,13 +106,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// <param name="oldEnable">Previous value of the explicit compress flag.</param>
         /// <param name="oldSegmentBy">Previous segment-by column list.</param>
         /// <param name="oldOrderBy">Previous order-by column list.</param>
+        /// <param name="useLegacy">When <see langword="true"/>, emits pre-2.18 compression option names.</param>
         internal static List<string> BuildAlterCompressionSettings(
             bool newEnable,
             IReadOnlyList<string>? newSegmentBy,
             IReadOnlyList<string>? newOrderBy,
             bool oldEnable,
             IReadOnlyList<string>? oldSegmentBy,
-            IReadOnlyList<string>? oldOrderBy)
+            IReadOnlyList<string>? oldOrderBy,
+            bool useLegacy = false)
         {
             List<string> settings = [];
 
@@ -104,7 +126,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (newCompressionState != oldCompressionState)
             {
-                settings.Add($"timescaledb.compress = {newCompressionState.ToString().ToLower()}");
+                settings.Add($"{CompressOptionName(useLegacy)} = {newCompressionState.ToString().ToLower()}");
             }
 
             if (ListsChanged(oldSegmentBy, newSegmentBy))
@@ -112,7 +134,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 string val = (newSegmentBy?.Count > 0)
                     ? $"'{string.Join(", ", newSegmentBy.Select(SqlBuilderHelper.QuoteIdentifier))}'"
                     : "''";
-                settings.Add($"timescaledb.compress_segmentby = {val}");
+                settings.Add($"{SegmentByOptionName(useLegacy)} = {val}");
             }
 
             if (ListsChanged(oldOrderBy, newOrderBy))
@@ -120,7 +142,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 string val = (newOrderBy?.Count > 0)
                     ? $"'{QuoteOrderByList(newOrderBy)}'"
                     : "''";
-                settings.Add($"timescaledb.compress_orderby = {val}");
+                settings.Add($"{OrderByOptionName(useLegacy)} = {val}");
             }
 
             return settings;

@@ -5,11 +5,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
     public static class CompressionPolicySqlGenerator
     {
-        public static List<string> Generate(AddCompressionPolicyOperation operation)
+        public static List<string> Generate(AddCompressionPolicyOperation operation, bool useLegacyCompressionNames = false)
         {
             List<string> statements =
             [
-                BuildAddCompressionPolicySql(
+                BuildAddPolicySql(
                     operation.TableName,
                     operation.Schema,
                     operation.After,
@@ -17,20 +17,21 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                     operation.ScheduleInterval,
                     operation.InitialStart,
                     operation.Timezone,
-                    operation.IfNotExists)
+                    operation.IfNotExists,
+                    useLegacyCompressionNames)
             ];
 
             return statements;
         }
 
-        public static List<string> Generate(AlterCompressionPolicyOperation operation)
+        public static List<string> Generate(AlterCompressionPolicyOperation operation, bool useLegacyCompressionNames = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
 
             List<string> statements =
             [
-                $"SELECT remove_compression_policy({qualifiedTableName}, if_exists => true);",
-                BuildAddCompressionPolicySql(
+                BuildRemovePolicySql(qualifiedTableName, useLegacyCompressionNames),
+                BuildAddPolicySql(
                     operation.TableName,
                     operation.Schema,
                     operation.After,
@@ -38,24 +39,35 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                     operation.ScheduleInterval,
                     operation.InitialStart,
                     operation.Timezone,
-                    operation.IfNotExists)
+                    operation.IfNotExists,
+                    useLegacyCompressionNames)
             ];
 
             return statements;
         }
 
-        public static List<string> Generate(DropCompressionPolicyOperation operation)
+        public static List<string> Generate(DropCompressionPolicyOperation operation, bool useLegacyCompressionNames = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
 
             List<string> statements =
             [
-                $"SELECT remove_compression_policy({qualifiedTableName}, if_exists => true);"
+                BuildRemovePolicySql(qualifiedTableName, useLegacyCompressionNames)
             ];
             return statements;
         }
 
-        private static string BuildAddCompressionPolicySql(
+        private static string BuildRemovePolicySql(string qualifiedTableName, bool useLegacy)
+        {
+            if (useLegacy)
+            {
+                return $"SELECT remove_compression_policy({qualifiedTableName}, if_exists => true);";
+            }
+
+            return $"CALL remove_columnstore_policy({qualifiedTableName}, if_exists => true);";
+        }
+
+        private static string BuildAddPolicySql(
             string tableName,
             string schema,
             string? after,
@@ -63,16 +75,27 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             string? scheduleInterval,
             DateTime? initialStart,
             string? timezone,
-            bool? ifNotExists)
+            bool? ifNotExists,
+            bool useLegacy)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(tableName, schema);
 
             List<string> args = [qualifiedTableName];
 
-            if (!string.IsNullOrWhiteSpace(after))
-                args.Add($"compress_after => INTERVAL '{after}'");
-            else if (!string.IsNullOrWhiteSpace(createdBefore))
-                args.Add($"compress_created_before => INTERVAL '{createdBefore}'");
+            if (useLegacy)
+            {
+                if (!string.IsNullOrWhiteSpace(after))
+                    args.Add($"compress_after => INTERVAL '{after}'");
+                else if (!string.IsNullOrWhiteSpace(createdBefore))
+                    args.Add($"compress_created_before => INTERVAL '{createdBefore}'");
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(after))
+                    args.Add($"after => INTERVAL '{after}'");
+                else if (!string.IsNullOrWhiteSpace(createdBefore))
+                    args.Add($"created_before => INTERVAL '{createdBefore}'");
+            }
 
             if (!string.IsNullOrWhiteSpace(scheduleInterval))
                 args.Add($"schedule_interval => INTERVAL '{scheduleInterval}'");
@@ -90,7 +113,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (ifNotExists == true)
                 args.Add("if_not_exists => true");
 
-            return $"SELECT add_compression_policy({string.Join(", ", args)});";
+            if (useLegacy)
+            {
+                return $"SELECT add_compression_policy({string.Join(", ", args)});";
+            }
+
+            return $"CALL add_columnstore_policy({string.Join(", ", args)});";
         }
     }
 }

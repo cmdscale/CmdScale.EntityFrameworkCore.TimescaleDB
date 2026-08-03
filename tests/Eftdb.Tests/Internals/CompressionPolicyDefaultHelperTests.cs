@@ -168,7 +168,7 @@ public class CompressionPolicyDefaultHelperTests
         // Act
         string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
 
-        // Assert — integer-time hypertables cannot be halved meaningfully; treat as explicitly configured
+        // Assert
         Assert.Null(result);
     }
 

@@ -27,5 +27,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
 
         public IReadOnlyList<string>? CompressionOrderBy { get; set; }
         public IReadOnlyList<string>? OldCompressionOrderBy { get; set; }
+
+        public string? CompressionSparseIndex { get; set; }
+        public string? OldCompressionSparseIndex { get; set; }
+
+        public string? CompressChunkTimeInterval { get; set; }
+        public string? OldCompressChunkTimeInterval { get; set; }
     }
 }

@@ -44,10 +44,25 @@
         public string ChunkTimeInterval { get; set; } = DefaultValues.ChunkTimeInterval;
 
         /// <summary>
-        /// Enable range statistics for a specific column in a compressed hypertable. This tracks a range of values for that column per chunk. 
+        /// Enable range statistics for a specific column in a compressed hypertable. This tracks a range of values for that column per chunk.
         /// Used for chunk skipping during query optimization and applies only to the chunks created after chunk skipping is enabled.
         /// </summary>
         public string[]? ChunkSkipColumns { get; set; } = null;
+
+        /// <summary>
+        /// When <c>true</c>, explicitly disables auto-created sparse indexes on the columnstore
+        /// (sets <c>timescaledb.sparse_index = ''</c>).
+        /// </summary>
+        public bool DisableAutoSparseIndexes { get; set; } = false;
+
+        /// <summary>
+        /// The minimum time interval to use when merging chunks during compression.
+        /// Must be a multiple of the hypertable's <c>chunk_time_interval</c>.
+        /// </summary>
+        /// <remarks>
+        /// WARNING: Chunk merges are irreversible — decreasing the value later cannot un-merge already merged chunks.
+        /// </remarks>
+        public string? CompressChunkTimeInterval { get; set; } = null;
 
         public HypertableAttribute(string timeColumnName)
         {

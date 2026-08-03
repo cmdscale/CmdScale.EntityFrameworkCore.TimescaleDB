@@ -130,7 +130,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
         Assert.NotNull(metricsTable);
 
-        // Verify hypertable annotations
         Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
         Assert.Equal("Timestamp", metricsTable[HypertableAnnotations.HypertableTimeColumn]);
         Assert.NotNull(metricsTable[HypertableAnnotations.ChunkTimeInterval]);
@@ -231,14 +230,10 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
         Assert.NotNull(metricsTable);
 
-        // Verify Hypertable
         Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
 
-        // Compression should be implicitly enabled
         Assert.Equal(true, metricsTable[HypertableAnnotations.EnableCompression]);
 
-        // Verify SegmentBy Annotation
-        // The annotation value should be the column name "TenantId"
         string? segmentBy = metricsTable[HypertableAnnotations.CompressionSegmentBy] as string;
         Assert.NotNull(segmentBy);
         Assert.Equal("TenantId", segmentBy);
@@ -294,12 +289,9 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
         Assert.Equal(true, metricsTable[HypertableAnnotations.EnableCompression]);
 
-        // Verify OrderBy Annotation
-        // Expect comma-separated string of clauses
         string? orderBy = metricsTable[HypertableAnnotations.CompressionOrderBy] as string;
         Assert.NotNull(orderBy);
 
-        // The extractor reconstructs strings like "Column [ASC|DESC] [NULLS FIRST|LAST]"
         Assert.Contains("Timestamp DESC", orderBy);
         Assert.Contains("Value ASC", orderBy);
         Assert.Contains("NULLS FIRST", orderBy);
@@ -351,7 +343,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
         Assert.NotNull(metricsTable);
 
-        // Verify all compression settings are present
         Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
         Assert.Equal(true, metricsTable[HypertableAnnotations.EnableCompression]);
 
@@ -413,7 +404,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         string? dimensionsJson = metricsTable[HypertableAnnotations.AdditionalDimensions] as string;
         Assert.NotNull(dimensionsJson);
         Assert.Contains("DeviceId", dimensionsJson);
-        // EDimensionType.Hash = 1 in the enum, serialized as integer
         Assert.Contains("\"Type\":1", dimensionsJson);
     }
 
@@ -462,7 +452,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
         Assert.NotNull(metricsTable);
 
-        // Verify both hypertable and reorder policy annotations
         Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
         Assert.Equal(true, metricsTable[ReorderPolicyAnnotations.HasReorderPolicy]);
         Assert.Equal("metrics_time_idx", metricsTable[ReorderPolicyAnnotations.IndexName]);
@@ -586,12 +575,10 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         DatabaseModelFactoryOptions options = new(tables: ["Metrics", "hourly_metrics"], schemas: []);
         DatabaseModel model = factory.Create(connection, options);
 
-        // Verify source hypertable
         DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
         Assert.NotNull(metricsTable);
         Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
 
-        // Verify continuous aggregate
         DatabaseTable? caggTable = model.Tables.FirstOrDefault(t => t.Name == "hourly_metrics");
         Assert.NotNull(caggTable);
         Assert.Equal("hourly_metrics", caggTable[ContinuousAggregateAnnotations.MaterializedViewName]);
@@ -708,7 +695,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         DatabaseTable? entitiesTable = model.Tables.FirstOrDefault(t => t.Name == "Entities");
         Assert.NotNull(entitiesTable);
 
-        // Should NOT have any TimescaleDB annotations
         Assert.Null(entitiesTable[HypertableAnnotations.IsHypertable]);
         Assert.Null(entitiesTable[HypertableAnnotations.HypertableTimeColumn]);
         Assert.Null(entitiesTable[ReorderPolicyAnnotations.HasReorderPolicy]);
@@ -841,10 +827,8 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         Assert.NotNull(entitiesTable);
         Assert.NotNull(metricsTable);
 
-        // Regular table should NOT have hypertable annotations
         Assert.Null(entitiesTable[HypertableAnnotations.IsHypertable]);
 
-        // Hypertable should have annotations
         Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
     }
 
@@ -963,7 +947,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         DatabaseModelFactoryOptions options = new(tables: ["Metrics", "hourly_metrics"], schemas: []);
         DatabaseModel model = factory.Create(connection, options);
 
-        // Verify hypertable with all features
         DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
         Assert.NotNull(metricsTable);
 
@@ -973,7 +956,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         Assert.Equal(true, metricsTable[ReorderPolicyAnnotations.HasReorderPolicy]);
         Assert.Equal("metrics_time_idx", metricsTable[ReorderPolicyAnnotations.IndexName]);
 
-        // Verify continuous aggregate
         DatabaseTable? caggTable = model.Tables.FirstOrDefault(t => t.Name == "hourly_metrics");
         Assert.NotNull(caggTable);
         Assert.Equal("hourly_metrics", caggTable[ContinuousAggregateAnnotations.MaterializedViewName]);
@@ -1021,7 +1003,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         DatabaseModelFactoryOptions options = new(tables: ["Metrics"], schemas: []);
         DatabaseModel model = factory.Create(connection, options);
 
-        // Connection should remain open
         Assert.Equal(System.Data.ConnectionState.Open, connection.State);
 
         DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
@@ -1049,14 +1030,12 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
     [Fact]
     public async Task Should_Handle_Empty_Database()
     {
-        // Don't create any tables - just scaffold an empty database
         TimescaleDatabaseModelFactory factory = CreateFactory();
         await using NpgsqlConnection connection = new(_connectionString);
 
         DatabaseModelFactoryOptions options = new(tables: [], schemas: []);
         DatabaseModel model = factory.Create(connection, options);
 
-        // Model should be valid but have no TimescaleDB-specific tables
         Assert.NotNull(model);
     }
 
@@ -1084,7 +1063,7 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
                 entity.HasNoKey();
                 entity.ToTable("Metrics");
                 entity.IsHypertable(x => x.Timestamp)
-                      .WithChunkTimeInterval("86400000"); // 1 day in milliseconds
+                      .WithChunkTimeInterval("86400000");
             });
         }
     }
@@ -1105,7 +1084,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         Assert.NotNull(metricsTable);
         Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
 
-        // Verify chunk interval is extracted
         object? chunkInterval = metricsTable[HypertableAnnotations.ChunkTimeInterval];
         Assert.NotNull(chunkInterval);
     }
@@ -1155,12 +1133,10 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         DatabaseTable? metricsTable = model.Tables.FirstOrDefault(t => t.Name == "Metrics");
         Assert.NotNull(metricsTable);
 
-        // Verify columns are preserved
         Assert.Contains(metricsTable.Columns, c => c.Name == "Timestamp");
         Assert.Contains(metricsTable.Columns, c => c.Name == "Name");
         Assert.Contains(metricsTable.Columns, c => c.Name == "Value");
 
-        // Verify TimescaleDB annotations are added
         Assert.Equal(true, metricsTable[HypertableAnnotations.IsHypertable]);
     }
 
@@ -1435,7 +1411,6 @@ public class TimescaleDatabaseModelFactoryTests : MigrationTestBase, IAsyncLifet
         Assert.Equal("hourly_metrics", hourlyTable[ContinuousAggregateAnnotations.MaterializedViewName]);
         Assert.Equal("daily_metrics", dailyTable[ContinuousAggregateAnnotations.MaterializedViewName]);
 
-        // Both should reference the same source
         Assert.Equal("Metrics", hourlyTable[ContinuousAggregateAnnotations.ParentName]);
         Assert.Equal("Metrics", dailyTable[ContinuousAggregateAnnotations.ParentName]);
     }
