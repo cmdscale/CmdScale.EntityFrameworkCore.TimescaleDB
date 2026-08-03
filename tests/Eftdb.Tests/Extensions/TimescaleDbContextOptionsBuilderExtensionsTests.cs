@@ -260,4 +260,48 @@ public class TimescaleDbContextOptionsBuilderExtensionsTests
     }
 
     #endregion
+
+    // ── TimescaleDbOptions ────────────────────────────────────────────────────
+
+    #region Should_Default_UseLegacyCompressionNames_To_False
+
+    [Fact]
+    public void Should_Default_UseLegacyCompressionNames_To_False()
+    {
+        // Arrange & Act
+        TimescaleDbOptions options = new();
+
+        // Assert
+        Assert.False(options.UseLegacyCompressionNames);
+    }
+
+    #endregion
+
+    #region Should_Set_UseLegacyCompressionNames_True_Via_UseLegacyCompressionSql
+
+    [Fact]
+    public void Should_Set_UseLegacyCompressionNames_True_Via_UseLegacyCompressionSql()
+    {
+        // Arrange
+        DbContextOptionsBuilder builder = new();
+        builder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test");
+
+        // Act
+        builder.UseTimescaleDb(o => o.UseLegacyCompressionSql());
+
+        // Assert
+        using ServiceProvider sp = builder.Options.Extensions
+            .OfType<IDbContextOptionsExtension>()
+            .Aggregate(new ServiceCollection(), (sc, ext) =>
+            {
+                ext.ApplyServices(sc);
+                return sc;
+            })
+            .BuildServiceProvider();
+
+        TimescaleDbOptions registeredOptions = sp.GetRequiredService<TimescaleDbOptions>();
+        Assert.True(registeredOptions.UseLegacyCompressionNames);
+    }
+
+    #endregion
 }

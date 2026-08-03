@@ -162,7 +162,7 @@ public class MigrationLifecycleTests : MigrationTestBase, IAsyncLifetime
                 entity.ToTable("Metrics");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp)
-                       .WithChunkTimeInterval("12 hours"); // <-- Changed from "1 day"
+                       .WithChunkTimeInterval("12 hours");
             });
         }
     }
@@ -228,7 +228,7 @@ public class MigrationLifecycleTests : MigrationTestBase, IAsyncLifetime
                 entity.ToTable("Metrics");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp)
-                       .WithChunkTimeInterval("12 hours"); // <-- Changed from "1 day"
+                       .WithChunkTimeInterval("12 hours");
             });
         }
     }
@@ -432,7 +432,7 @@ public class MigrationLifecycleTests : MigrationTestBase, IAsyncLifetime
                         "hourly_metrics",
                         "1 hour",
                         x => x.Timestamp,
-                        chunkInterval: "30 days") // <-- Changed from default "7 days"
+                        chunkInterval: "30 days")
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
             });
         }
@@ -530,7 +530,7 @@ public class MigrationLifecycleTests : MigrationTestBase, IAsyncLifetime
                         "hourly_metrics",
                         "1 hour",
                         x => x.Timestamp)
-                    .AddAggregateFunction(x => x.MaxValue, x => x.Value, EAggregateFunction.Max); // <-- Changed from Avg
+                    .AddAggregateFunction(x => x.MaxValue, x => x.Value, EAggregateFunction.Max);
             });
         }
     }
@@ -678,7 +678,7 @@ public class MigrationLifecycleTests : MigrationTestBase, IAsyncLifetime
                 entity.ToTable("Metrics");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp);
-                entity.WithReorderPolicy("metrics_time_idx", scheduleInterval: "12:00:00"); // <-- Changed from "1 day"
+                entity.WithReorderPolicy("metrics_time_idx", scheduleInterval: "12:00:00");
                 entity.HasIndex(x => x.Timestamp).HasDatabaseName("metrics_time_idx");
             });
         }

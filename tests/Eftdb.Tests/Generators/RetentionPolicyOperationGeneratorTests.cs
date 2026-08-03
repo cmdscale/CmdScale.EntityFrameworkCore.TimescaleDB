@@ -211,7 +211,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 Schema = "public",
                 TableName = "TestTable",
-                DropAfter = "14 days",        // <-- Changed from "7 days"
+                DropAfter = "14 days",
                 OldDropAfter = "7 days",
                 ScheduleInterval = "1 day",
                 OldScheduleInterval = "1 day"
@@ -244,9 +244,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 Schema = "public",
                 TableName = "TestTable",
-                DropAfter = null,                     // <-- Changed from "7 days"
+                DropAfter = null,
                 OldDropAfter = "7 days",
-                DropCreatedBefore = "30 days",        // <-- Changed from null
+                DropCreatedBefore = "30 days",
                 OldDropCreatedBefore = null,
                 ScheduleInterval = "1 day",
                 OldScheduleInterval = "1 day"
@@ -283,7 +283,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TableName = "TestTable",
                 DropAfter = "7 days",
                 OldDropAfter = "7 days",
-                InitialStart = newDate,               // <-- Changed from oldDate
+                InitialStart = newDate,
                 OldInitialStart = oldDate,
                 ScheduleInterval = "1 day",
                 OldScheduleInterval = "1 day"
@@ -366,11 +366,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 Schema = "public",
                 TableName = "TestTable",
-                DropAfter = "14 days",                // <-- Changed from "7 days"
+                DropAfter = "14 days",
                 OldDropAfter = "7 days",
-                ScheduleInterval = "2 days",          // <-- Changed from "1 day"
+                ScheduleInterval = "2 days",
                 OldScheduleInterval = "1 day",
-                MaxRetries = 5,                       // <-- Changed from default
+                MaxRetries = 5,
                 OldMaxRetries = -1,
                 RetryPeriod = "10 minutes",
                 OldRetryPeriod = "10 minutes"
@@ -409,7 +409,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldDropCreatedBefore = "30 days",
                 InitialStart = null,
                 OldInitialStart = null,
-                ScheduleInterval = "2 days",          // <-- Changed from "1 day"
+                ScheduleInterval = "2 days",
                 OldScheduleInterval = "1 day"
             };
 
@@ -444,7 +444,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldDropCreatedBefore = null,
                 InitialStart = null,
                 OldInitialStart = null,
-                MaxRuntime = "2 hours",               // <-- Changed from "1 hour"
+                MaxRuntime = "2 hours",
                 OldMaxRuntime = "1 hour",
                 ScheduleInterval = "1 day",
                 OldScheduleInterval = "1 day",
@@ -491,7 +491,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 OldMaxRuntime = "00:00:00",
                 MaxRetries = -1,
                 OldMaxRetries = -1,
-                RetryPeriod = "30 minutes",           // <-- Changed from "1 day"
+                RetryPeriod = "30 minutes",
                 OldRetryPeriod = "1 day"
             };
 

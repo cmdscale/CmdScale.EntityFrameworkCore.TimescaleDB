@@ -210,7 +210,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests
 
         public override void InsertDataOperation_throws_for_unsupported_column_types()
         {
-            // Npgsql supports most (if not all) column types from the base test
         }
 
         public override void DeleteDataOperation_all_args()

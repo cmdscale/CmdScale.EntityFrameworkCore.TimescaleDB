@@ -36,6 +36,8 @@ Seamlessly define and manage **TimescaleDB hypertables** using standard EF Core 
 - **Chunk Skipping**: Enable chunk skipping to improve query performance on specific columns.
 - **Compression Segment By**: Define columns to group compressed data by, allowing efficient access to specific segments without decompressing entire chunks.
 - **Compression Order By**: Specify the sort order within compressed segments, with support for ascending/descending direction and NULLS FIRST/LAST positioning.
+- **Sparse Indexes**: Configure bloom-filter or min/max sparse indexes on the hypertable's columnstore via a type-safe fluent API (`.WithSparseIndex(s => s.Bloom(x => x.Col), s => s.MinMax(x => x.Col))`) or the `[SparseIndex]` attribute (allowMultiple). Use `.WithoutAutoSparseIndexes()` or `DisableAutoSparseIndexes = true` on `[Hypertable]` to suppress auto-generated indexes.
+- **Compress Chunk Time Interval**: Set `compress_chunk_time_interval` via `.WithCompressChunkTimeInterval("7 days")` or the `CompressChunkTimeInterval` property on `[Hypertable]` to control the minimum age of a chunk before the compression policy will compress it.
 
 ### Reorder Policies
 

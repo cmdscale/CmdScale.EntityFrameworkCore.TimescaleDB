@@ -21,9 +21,7 @@ public class TimescaleDbCodeGeneratorTests
     [Fact]
     public void Should_Chain_UseTimescaleDb_After_UseNpgsql()
     {
-        // Arrange — mimic the EF tooling DI container so the test exercises the same
-        // resolution path as `dotnet ef dbcontext scaffold`. This also confirms that
-        // TimescaleDBDesignTimeServices wins over the Npgsql default registration.
+        // Arrange
         ServiceCollection services = new();
         new TimescaleDBDesignTimeServices().ConfigureDesignTimeServices(services);
 
@@ -33,7 +31,7 @@ public class TimescaleDbCodeGeneratorTests
         // Act
         MethodCallCodeFragment fragment = generator.GenerateUseProvider(ConnectionString, providerOptions: null);
 
-        // Assert — head call must remain UseNpgsql; chained call must be UseTimescaleDb.
+        // Assert
         Assert.Equal("UseNpgsql", fragment.Method);
         Assert.NotNull(fragment.ChainedCall);
         Assert.Equal("UseTimescaleDb", fragment.ChainedCall!.Method);
@@ -54,7 +52,7 @@ public class TimescaleDbCodeGeneratorTests
         using ServiceProvider provider = services.BuildServiceProvider();
         IProviderConfigurationCodeGenerator generator = provider.GetRequiredService<IProviderConfigurationCodeGenerator>();
 
-        // Assert — the Eftdb.Design registration must replace Npgsql's default.
+        // Assert
         Assert.IsType<TimescaleDbCodeGenerator>(generator);
     }
 
@@ -65,8 +63,7 @@ public class TimescaleDbCodeGeneratorTests
     [Fact]
     public void Should_Chain_UseTimescaleDb_When_Npgsql_Defaults_Are_Pre_Registered()
     {
-        // Arrange — register Npgsql defaults first so the test confirms registration
-        // order does not matter: TimescaleDBDesignTimeServices must still take over.
+        // Arrange
         ServiceCollection services = new();
 #pragma warning disable EF1001
         new NpgsqlDesignTimeServices().ConfigureDesignTimeServices(services);

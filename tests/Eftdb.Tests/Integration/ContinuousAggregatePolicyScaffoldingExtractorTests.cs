@@ -245,7 +245,6 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
                     true,
                     "7 days")
                     .AddAggregateFunction(cagg => cagg.AverageValue, source => source.Value, EAggregateFunction.Avg);
-                // No WithRefreshPolicy call
             });
         }
     }

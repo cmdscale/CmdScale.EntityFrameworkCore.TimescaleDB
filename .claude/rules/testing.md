@@ -34,13 +34,20 @@ public async Task Should_Detect_New_Hypertable() { /* ... */ }
 
 - `InitialContext` — represents the "before" model state
 - `ModifiedContext` — represents the "after" model state with changes
-- Comment changed values with `// <-- Changed from <original value>`
 
 ## Test Structure (AAA)
 
 1. **Arrange:** Create initial migration, apply to database
 2. **Act:** Diff `InitialContext` vs `ModifiedContext` to produce operations
 3. **Assert:** Verify generated operations match expected changes
+
+## Comments
+
+Comments are for navigation, never explanation. If a test needs an explanatory comment, it is not a good test — make the test plainer instead.
+
+- Allowed: XML doc `<summary>` on test classes, bare AAA markers (`// Arrange`, `// Act`, `// Assert`, bare combinations like `// Act & Assert`), thin `// ── Title ──` dividers, `#region`/`#endregion`
+- Forbidden: explanatory text on or under AAA markers, comments in test-data setup (model classes, `OnModelCreating`), trailing explanations after code lines (including `// <-- Changed from <value>` delta markers), `//`-comment banners above test classes or methods
+- Shared test infrastructure (base classes, fixtures) may carry a comment only for a genuine non-obvious constraint the code cannot express
 
 ## Integration Tests
 

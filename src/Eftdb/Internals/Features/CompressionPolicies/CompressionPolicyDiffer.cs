@@ -4,6 +4,17 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.CompressionPolicies
 {
+    /// <summary>
+    /// Compares compression policy annotations between source and target EF Core models and
+    /// produces the migration operations required to bring the source state to the target state.
+    /// </summary>
+    /// <remarks>
+    /// This differ is purely annotation-driven and never reads from the database. It operates
+    /// exclusively on EF metadata supplied by <see cref="CompressionPolicyModelExtractor"/>.
+    /// Server-side policies that were not modelled in EF Core (including any auto-created default
+    /// policies that a future TimescaleDB version might generate) are invisible to this differ and
+    /// never produce spurious migration operations.
+    /// </remarks>
     public class CompressionPolicyDiffer : IFeatureDiffer
     {
         public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)

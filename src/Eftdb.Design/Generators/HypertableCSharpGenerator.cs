@@ -42,6 +42,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
 
             if (operation.CompressionOrderBy is { Count: > 0 })
                 call.Arg("compressionOrderBy", CSharpGeneratorHelper.LiteralStringList(code, operation.CompressionOrderBy));
+
+            if (operation.CompressionSparseIndex != null)
+                call.Arg("compressionSparseIndex", code.Literal(operation.CompressionSparseIndex));
+
+            if (!string.IsNullOrEmpty(operation.CompressChunkTimeInterval))
+                call.Arg("compressChunkTimeInterval", code.Literal(operation.CompressChunkTimeInterval));
         }
 
         public void Generate(AlterHypertableOperation operation, IndentedStringBuilder builder)
@@ -71,6 +77,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
             if (operation.CompressionOrderBy is { Count: > 0 })
                 call.Arg("compressionOrderBy", CSharpGeneratorHelper.LiteralStringList(code, operation.CompressionOrderBy));
 
+            if (operation.CompressionSparseIndex != null)
+                call.Arg("compressionSparseIndex", code.Literal(operation.CompressionSparseIndex));
+
+            if (!string.IsNullOrEmpty(operation.CompressChunkTimeInterval))
+                call.Arg("compressChunkTimeInterval", code.Literal(operation.CompressChunkTimeInterval));
+
             // Old* values — emitted for Down() reversibility, only when non-default.
             if (!string.IsNullOrEmpty(operation.OldChunkTimeInterval))
                 call.Arg("oldChunkTimeInterval", code.Literal(operation.OldChunkTimeInterval));
@@ -89,6 +101,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
 
             if (operation.OldCompressionOrderBy is { Count: > 0 })
                 call.Arg("oldCompressionOrderBy", CSharpGeneratorHelper.LiteralStringList(code, operation.OldCompressionOrderBy));
+
+            if (operation.OldCompressionSparseIndex != null)
+                call.Arg("oldCompressionSparseIndex", code.Literal(operation.OldCompressionSparseIndex));
+
+            if (!string.IsNullOrEmpty(operation.OldCompressChunkTimeInterval))
+                call.Arg("oldCompressChunkTimeInterval", code.Literal(operation.OldCompressChunkTimeInterval));
         }
 
         // Writes the dimension list directly into the builder so each entry is on its own

@@ -256,7 +256,6 @@ public class ContinuousAggregatePolicyBuilderTests
     [InlineData(-100)]
     public void WithBucketsPerBatch_Should_Throw_When_LessThan_One(int bucketsPerBatch)
     {
-        // Build a real context and builder to call WithBucketsPerBatch on
         MetricSource5 dummySource = new();
         Assert.Throws<ArgumentException>(() =>
         {
@@ -1354,7 +1353,7 @@ public class ContinuousAggregatePolicyBuilderTests
     [InlineData(-1)]
     public void StringBuilder_WithBucketsPerBatch_Should_Throw_When_Zero(int bucketsPerBatch)
     {
-        // Arrange, Act, Assert
+        // Arrange / Act / Assert
         Assert.Throws<ArgumentException>(() =>
         {
             using StringBuilderBucketsPerBatchInvalidContext23 context = new(bucketsPerBatch);
@@ -1410,7 +1409,7 @@ public class ContinuousAggregatePolicyBuilderTests
     [InlineData(-100)]
     public void StringBuilder_WithMaxBatchesPerExecution_Should_Throw_When_Negative(int maxBatches)
     {
-        // Arrange, Act, Assert
+        // Arrange / Act / Assert
         Assert.Throws<ArgumentException>(() =>
         {
             using StringBuilderMaxBatchesNegativeContext24 context = new(maxBatches);

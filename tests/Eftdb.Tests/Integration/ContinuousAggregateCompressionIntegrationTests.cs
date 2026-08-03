@@ -451,7 +451,6 @@ public class ContinuousAggregateCompressionIntegrationTests : MigrationTestBase,
                     "1 hour",
                     x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
-                // No .WithCompression(true) <-- Removed
 
                 entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
             });
@@ -556,7 +555,7 @@ public class ContinuousAggregateCompressionIntegrationTests : MigrationTestBase,
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
                     .WithCompression(true)
                     .WithRefreshPolicy(startOffset: "3 hours", endOffset: "1 hour", scheduleInterval: "1 hour");
-                entity.WithCompressionPolicy(after: "7 days"); // <-- Added
+                entity.WithCompressionPolicy(after: "7 days");
 
                 entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
             });

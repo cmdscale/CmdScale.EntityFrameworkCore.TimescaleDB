@@ -462,7 +462,6 @@ public class ScaffoldedModelRenderingTests
         ScaffoldedModel result = Generate(context, useDataAnnotations: false);
         string code = result.ContextFile.Code;
 
-        // Policy renderer must not emit .WithRefreshPolicy() because the CA renderer failed.
         Assert.DoesNotContain(".WithRefreshPolicy(", code);
     }
 

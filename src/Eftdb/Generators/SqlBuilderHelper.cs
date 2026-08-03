@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
 using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
@@ -88,29 +87,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             return string.Join('\n', lines);
         }
 
-        public static void BuildQueryString(List<string> statements, IndentedStringBuilder builder, bool suppressTransaction = false)
-        {
-            if (statements.Count > 0)
-            {
-                builder.AppendLine(".Sql(@\"");
-                using (builder.Indent())
-                {
-                    foreach (string statement in statements)
-                    {
-                        builder.AppendLines(statement, skipFinalNewline: false);
-                    }
-                }
-                if (suppressTransaction)
-                {
-                    builder.Append("\", suppressTransaction: true)");
-                }
-                else
-                {
-                    builder.Append("\")");
-                }
-            }
-        }
-
         public static string Regclass(string tableName, string schema = DefaultValues.DefaultSchema)
         {
             return $"'{schema}.{quoteString}{tableName}{quoteString}'";
@@ -127,7 +103,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// </summary>
         public static string QuoteIdentifier(string identifier) => $"\"{identifier}\"";
 
-        // TODO: Is this being generated inside a .Sql() call or in exxtension method in the migration? Also, what about scaffolding?
         /// <summary>
         /// Wraps SQL statements in a Community Edition license-guard DO block. Statements execute
         /// only when the TimescaleDB license is not <c>apache</c>; otherwise the supplied warning

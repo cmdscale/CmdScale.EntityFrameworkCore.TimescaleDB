@@ -9,8 +9,13 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Migrations;
 namespace CmdScale.EntityFrameworkCore.TimescaleDB
 {
 #pragma warning disable EF1001
-    public class TimescaleDbMigrationsSqlGenerator(MigrationsSqlGeneratorDependencies dependencies, INpgsqlSingletonOptions npgsqlSingletonOptions) : NpgsqlMigrationsSqlGenerator(dependencies, npgsqlSingletonOptions)
+    public class TimescaleDbMigrationsSqlGenerator(
+        MigrationsSqlGeneratorDependencies dependencies,
+        INpgsqlSingletonOptions npgsqlSingletonOptions,
+        TimescaleDbOptions? timescaleDbOptions = null) : NpgsqlMigrationsSqlGenerator(dependencies, npgsqlSingletonOptions)
     {
+        private readonly bool _useLegacyCompressionNames = timescaleDbOptions?.UseLegacyCompressionNames ?? false;
+
         protected override void Generate(
             MigrationOperation operation,
             IModel? model,
@@ -22,11 +27,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             switch (operation)
             {
                 case CreateHypertableOperation hypertableOperation:
-                    statements = HypertableSqlGenerator.Generate(hypertableOperation);
+                    statements = HypertableSqlGenerator.Generate(hypertableOperation, _useLegacyCompressionNames);
                     break;
 
                 case AlterHypertableOperation alterHypertableOperation:
-                    statements = HypertableSqlGenerator.Generate(alterHypertableOperation);
+                    statements = HypertableSqlGenerator.Generate(alterHypertableOperation, _useLegacyCompressionNames);
                     break;
 
                 case AlterReorderPolicyOperation alterReorderPolicyOperation:
@@ -54,24 +59,24 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     break;
 
                 case AddCompressionPolicyOperation addCompressionPolicyOperation:
-                    statements = CompressionPolicySqlGenerator.Generate(addCompressionPolicyOperation);
+                    statements = CompressionPolicySqlGenerator.Generate(addCompressionPolicyOperation, _useLegacyCompressionNames);
                     break;
 
                 case AlterCompressionPolicyOperation alterCompressionPolicyOperation:
-                    statements = CompressionPolicySqlGenerator.Generate(alterCompressionPolicyOperation);
+                    statements = CompressionPolicySqlGenerator.Generate(alterCompressionPolicyOperation, _useLegacyCompressionNames);
                     break;
 
                 case DropCompressionPolicyOperation dropCompressionPolicyOperation:
-                    statements = CompressionPolicySqlGenerator.Generate(dropCompressionPolicyOperation);
+                    statements = CompressionPolicySqlGenerator.Generate(dropCompressionPolicyOperation, _useLegacyCompressionNames);
                     break;
 
                 case CreateContinuousAggregateOperation createContinuousAggregateOperation:
-                    statements = ContinuousAggregateSqlGenerator.Generate(createContinuousAggregateOperation);
+                    statements = ContinuousAggregateSqlGenerator.Generate(createContinuousAggregateOperation, _useLegacyCompressionNames);
                     suppressTransaction = true;
                     break;
 
                 case AlterContinuousAggregateOperation alterContinuousAggregateOperation:
-                    statements = ContinuousAggregateSqlGenerator.Generate(alterContinuousAggregateOperation);
+                    statements = ContinuousAggregateSqlGenerator.Generate(alterContinuousAggregateOperation, _useLegacyCompressionNames);
                     break;
 
                 case DropContinuousAggregateOperation dropContinuousAggregateOperation:

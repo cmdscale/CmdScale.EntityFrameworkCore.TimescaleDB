@@ -368,7 +368,6 @@ public class HypertableModelExtractorTests
         Assert.NotNull(operation.CompressionSegmentBy);
         Assert.Single(operation.CompressionSegmentBy);
         Assert.Equal("TenantId", operation.CompressionSegmentBy[0]);
-        // Compression should be enabled implicitly
         Assert.True(operation.EnableCompression);
     }
 
@@ -419,7 +418,6 @@ public class HypertableModelExtractorTests
         Assert.NotNull(operation.CompressionOrderBy);
         Assert.Equal(2, operation.CompressionOrderBy.Count);
 
-        // Verify formatted strings
         Assert.Equal("Timestamp DESC", operation.CompressionOrderBy[0]);
         Assert.Equal("Value NULLS FIRST", operation.CompressionOrderBy[1]);
 
@@ -472,12 +470,9 @@ public class HypertableModelExtractorTests
         Assert.Single(operations);
         CreateHypertableOperation operation = operations[0];
 
-        // Verify SegmentBy (TenantId -> tenant_id)
         Assert.NotNull(operation.CompressionSegmentBy);
         Assert.Equal("tenant_id", operation.CompressionSegmentBy[0]);
 
-        // Verify OrderBy (SensorValue -> sensor_value)
-        // This confirms the complex parsing logic in Extractor works (Split -> Resolve -> Rebuild)
         Assert.NotNull(operation.CompressionOrderBy);
         Assert.Equal("sensor_value DESC", operation.CompressionOrderBy[0]);
     }
@@ -508,7 +503,6 @@ public class HypertableModelExtractorTests
                 entity.HasNoKey();
                 entity.ToTable("Metrics");
 
-                // Explicitly map properties to different column names
                 entity.Property(x => x.TenantId).HasColumnName("tid");
                 entity.Property(x => x.SensorValue).HasColumnName("val");
 
@@ -532,11 +526,9 @@ public class HypertableModelExtractorTests
         Assert.Single(operations);
         CreateHypertableOperation operation = operations[0];
 
-        // Verify SegmentBy used explicit name "tid"
         Assert.NotNull(operation.CompressionSegmentBy);
         Assert.Equal("tid", operation.CompressionSegmentBy[0]);
 
-        // Verify OrderBy used explicit name "val"
         Assert.NotNull(operation.CompressionOrderBy);
         Assert.Equal("val DESC", operation.CompressionOrderBy[0]);
     }
@@ -1403,7 +1395,6 @@ public class HypertableModelExtractorTests
                 entity.HasNoKey();
                 entity.ToTable("metrics");
 
-                // Annotations carry resolved column names (snake_case), mimicking scaffolder output.
                 entity.HasAnnotation(HypertableAnnotations.IsHypertable, true);
                 entity.HasAnnotation(HypertableAnnotations.HypertableTimeColumn, "time");
                 entity.HasAnnotation(HypertableAnnotations.ChunkSkipColumns, "device_id,location");
@@ -1457,7 +1448,6 @@ public class HypertableModelExtractorTests
                 entity.HasNoKey();
                 entity.ToTable("metrics");
 
-                // Dimensions JSON carries resolved column names (snake_case), as the scaffolder produces.
                 List<Dimension> dimensions = [
                     Dimension.CreateHash("device_id", 4),
                     Dimension.CreateRange("location", "1000")

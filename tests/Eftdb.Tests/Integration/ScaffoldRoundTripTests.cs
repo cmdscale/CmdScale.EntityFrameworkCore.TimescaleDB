@@ -246,10 +246,6 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
             SuppressOnConfiguring = suppressOnConfiguring
         };
 
-    /// <summary>
-    /// Scaffolds the database into an <see cref="IModel"/> (via <see cref="IScaffoldingModelFactory"/>)
-    /// and also renders the model to a <see cref="ScaffoldedModel"/> for Roslyn compilation.
-    /// </summary>
     private static (IModel Model, ScaffoldedModel ScaffoldedCode) ScaffoldDatabase(
         string connectionString,
         bool useDataAnnotations,
@@ -272,11 +268,6 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
         return (model, scaffoldedCode);
     }
 
-    /// <summary>
-    /// Loads the compiled assembly from Roslyn PE bytes, instantiates
-    /// <c>RoundTripScaffold.RoundTripDbContext</c> with options pointing at
-    /// <paramref name="connectionString"/>, and applies the migration pipeline to create the schema.
-    /// </summary>
     private static async Task ApplyCompiledContextToDatabase(byte[] peBytes, string connectionString)
     {
         Assembly compiledAssembly = Assembly.Load(peBytes);
@@ -294,11 +285,6 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
         }
     }
 
-    /// <summary>
-    /// Queries a single row for <paramref name="viewName"/> from
-    /// <c>timescaledb_information.continuous_aggregates</c> joined to the materialization
-    /// hypertable dimensions, and returns the relevant fields.
-    /// </summary>
     private static async Task<(string ViewDefinition, bool MaterializedOnly, string? ChunkInterval)>
         QueryContinuousAggregateInfoAsync(string connectionString, string viewName)
     {
@@ -334,10 +320,6 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
         return (viewDefinition, materializedOnly, chunkInterval);
     }
 
-    /// <summary>
-    /// Queries the refresh-policy job parameters for the continuous aggregate identified by
-    /// <paramref name="viewName"/> from <c>timescaledb_information.jobs</c>.
-    /// </summary>
     private static async Task<(string? StartOffset, string? EndOffset, string ScheduleInterval)>
         QueryCaRefreshPolicyAsync(string connectionString, string viewName)
     {
@@ -367,10 +349,6 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
         return (startOffset, endOffset, scheduleInterval);
     }
 
-    /// <summary>
-    /// Queries the drop-after retention policy on the continuous aggregate view identified by
-    /// <paramref name="viewName"/>. Retention on a CA targets its materialized hypertable.
-    /// </summary>
     private static async Task<string?> QueryCaRetentionDropAfterAsync(
         string connectionString, string viewName)
     {
@@ -396,9 +374,6 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
         return reader.IsDBNull(0) ? null : reader.GetString(0);
     }
 
-    /// <summary>
-    /// Compiles all files from a <see cref="ScaffoldedModel"/> with Roslyn and asserts zero errors.
-    /// </summary>
     private static byte[] CompileAndAssertNoErrors(ScaffoldedModel scaffolded, string label)
     {
         IEnumerable<string> trustedPlatformAssemblies =
@@ -448,11 +423,6 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
 
     // ── Differ assertion helpers ──────────────────────────────────────────────
 
-    /// <summary>
-    /// Runs all five feature differs between two relational models and asserts zero operations
-    /// in both directions. A non-zero result is reported with operation types and table names
-    /// so a failing test is self-diagnosing.
-    /// </summary>
     private static void AssertZeroDiff(
         IRelationalModel source,
         IRelationalModel target,

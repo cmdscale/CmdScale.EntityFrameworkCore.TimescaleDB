@@ -42,40 +42,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         [Fact]
-        public void BuildQueryString_IndentedStringBuilder_WritesCorrectCSharpSql()
-        {
-            // Arrange
-            List<string> statements = ["SELECT 1;", "SELECT 2;"];
-            IndentedStringBuilder indentedBuilder = new();
-            string expected = @".Sql(@""
-                SELECT 1;
-                SELECT 2;
-            "")";
-
-            // Act
-            SqlBuilderHelper.BuildQueryString(statements, indentedBuilder);
-            string result = indentedBuilder.ToString();
-
-            // Assert
-            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
-        }
-
-        [Fact]
-        public void BuildQueryString_IndentedStringBuilder_WritesNothingForEmptyList()
-        {
-            // Arrange
-            List<string> statements = [];
-            IndentedStringBuilder indentedBuilder = new();
-
-            // Act
-            SqlBuilderHelper.BuildQueryString(statements, indentedBuilder);
-            string result = indentedBuilder.ToString();
-
-            // Assert
-            Assert.Empty(result);
-        }
-
-        [Fact]
         public void BuildQueryString_MigrationCommandListBuilder_AppendsAndEndsCommands()
         {
             // Arrange
@@ -145,25 +111,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             Assert.Equal(input, result);
-        }
-
-        #endregion
-
-        #region BuildQueryString_IndentedStringBuilder_SuppressTransaction_True
-
-        [Fact]
-        public void BuildQueryString_IndentedStringBuilder_SuppressTransaction_True()
-        {
-            // Arrange
-            List<string> statements = ["SELECT 1;"];
-            IndentedStringBuilder indentedBuilder = new();
-
-            // Act
-            SqlBuilderHelper.BuildQueryString(statements, indentedBuilder, suppressTransaction: true);
-            string result = indentedBuilder.ToString();
-
-            // Assert
-            Assert.Contains("suppressTransaction: true", result);
         }
 
         #endregion

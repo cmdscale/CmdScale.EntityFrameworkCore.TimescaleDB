@@ -408,7 +408,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
                 entity.IsHypertable(e => e.Time);
                 entity.WithReorderPolicy(
                     indexName: "metrics_schedule_interval_time_idx",
-                    scheduleInterval: "12 hours"  // <-- Changed from "1 day"
+                    scheduleInterval: "12 hours"
                 );
                 entity.HasIndex(e => new { e.Time, e.Id })
                       .HasDatabaseName("metrics_schedule_interval_time_idx");
@@ -497,7 +497,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
                 entity.IsHypertable(e => e.Time);
                 entity.WithReorderPolicy(
                     indexName: "metrics_max_runtime_time_idx",
-                    maxRuntime: "00:15:00"  // <-- Changed from "00:30:00"
+                    maxRuntime: "00:15:00"
                 );
                 entity.HasIndex(e => new { e.Time, e.Id })
                       .HasDatabaseName("metrics_max_runtime_time_idx");
@@ -584,7 +584,7 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
                 entity.IsHypertable(e => e.Time);
                 entity.WithReorderPolicy(
                     indexName: "metrics_max_retries_time_idx",
-                    maxRetries: 5  // <-- Changed from 3
+                    maxRetries: 5
                 );
                 entity.HasIndex(e => new { e.Time, e.Id })
                       .HasDatabaseName("metrics_max_retries_time_idx");
@@ -673,9 +673,9 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
                 entity.IsHypertable(e => e.Time);
                 entity.WithReorderPolicy(
                     indexName: "metrics_multiple_params_time_idx",
-                    scheduleInterval: "12 hours",  // <-- Changed from "1 day"
-                    maxRuntime: "00:15:00",  // <-- Changed from "00:30:00"
-                    maxRetries: 5  // <-- Changed from 3
+                    scheduleInterval: "12 hours",
+                    maxRuntime: "00:15:00",
+                    maxRetries: 5
                 );
                 entity.HasIndex(e => new { e.Time, e.Id })
                       .HasDatabaseName("metrics_multiple_params_time_idx");
@@ -762,7 +762,6 @@ public class ReorderPolicyIntegrationTests : IAsyncLifetime
                 entity.ToTable("metrics_drop_policy");
                 entity.HasKey(e => new { e.Time, e.Id });
                 entity.IsHypertable(e => e.Time);
-                // <-- Reorder policy removed
                 entity.HasIndex(e => new { e.Time, e.Id })
                       .HasDatabaseName("metrics_drop_policy_time_idx");
             });

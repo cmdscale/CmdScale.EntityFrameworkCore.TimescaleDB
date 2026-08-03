@@ -264,11 +264,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TableName = "sensor_data",
                 Schema = "public",
                 IndexName = "sensor_data_idx",
-                OldIndexName = "sensor_data_idx", // Same index name
+                OldIndexName = "sensor_data_idx",
                 InitialStart = null,
-                OldInitialStart = null, // Same initial start
+                OldInitialStart = null,
                 ScheduleInterval = "1 day",
-                OldScheduleInterval = "4 days" // Different schedule interval
+                OldScheduleInterval = "4 days"
             };
 
             // Act
@@ -371,7 +371,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 CreateGroupIndexes = true,
                 OldCreateGroupIndexes = true,
                 MaterializedOnly = true,
-                OldMaterializedOnly = false // Changed from false to true
+                OldMaterializedOnly = false
             };
 
             // Act
@@ -401,7 +401,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 ChunkInterval = null,
                 OldChunkInterval = null,
                 CreateGroupIndexes = false,
-                OldCreateGroupIndexes = true, // Changed from true to false
+                OldCreateGroupIndexes = true,
                 MaterializedOnly = false,
                 OldMaterializedOnly = false
             };
@@ -704,7 +704,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TableName = "sensor_data",
                 Schema = "public",
                 DropAfter = "60 days",
-                OldDropAfter = "30 days" // <-- Changed from 30 days
+                OldDropAfter = "30 days"
             };
 
             // Act
@@ -733,9 +733,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 TableName = "sensor_data",
                 Schema = "public",
                 DropAfter = "30 days",
-                OldDropAfter = "30 days", // Same drop_after
+                OldDropAfter = "30 days",
                 ScheduleInterval = "1 day",
-                OldScheduleInterval = "4 days" // <-- Changed from 4 days
+                OldScheduleInterval = "4 days"
             };
 
             // Act

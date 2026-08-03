@@ -19,6 +19,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
                    .WithCompressionOrderBy(
                        s => s.By(x => x.SensorId),
                        s => s.ByDescending(x => x.RecordedAt))
+                   .WithSparseIndex(s => s.Bloom(x => x.Site), s => s.MinMax(x => x.Value))
+                   .WithCompressChunkTimeInterval("7 days")
                    .WithCompressionPolicy(after: "7 days", scheduleInterval: "12 hours");
         }
     }

@@ -598,11 +598,10 @@ public class ContinuousAggregatePolicyConventionTests
         IEntityType entityType = model.FindEntityType(typeof(AggregateEntity12))!;
 
         // Assert
-        // Default values should not have annotations
-        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.IfNotExists)); // Default is false
-        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.BucketsPerBatch)); // Default is 1
-        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.MaxBatchesPerExecution)); // Default is 0
-        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.RefreshNewestFirst)); // Default is true
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.IfNotExists));
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.BucketsPerBatch));
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.MaxBatchesPerExecution));
+        Assert.Null(entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.RefreshNewestFirst));
     }
 
     #endregion
@@ -795,7 +794,6 @@ public class ContinuousAggregatePolicyConventionTests
         public double Value { get; set; }
     }
 
-    // Note: Missing [ContinuousAggregate] attribute
     [ContinuousAggregatePolicy(StartOffset = "1 month", EndOffset = "1 hour", ScheduleInterval = "1 hour")]
     private class AggregateEntity14
     {
@@ -839,11 +837,7 @@ public class ContinuousAggregatePolicyConventionTests
         IEntityType entityType = model.FindEntityType(typeof(AggregateEntity14))!;
 
         // Assert
-        // The policy annotation should be applied even without ContinuousAggregate attribute
-        // This is because the convention processes the attribute independently
         Assert.Equal(true, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy)?.Value);
-
-        // However, the entity won't be recognized as a continuous aggregate without the ContinuousAggregate attribute
         Assert.Null(entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName));
     }
 

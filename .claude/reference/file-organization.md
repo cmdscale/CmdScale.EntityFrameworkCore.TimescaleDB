@@ -23,6 +23,9 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Configuration/Hypertable/HypertableAttribute.cs` | Data annotation |
 | `Configuration/Hypertable/DimensionAttribute.cs` | Data annotation for additional partitioning dimensions |
 | `Configuration/Hypertable/HypertableConvention.cs` | Convention processing |
+| `Configuration/Hypertable/SparseIndex.cs` | `SparseIndex` value type and `SparseIndexSelector<TEntity>` typed fluent builder |
+| `Configuration/Hypertable/SparseIndexAttribute.cs` | `[SparseIndex]` data annotation (AllowMultiple); also `DisableAutoSparseIndexes` on `[Hypertable]` |
+| `Configuration/Hypertable/SparseIndexValidationConvention.cs` | IModelFinalizedConvention that validates sparse index entries (bloom/minmax arity, segmentby/orderby prerequisites, duplicates) |
 | `Internals/Features/Hypertables/HypertableDiffer.cs` | Diffing logic |
 | `Internals/Features/Hypertables/HypertableModelExtractor.cs` | Model extraction |
 | `Generators/HypertableSqlGenerator.cs` | Runtime SQL generation |
@@ -149,9 +152,12 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Generators/PolicyJobSqlBuilder.cs` | Shared `alter_job` clause builder for policies |
 | `Configuration/TimeColumnStoreTypeValidationConvention.cs` | Model-finalized validation of hypertable & continuous-aggregate time-column store types |
 | `Internals/TimeColumnStoreTypeValidator.cs` | Allowed PostgreSQL store types for a TimescaleDB time dimension |
+| `Internals/ExpressionHelper.cs` | Shared helper consolidating CLR property-name extraction from lambda expressions |
 | `DefaultValues.cs` | Centralized defaults |
+| `TimescaleDbOptions.cs` | Provider options: `UseLegacyCompressionSql()` for pre-2.18 compatibility |
 | `Abstractions/Dimension.cs` | Range/hash partitioning |
 | `Abstractions/EAggregateFunction.cs` | Aggregate function enum |
+| `Abstractions/ESparseIndexType.cs` | Sparse index kind enum (`Bloom`, `MinMax`) |
 | `Abstractions/ContinuousAggregateFunction.cs` | Typed aggregate-function value |
 
 ## Design Library Key Files
@@ -209,7 +215,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Scaffolding/ContinuousAggregatePolicyAnnotationApplier.cs` | Apply continuous aggregate policy annotations |
 | `Scaffolding/CompressionPolicyScaffoldingExtractor.cs` | Query compression policies from `timescaledb_information.jobs` joined with `_timescaledb_config.bgw_job` for timezone |
 | `Scaffolding/CompressionPolicyAnnotationApplier.cs` | Apply compression policy annotations; suppresses default schedule intervals to avoid phantom migrations |
-| `Scaffolding/CompressionSettingsScaffoldingHelper.cs` | Shared helper that reads `timescaledb_information.compression_settings`; used by both the hypertable and continuous-aggregate scaffolding extractors |
+| `Scaffolding/CompressionSettingsScaffoldingHelper.cs` | Shared helper that reads `timescaledb_information.hypertable_columnstore_settings` (2.18+) with fallback to `compression_settings` (pre-2.18); used by both the hypertable and continuous-aggregate scaffolding extractors |
 | `Scaffolding/IntervalParsingHelper.cs` | Parses and normalizes PostgreSQL interval strings (e.g. `"01:00:00"` → `"1 hour"`) and integer offsets |
 | `Scaffolding/ViewDefinitionParser.cs` | Parses continuous aggregate view SQL to extract structured configuration for code generation |
 | `build/CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets` | MSBuild integration |

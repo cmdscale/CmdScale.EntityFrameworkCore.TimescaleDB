@@ -8,7 +8,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         private const string CommunityWarning = "Skipping Community Edition features (compression) - not available in Apache Edition";
         private const string AlterDdl = "ALTER MATERIALIZED VIEW";
 
-        public static List<string> Generate(CreateContinuousAggregateOperation operation)
+        public static List<string> Generate(CreateContinuousAggregateOperation operation, bool useLegacyCompressionNames = false)
         {
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
             string parentQualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.ParentName, operation.Schema);
@@ -54,7 +54,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                     operation.CompressionSegmentBy,
                     operation.CompressionOrderBy,
                     AlterDdl,
-                    CommunityWarning);
+                    CommunityWarning,
+                    useLegacyCompressionNames);
 
                 return statements;
             }
@@ -177,12 +178,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 operation.CompressionSegmentBy,
                 operation.CompressionOrderBy,
                 AlterDdl,
-                CommunityWarning);
+                CommunityWarning,
+                useLegacyCompressionNames);
 
             return statements;
         }
 
-        public static List<string> Generate(AlterContinuousAggregateOperation operation)
+        public static List<string> Generate(AlterContinuousAggregateOperation operation, bool useLegacyCompressionNames = false)
         {
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
             List<string> statements = [];
@@ -227,7 +229,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 operation.CompressionOrderBy,
                 operation.OldEnableCompression,
                 operation.OldCompressionSegmentBy,
-                operation.OldCompressionOrderBy);
+                operation.OldCompressionOrderBy,
+                useLegacyCompressionNames);
 
             if (compressionSettings.Count > 0)
             {

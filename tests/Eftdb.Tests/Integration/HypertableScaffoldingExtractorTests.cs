@@ -216,10 +216,8 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Assert.Single(result);
         HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
 
-        // Compression should be enabled
         Assert.True(info.CompressionEnabled);
 
-        // SegmentBy list should contain "TenantId"
         Assert.Single(info.CompressionSegmentBy);
         Assert.Equal("TenantId", info.CompressionSegmentBy[0]);
     }
@@ -247,7 +245,6 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
             {
                 entity.HasNoKey();
                 entity.ToTable("Metrics");
-                // "Timestamp DESC", "Value ASC NULLS FIRST"
                 entity.IsHypertable(x => x.Timestamp)
                       .WithCompressionOrderBy(s => [
                           s.ByDescending(x => x.Timestamp),
@@ -274,9 +271,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
 
         Assert.Equal(2, info.CompressionOrderBy.Count);
 
-        // Extractor reconstructs the string: "ColumnName [ASC|DESC] [NULLS FIRST|LAST]"
         Assert.Equal("Timestamp DESC", info.CompressionOrderBy[0]);
-        // Note: Default for ASC is usually NULLS LAST in Postgres, but if we set NULLS FIRST explicitly:
         Assert.Equal("Value ASC NULLS FIRST", info.CompressionOrderBy[1]);
     }
 
@@ -324,13 +319,10 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Assert.Single(result);
         HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
 
-        // SegmentBy
         Assert.Single(info.CompressionSegmentBy);
         Assert.Equal("DeviceId", info.CompressionSegmentBy[0]);
 
-        // OrderBy
         Assert.Single(info.CompressionOrderBy);
-        // Postgres default for DESC is NULLS FIRST, extractor logic appends what it reads
         Assert.Contains("Timestamp DESC", info.CompressionOrderBy[0]);
     }
 
@@ -532,13 +524,13 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
 
         HypertableScaffoldingExtractor extractor = new();
         await using NpgsqlConnection connection = new(_connectionString);
-        connection.Open(); // Explicitly open before extraction
+        connection.Open();
 
         // Act
         Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
 
         // Assert
-        Assert.Equal(System.Data.ConnectionState.Open, connection.State); // Connection should still be open
+        Assert.Equal(System.Data.ConnectionState.Open, connection.State);
         Assert.Single(result);
     }
 
@@ -579,10 +571,10 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         HypertableScaffoldingExtractor extractor = new();
         await using NpgsqlConnection connection = new(_connectionString);
 
-        // Act - Pass closed connection
+        // Act
         Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
 
-        // Assert - Connection should be closed after extraction
+        // Assert
         Assert.Equal(System.Data.ConnectionState.Closed, connection.State);
         Assert.Single(result);
     }
@@ -610,7 +602,6 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
             {
                 entity.HasNoKey();
                 entity.ToTable("Metrics");
-                // No compression enabled
                 entity.IsHypertable(x => x.Timestamp);
             });
         }
@@ -656,7 +647,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
                 entity.HasNoKey();
                 entity.ToTable("Metrics");
                 entity.IsHypertable(x => x.Timestamp)
-                      .EnableCompression(); // Compression enabled but no chunk skip columns
+                      .EnableCompression();
             });
         }
     }
@@ -674,7 +665,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Assert.Single(result);
         HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
         Assert.True(info.CompressionEnabled);
-        Assert.Empty(info.ChunkSkipColumns); // No chunk skip columns configured
+        Assert.Empty(info.ChunkSkipColumns);
     }
 
     #endregion
@@ -701,7 +692,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
                 entity.HasNoKey();
                 entity.ToTable("Metrics");
                 entity.IsHypertable(x => x.Timestamp)
-                      .WithChunkTimeInterval("86400000"); // 1 day in milliseconds
+                      .WithChunkTimeInterval("86400000");
             });
         }
     }
@@ -719,8 +710,6 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Assert.Single(result);
         HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
         Assert.NotNull(info.ChunkTimeInterval);
-        // Verify that a custom chunk interval is extracted (the exact value depends on database interpretation)
-        // Input was 86400000 (ms), extractor does EPOCH*1000 conversion
         Assert.False(string.IsNullOrEmpty(info.ChunkTimeInterval));
     }
 
@@ -913,7 +902,6 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Dimension dimension = Assert.Single(info.AdditionalDimensions);
         Assert.Equal("SecondaryTimestamp", dimension.ColumnName);
         Assert.Equal(EDimensionType.Range, dimension.Type);
-        // 30 days in microseconds
         Assert.Equal("30 days", dimension.Interval);
     }
 
@@ -1179,7 +1167,6 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
 
         HypertableScaffoldingExtractor.HypertableInfo info =
             (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "humanize_nonround_metrics")];
-        // 90s doesn't fit a round minute, so humanizer outputs "90 seconds"
         Assert.Equal("90 seconds", info.ChunkTimeInterval);
     }
 

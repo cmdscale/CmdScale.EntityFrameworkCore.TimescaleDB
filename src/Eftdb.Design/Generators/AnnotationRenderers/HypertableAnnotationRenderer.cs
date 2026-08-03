@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -30,6 +31,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
         private static readonly MethodInfo WithMigrateDataMethod = HypertableMethod(nameof(HypertableTypeBuilder.WithMigrateData));
         private static readonly MethodInfo HasRangeDimensionMethod = HypertableMethod(nameof(HypertableTypeBuilder.HasRangeDimension));
         private static readonly MethodInfo HasHashDimensionMethod = HypertableMethod(nameof(HypertableTypeBuilder.HasHashDimension));
+        private static readonly MethodInfo WithSparseIndexMethod = HypertableMethod(nameof(HypertableTypeBuilder.WithSparseIndex));
+        private static readonly MethodInfo WithoutAutoSparseIndexesMethod = HypertableMethod(nameof(HypertableTypeBuilder.WithoutAutoSparseIndexes));
+        private static readonly MethodInfo WithCompressChunkTimeIntervalMethod = HypertableMethod(nameof(HypertableTypeBuilder.WithCompressChunkTimeInterval));
 
         public IReadOnlyList<MethodCallCodeFragment> GenerateFluentApiCalls(
             IEntityType entityType, IDictionary<string, IAnnotation> annotations)
@@ -52,8 +56,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 call = call.Chain(WithChunkTimeIntervalMethod, interval);
             }
 
-            // Both WithCompressionSegmentBy and WithCompressionOrderBy implicitly enable compression, so a
-            // separate EnableCompression call is only emitted when neither is rendered.
+            // WithCompressionSegmentBy, WithCompressionOrderBy, WithSparseIndex, and
+            // WithCompressChunkTimeInterval all implicitly enable compression. A separate
+            // EnableCompression call is only emitted when none of them is rendered.
             bool compressionConfigured = false;
 
             string[] segmentBy = ResolveColumns(entityType, GetString(annotations, HypertableAnnotations.CompressionSegmentBy));
@@ -69,6 +74,22 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 call = call.Chain(orderBy);
                 compressionConfigured = true;
                 Consume(annotations, HypertableAnnotations.CompressionOrderBy);
+            }
+
+            IAnnotation? sparseIndexAnnotation = Find(annotations, HypertableAnnotations.CompressionSparseIndex);
+            if (sparseIndexAnnotation?.Value is string sparseIndex)
+            {
+                call = sparseIndex.Length == 0
+                    ? call.Chain(WithoutAutoSparseIndexesMethod)
+                    : call.Chain(WithSparseIndexMethod, sparseIndex);
+                compressionConfigured = true;
+            }
+
+            if (GetString(annotations, HypertableAnnotations.CompressChunkTimeInterval) is string compressInterval
+                && !string.IsNullOrWhiteSpace(compressInterval))
+            {
+                call = call.Chain(WithCompressChunkTimeIntervalMethod, compressInterval);
+                compressionConfigured = true;
             }
 
             if (!compressionConfigured && Find(annotations, HypertableAnnotations.EnableCompression)?.Value is true)
@@ -108,7 +129,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 HypertableAnnotations.EnableCompression,
                 HypertableAnnotations.CompressionSegmentBy,
                 HypertableAnnotations.ChunkSkipColumns,
-                HypertableAnnotations.MigrateData);
+                HypertableAnnotations.MigrateData,
+                HypertableAnnotations.CompressionSparseIndex,
+                HypertableAnnotations.CompressChunkTimeInterval);
 
             return [call];
         }
@@ -119,7 +142,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             AttributeCodeFragment? hypertable = GenerateHypertableAttribute(entityType, annotations);
             return hypertable == null
                 ? []
-                : [hypertable, .. GenerateDimensionAttributes(entityType, annotations)];
+                : [hypertable, .. GenerateSparseIndexAttributes(annotations), .. GenerateDimensionAttributes(entityType, annotations)];
         }
 
         public void ConsumeFeatureAnnotations(IEntityType entityType, IDictionary<string, IAnnotation> annotations)
@@ -138,7 +161,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 HypertableAnnotations.CompressionOrderBy,
                 HypertableAnnotations.ChunkSkipColumns,
                 HypertableAnnotations.MigrateData,
-                HypertableAnnotations.AdditionalDimensions);
+                HypertableAnnotations.AdditionalDimensions,
+                HypertableAnnotations.CompressionSparseIndex,
+                HypertableAnnotations.CompressChunkTimeInterval);
         }
 
         private static AttributeCodeFragment? GenerateHypertableAttribute(IEntityType entityType, IDictionary<string, IAnnotation> annotations)
@@ -190,6 +215,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 named[nameof(HypertableAttribute.ChunkSkipColumns)] = ToArgumentArray(chunkSkip);
             }
 
+            IAnnotation? sparseIndexAnnotation = Find(annotations, HypertableAnnotations.CompressionSparseIndex);
+            if (sparseIndexAnnotation?.Value is string sparseIndex && sparseIndex.Length == 0)
+            {
+                named[nameof(HypertableAttribute.DisableAutoSparseIndexes)] = true;
+            }
+
+            if (GetString(annotations, HypertableAnnotations.CompressChunkTimeInterval) is string compressInterval
+                && !string.IsNullOrWhiteSpace(compressInterval))
+            {
+                named[nameof(HypertableAttribute.CompressChunkTimeInterval)] = compressInterval;
+            }
+
             Consume(annotations,
                 HypertableAnnotations.IsHypertable,
                 HypertableAnnotations.HypertableTimeColumn,
@@ -198,7 +235,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 HypertableAnnotations.CompressionSegmentBy,
                 HypertableAnnotations.CompressionOrderBy,
                 HypertableAnnotations.ChunkSkipColumns,
-                HypertableAnnotations.MigrateData);
+                HypertableAnnotations.MigrateData,
+                HypertableAnnotations.CompressChunkTimeInterval);
+
+            if (sparseIndexAnnotation?.Value is string sparseVal && sparseVal.Length == 0)
+            {
+                Consume(annotations, HypertableAnnotations.CompressionSparseIndex);
+            }
 
             return new AttributeCodeFragment(typeof(HypertableAttribute), [ColumnReference(entityType, timeColumn)], named);
         }
@@ -225,6 +268,61 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             => Array.Exists(entries, entry => entry is NameOfCodeFragment)
                 ? entries
                 : Array.ConvertAll(entries, entry => (string)entry);
+
+        /// <summary>
+        /// Renders non-empty <c>timescaledb.sparse_index</c> entries as one <c>[SparseIndex]</c>
+        /// attribute per entry. The empty-string case is handled as <c>DisableAutoSparseIndexes = true</c>
+        /// on the <c>[Hypertable]</c> attribute and does not produce any fragments here.
+        /// </summary>
+        private static List<AttributeCodeFragment> GenerateSparseIndexAttributes(IDictionary<string, IAnnotation> annotations)
+        {
+            IAnnotation? sparseIndexAnnotation = Find(annotations, HypertableAnnotations.CompressionSparseIndex);
+            if (sparseIndexAnnotation?.Value is not string raw || raw.Length == 0)
+            {
+                return [];
+            }
+
+            List<AttributeCodeFragment> attributes = [];
+            foreach (string entry in CompressionAnnotationExtractor.SplitSparseIndexEntries(raw))
+            {
+                string trimmed = entry.Trim();
+                if (trimmed.Length == 0)
+                {
+                    continue;
+                }
+
+                int parenOpen = trimmed.IndexOf('(');
+                int parenClose = trimmed.LastIndexOf(')');
+                if (parenOpen < 0 || parenClose < parenOpen)
+                {
+                    continue;
+                }
+
+                string funcName = trimmed[..parenOpen].Trim();
+                ESparseIndexType kind = string.Equals(funcName, "minmax", StringComparison.OrdinalIgnoreCase)
+                    ? ESparseIndexType.MinMax
+                    : ESparseIndexType.Bloom;
+
+                string argsPart = trimmed[(parenOpen + 1)..parenClose];
+                string[] columns = [.. argsPart.Split(',', StringSplitOptions.TrimEntries).Where(c => c.Length > 0)];
+                if (columns.Length == 0)
+                {
+                    continue;
+                }
+
+                List<object> positional = [kind];
+                foreach (string col in columns)
+                {
+                    positional.Add(col);
+                }
+
+                attributes.Add(new AttributeCodeFragment(typeof(SparseIndexAttribute), positional.ToArray(), new Dictionary<string, object?>()));
+            }
+
+            Consume(annotations, HypertableAnnotations.CompressionSparseIndex);
+
+            return attributes;
+        }
 
         private static List<AttributeCodeFragment> GenerateDimensionAttributes(IEntityType entityType, IDictionary<string, IAnnotation> annotations)
         {

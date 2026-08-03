@@ -112,7 +112,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
                 entity.ToTable("MigrateDataFluentApi");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp)
-                       .WithMigrateData(true); // <-- Configure MigrateData via Fluent API
+                       .WithMigrateData(true);
             });
         }
     }
@@ -123,20 +123,20 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
         // Arrange
         using MigrateDataFluentApiContext context = new(_connectionString!);
 
-        // Act - Generate migration operations
+        // Act
         IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(null, context);
 
-        // Assert - Verify CreateHypertableOperation contains MigrateData = true
+        // Assert
         CreateHypertableOperation? hypertableOp = operations.OfType<CreateHypertableOperation>().FirstOrDefault();
         Assert.NotNull(hypertableOp);
         Assert.Equal("MigrateDataFluentApi", hypertableOp.TableName);
         Assert.True(hypertableOp.MigrateData);
 
-        // Act - Generate SQL from operations
+        // Act
         IMigrationsSqlGenerator sqlGenerator = context.GetService<IMigrationsSqlGenerator>();
         IReadOnlyList<MigrationCommand> commands = sqlGenerator.Generate(operations, context.Model);
 
-        // Assert - Verify SQL contains migrate_data => true
+        // Assert
         string allSql = string.Join("\n", commands.Select(c => c.CommandText));
         Assert.Contains("migrate_data => true", allSql);
     }
@@ -145,7 +145,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
 
     #region Should_Generate_Migration_SQL_With_MigrateData_True_Attribute
 
-    [Hypertable("Timestamp", MigrateData = true)] // <-- Configure MigrateData via Attribute
+    [Hypertable("Timestamp", MigrateData = true)]
     private class MigrateDataAttributeEntity
     {
         public DateTime Timestamp { get; set; }
@@ -175,20 +175,20 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
         // Arrange
         using MigrateDataAttributeContext context = new(_connectionString!);
 
-        // Act - Generate migration operations
+        // Act
         IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(null, context);
 
-        // Assert - Verify CreateHypertableOperation contains MigrateData = true
+        // Assert
         CreateHypertableOperation? hypertableOp = operations.OfType<CreateHypertableOperation>().FirstOrDefault();
         Assert.NotNull(hypertableOp);
         Assert.Equal("MigrateDataAttribute", hypertableOp.TableName);
         Assert.True(hypertableOp.MigrateData);
 
-        // Act - Generate SQL from operations
+        // Act
         IMigrationsSqlGenerator sqlGenerator = context.GetService<IMigrationsSqlGenerator>();
         IReadOnlyList<MigrationCommand> commands = sqlGenerator.Generate(operations, context.Model);
 
-        // Assert - Verify SQL contains migrate_data => true
+        // Assert
         string allSql = string.Join("\n", commands.Select(c => c.CommandText));
         Assert.Contains("migrate_data => true", allSql);
     }
@@ -216,7 +216,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
             {
                 entity.ToTable("DefaultMigrateData");
                 entity.HasNoKey();
-                entity.IsHypertable(x => x.Timestamp); // <-- No MigrateData configured
+                entity.IsHypertable(x => x.Timestamp);
             });
         }
     }
@@ -227,20 +227,20 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
         // Arrange
         using DefaultMigrateDataContext context = new(_connectionString!);
 
-        // Act - Generate migration operations
+        // Act
         IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(null, context);
 
-        // Assert - Verify CreateHypertableOperation has default MigrateData = false
+        // Assert
         CreateHypertableOperation? hypertableOp = operations.OfType<CreateHypertableOperation>().FirstOrDefault();
         Assert.NotNull(hypertableOp);
         Assert.Equal("DefaultMigrateData", hypertableOp.TableName);
         Assert.False(hypertableOp.MigrateData);
 
-        // Act - Generate SQL from operations
+        // Act
         IMigrationsSqlGenerator sqlGenerator = context.GetService<IMigrationsSqlGenerator>();
         IReadOnlyList<MigrationCommand> commands = sqlGenerator.Generate(operations, context.Model);
 
-        // Assert - Verify SQL does NOT contain migrate_data parameter
+        // Assert
         string allSql = string.Join("\n", commands.Select(c => c.CommandText));
         Assert.DoesNotContain("migrate_data", allSql);
     }
@@ -269,7 +269,6 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
             {
                 entity.ToTable("SensorDataMigration");
                 entity.HasNoKey();
-                // <-- Not configured as hypertable yet
             });
         }
     }
@@ -288,7 +287,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
                 entity.ToTable("SensorDataMigration");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp)
-                       .WithMigrateData(true); // <-- Changed: Convert to hypertable with data migration
+                       .WithMigrateData(true);
             });
         }
     }
@@ -296,11 +295,10 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
     [Fact]
     public async Task Should_Migrate_Existing_Data_When_Converting_To_Hypertable()
     {
-        // Arrange - Create initial regular table with data
+        // Arrange
         await using InitialRegularTableContext initialContext = new(_connectionString!);
         await CreateDatabaseViaMigrationAsync(initialContext);
 
-        // Insert test data into regular table
         await initialContext.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO ""SensorDataMigration"" (""Timestamp"", ""DeviceId"", ""Temperature"")
             VALUES
@@ -308,23 +306,20 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
                 ({new DateTime(2025, 1, 1, 11, 0, 0, DateTimeKind.Utc)}, {"device_2"}, {21.0}),
                 ({new DateTime(2025, 1, 2, 10, 0, 0, DateTimeKind.Utc)}, {"device_3"}, {19.5})", TestContext.Current.CancellationToken);
 
-        // Verify data exists before conversion
         int countBeforeConversion = await GetRowCountAsync(initialContext, "SensorDataMigration");
         Assert.Equal(3, countBeforeConversion);
 
-        // Act - Convert to hypertable with MigrateData = true
+        // Act
         await using ConvertedHypertableContext convertedContext = new(_connectionString!);
         await AlterDatabaseViaMigrationAsync(initialContext, convertedContext);
 
-        // Assert - Verify table is now a hypertable
+        // Assert
         bool isHypertable = await IsHypertableAsync(convertedContext, "SensorDataMigration");
         Assert.True(isHypertable);
 
-        // Assert - Verify existing data was preserved
         int countAfterConversion = await GetRowCountAsync(convertedContext, "SensorDataMigration");
         Assert.Equal(3, countAfterConversion);
 
-        // Assert - Verify data can still be queried via EF Core
         List<ExistingDataEntity> data = await convertedContext.SensorData.ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(3, data.Count);
         Assert.Contains(data, d => d.DeviceId == "device_1" && d.Temperature == 20.5);
@@ -356,7 +351,6 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
             {
                 entity.ToTable("SensorDataNoMigration");
                 entity.HasNoKey();
-                // <-- Not configured as hypertable yet
             });
         }
     }
@@ -375,7 +369,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
                 entity.ToTable("SensorDataNoMigration");
                 entity.HasNoKey();
                 entity.IsHypertable(x => x.Timestamp)
-                       .WithMigrateData(false); // <-- Changed: Explicitly set MigrateData = false
+                       .WithMigrateData(false);
             });
         }
     }
@@ -383,36 +377,30 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
     [Fact]
     public async Task Should_Apply_MigrateData_False_When_Converting_To_Hypertable()
     {
-        // Arrange - Create initial regular table with data
+        // Arrange
         await using InitialRegularTableMigrateDataFalseContext initialContext = new(_connectionString!);
         await CreateDatabaseViaMigrationAsync(initialContext);
 
-        // Insert test data into regular table
         await initialContext.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO ""SensorDataNoMigration"" (""Timestamp"", ""DeviceId"", ""Temperature"")
             VALUES
                 ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {"device_1"}, {20.5})", TestContext.Current.CancellationToken);
 
-        // Verify data exists before conversion
         int countBeforeConversion = await GetRowCountAsync(initialContext, "SensorDataNoMigration");
         Assert.Equal(1, countBeforeConversion);
 
-        // Act - Convert to hypertable with MigrateData = false
+        // Act
         await using ConvertedHypertableMigrateDataFalseContext convertedContext = new(_connectionString!);
-
-        // Generate migration operations
         IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(initialContext, convertedContext);
 
-        // Assert - Verify CreateHypertableOperation has MigrateData = false
+        // Assert
         CreateHypertableOperation? hypertableOp = operations.OfType<CreateHypertableOperation>().FirstOrDefault();
         Assert.NotNull(hypertableOp);
         Assert.False(hypertableOp.MigrateData);
 
-        // Generate SQL from operations
         IMigrationsSqlGenerator sqlGenerator = convertedContext.GetService<IMigrationsSqlGenerator>();
         IReadOnlyList<MigrationCommand> commands = sqlGenerator.Generate(operations, convertedContext.Model);
 
-        // Assert - Verify SQL does NOT contain migrate_data parameter
         string allSql = string.Join("\n", commands.Select(c => c.CommandText));
         Assert.DoesNotContain("migrate_data", allSql);
     }

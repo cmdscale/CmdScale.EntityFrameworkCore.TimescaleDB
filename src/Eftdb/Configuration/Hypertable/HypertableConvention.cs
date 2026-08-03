@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -63,6 +63,42 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
                     // OrderBy requires compression to be enabled
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
                     entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionOrderBy, string.Join(", ", attribute.CompressionOrderBy));
+                }
+
+                SparseIndexAttribute[] sparseIndexAttributes = entityType.ClrType?.GetCustomAttributes<SparseIndexAttribute>().ToArray() ?? [];
+                bool hasDisable = attribute.DisableAutoSparseIndexes;
+                bool hasSparseIndexAttrs = sparseIndexAttributes.Length > 0;
+
+                if (hasDisable && hasSparseIndexAttrs)
+                {
+                    throw new InvalidOperationException(
+                        $"Entity '{entityType.ClrType?.Name}' has both [SparseIndex] attributes and " +
+                        $"{nameof(HypertableAttribute.DisableAutoSparseIndexes)} = true on [Hypertable]. " +
+                        "These are mutually exclusive — remove one or the other.");
+                }
+
+                if (hasDisable)
+                {
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionSparseIndex, string.Empty);
+                }
+                else if (hasSparseIndexAttrs)
+                {
+                    string annotationValue = string.Join(", ", sparseIndexAttributes.Select(a =>
+                    {
+                        string func = a.Kind == ESparseIndexType.Bloom ? "bloom" : "minmax";
+                        return $"{func}({string.Join(",", a.Columns)})";
+                    }));
+
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressionSparseIndex, annotationValue);
+                }
+
+                if (!string.IsNullOrWhiteSpace(attribute.CompressChunkTimeInterval))
+                {
+                    // CompressChunkTimeInterval requires compression to be enabled
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.EnableCompression, true);
+                    entityTypeBuilder.HasAnnotation(HypertableAnnotations.CompressChunkTimeInterval, attribute.CompressChunkTimeInterval);
                 }
             }
 

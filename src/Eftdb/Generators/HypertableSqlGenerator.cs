@@ -8,7 +8,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
     {
         private const string CommunityWarning = "Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition";
 
-        public static List<string> Generate(CreateHypertableOperation operation)
+        public static List<string> Generate(CreateHypertableOperation operation, bool useLegacyCompressionNames = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
@@ -45,19 +45,29 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (shouldEnableCompression)
             {
-                compressionSettings.Add("timescaledb.compress = true");
+                compressionSettings.Add($"{CompressionSettingsSqlHelper.CompressOptionName(useLegacyCompressionNames)} = true");
             }
 
             if (hasSegmentBy)
             {
                 string segmentList = string.Join(", ", operation.CompressionSegmentBy!.Select(SqlBuilderHelper.QuoteIdentifier));
-                compressionSettings.Add($"timescaledb.compress_segmentby = '{segmentList}'");
+                compressionSettings.Add($"{CompressionSettingsSqlHelper.SegmentByOptionName(useLegacyCompressionNames)} = '{segmentList}'");
             }
 
             if (hasOrderBy)
             {
                 string orderList = CompressionSettingsSqlHelper.QuoteOrderByList(operation.CompressionOrderBy!);
-                compressionSettings.Add($"timescaledb.compress_orderby = '{orderList}'");
+                compressionSettings.Add($"{CompressionSettingsSqlHelper.OrderByOptionName(useLegacyCompressionNames)} = '{orderList}'");
+            }
+
+            if (operation.CompressionSparseIndex != null)
+            {
+                compressionSettings.Add($"timescaledb.sparse_index = '{operation.CompressionSparseIndex}'");
+            }
+
+            if (!string.IsNullOrEmpty(operation.CompressChunkTimeInterval))
+            {
+                compressionSettings.Add($"timescaledb.compress_chunk_time_interval = '{operation.CompressChunkTimeInterval}'");
             }
 
             if (compressionSettings.Count > 0)
@@ -102,7 +112,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             return statements;
         }
 
-        public static List<string> Generate(AlterHypertableOperation operation)
+        public static List<string> Generate(AlterHypertableOperation operation, bool useLegacyCompressionNames = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
@@ -143,7 +153,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (newCompressionState != oldCompressionState)
             {
-                compressionSettings.Add($"timescaledb.compress = {newCompressionState.ToString().ToLower()}");
+                compressionSettings.Add($"{CompressionSettingsSqlHelper.CompressOptionName(useLegacyCompressionNames)} = {newCompressionState.ToString().ToLower()}");
             }
 
             if (ListsChanged(operation.OldCompressionSegmentBy, operation.CompressionSegmentBy))
@@ -151,7 +161,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 string val = (operation.CompressionSegmentBy?.Count > 0)
                     ? $"'{string.Join(", ", operation.CompressionSegmentBy.Select(SqlBuilderHelper.QuoteIdentifier))}'"
                     : "''";
-                compressionSettings.Add($"timescaledb.compress_segmentby = {val}");
+                compressionSettings.Add($"{CompressionSettingsSqlHelper.SegmentByOptionName(useLegacyCompressionNames)} = {val}");
             }
 
             if (ListsChanged(operation.OldCompressionOrderBy, operation.CompressionOrderBy))
@@ -159,7 +169,33 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 string val = (operation.CompressionOrderBy?.Count > 0)
                     ? $"'{CompressionSettingsSqlHelper.QuoteOrderByList(operation.CompressionOrderBy)}'"
                     : "''";
-                compressionSettings.Add($"timescaledb.compress_orderby = {val}");
+                compressionSettings.Add($"{CompressionSettingsSqlHelper.OrderByOptionName(useLegacyCompressionNames)} = {val}");
+            }
+
+            if (operation.CompressionSparseIndex != operation.OldCompressionSparseIndex)
+            {
+                if (operation.CompressionSparseIndex != null)
+                {
+                    compressionSettings.Add($"timescaledb.sparse_index = '{operation.CompressionSparseIndex}'");
+                }
+                else
+                {
+                    communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} RESET (timescaledb.sparse_index);");
+                }
+            }
+
+            if (operation.CompressChunkTimeInterval != operation.OldCompressChunkTimeInterval)
+            {
+                if (operation.CompressChunkTimeInterval != null)
+                {
+                    compressionSettings.Add($"timescaledb.compress_chunk_time_interval = '{operation.CompressChunkTimeInterval}'");
+                }
+                else
+                {
+                    // RESET is rejected for this option ("only columnstore options segmentby and
+                    // orderby can be reset"); setting the interval to '0' clears it instead.
+                    compressionSettings.Add("timescaledb.compress_chunk_time_interval = '0'");
+                }
             }
 
             if (compressionSettings.Count > 0)

@@ -40,16 +40,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             string result = GenerateAddReorder(op);
             string[] lines = result.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
 
-            // Assert — opens with ".AddReorderPolicy(".
+            // Assert
             Assert.Contains(lines, l => l.TrimEnd().EndsWith(".AddReorderPolicy("));
 
-            // First argument line (tableName) must not be preceded by a trailing comma.
             string trimmed = result.Replace("\r", string.Empty);
             int tableNameIndex = trimmed.IndexOf("tableName:");
             string beforeTableName = trimmed[..tableNameIndex];
             Assert.DoesNotContain(",", beforeTableName);
 
-            // Subsequent argument lines end the previous line with a comma.
             Assert.Contains(",\n", trimmed);
         }
 
@@ -70,7 +68,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Act
             string result = GenerateAddReorder(op);
 
-            // Assert — the call is closed with a trailing ).
+            // Assert
             Assert.EndsWith(")", result.TrimEnd());
         }
 
@@ -91,7 +89,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Act
             string result = GenerateAddReorder(op);
 
-            // Assert — name followed by ": " then the value.
+            // Assert
             Assert.Contains("tableName: \"sensor_data\"", result);
             Assert.Contains("indexName: \"ix_ts\"", result);
         }

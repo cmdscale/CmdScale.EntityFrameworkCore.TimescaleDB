@@ -33,11 +33,9 @@ public class ReorderPolicyAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - verify mandatory annotations are set
+        // Assert
         Assert.Equal(true, table[ReorderPolicyAnnotations.HasReorderPolicy]);
         Assert.Equal("metrics_device_timestamp_idx", table[ReorderPolicyAnnotations.IndexName]);
-
-        // Optional annotations should NOT be set when using defaults
         Assert.Null(table[ReorderPolicyAnnotations.InitialStart]);
         Assert.Null(table[ReorderPolicyAnnotations.ScheduleInterval]);
         Assert.Null(table[ReorderPolicyAnnotations.MaxRuntime]);
@@ -186,7 +184,7 @@ public class ReorderPolicyAnnotationApplierTests
         ReorderPolicyInfo info = new(
             IndexName: "test_idx",
             InitialStart: null,
-            ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval, // "1 day"
+            ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
             RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
@@ -267,7 +265,7 @@ public class ReorderPolicyAnnotationApplierTests
             IndexName: "test_idx",
             InitialStart: null,
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
-            MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime, // "00:00:00"
+            MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
             MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
             RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
@@ -318,7 +316,7 @@ public class ReorderPolicyAnnotationApplierTests
             InitialStart: null,
             ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
             MaxRuntime: DefaultValues.ReorderPolicyMaxRuntime,
-            MaxRetries: DefaultValues.ReorderPolicyMaxRetries, // -1
+            MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
             RetryPeriod: DefaultValues.ReorderPolicyScheduleInterval
         );
 
@@ -350,7 +348,7 @@ public class ReorderPolicyAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - 0 is different from default (-1), so it should be applied
+        // Assert
         Assert.Equal(0, table[ReorderPolicyAnnotations.MaxRetries]);
     }
 
@@ -484,7 +482,7 @@ public class ReorderPolicyAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - verify ALL annotations are applied
+        // Assert
         Assert.Equal(true, table[ReorderPolicyAnnotations.HasReorderPolicy]);
         Assert.Equal("sensor_readings_device_timestamp_idx", table[ReorderPolicyAnnotations.IndexName]);
         Assert.Equal(initialStart, table[ReorderPolicyAnnotations.InitialStart]);
@@ -507,10 +505,10 @@ public class ReorderPolicyAnnotationApplierTests
         ReorderPolicyInfo info = new(
             IndexName: "test_idx",
             InitialStart: initialStart,
-            ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval, // default - should NOT be applied
-            MaxRuntime: "01:30:00", // non-default - should be applied
-            MaxRetries: DefaultValues.ReorderPolicyMaxRetries, // default - should NOT be applied
-            RetryPeriod: "00:15:00" // non-default - should be applied
+            ScheduleInterval: DefaultValues.ReorderPolicyScheduleInterval,
+            MaxRuntime: "01:30:00",
+            MaxRetries: DefaultValues.ReorderPolicyMaxRetries,
+            RetryPeriod: "00:15:00"
         );
 
         // Act
@@ -520,9 +518,9 @@ public class ReorderPolicyAnnotationApplierTests
         Assert.Equal(true, table[ReorderPolicyAnnotations.HasReorderPolicy]);
         Assert.Equal("test_idx", table[ReorderPolicyAnnotations.IndexName]);
         Assert.Equal(initialStart, table[ReorderPolicyAnnotations.InitialStart]);
-        Assert.Null(table[ReorderPolicyAnnotations.ScheduleInterval]); // default
+        Assert.Null(table[ReorderPolicyAnnotations.ScheduleInterval]);
         Assert.Equal("01:30:00", table[ReorderPolicyAnnotations.MaxRuntime]);
-        Assert.Null(table[ReorderPolicyAnnotations.MaxRetries]); // default
+        Assert.Null(table[ReorderPolicyAnnotations.MaxRetries]);
         Assert.Equal("00:15:00", table[ReorderPolicyAnnotations.RetryPeriod]);
     }
 
@@ -604,12 +602,10 @@ public class ReorderPolicyAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - table properties should be preserved
+        // Assert
         Assert.Equal("existing_table", table.Name);
         Assert.Equal("custom_schema", table.Schema);
         Assert.Equal("Pre-existing table comment", table.Comment);
-
-        // And annotations should still be applied
         Assert.Equal(true, table[ReorderPolicyAnnotations.HasReorderPolicy]);
         Assert.Equal("test_idx", table[ReorderPolicyAnnotations.IndexName]);
     }
@@ -695,12 +691,9 @@ public class ReorderPolicyAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - mandatory annotations should be applied
+        // Assert
         Assert.Equal(true, table[ReorderPolicyAnnotations.HasReorderPolicy]);
         Assert.Equal("test_idx", table[ReorderPolicyAnnotations.IndexName]);
-
-        // Optional annotations with null should not be applied (comparison with default fails)
-        // Note: null != DefaultValues.X, so annotations won't be set
         Assert.Null(table[ReorderPolicyAnnotations.InitialStart]);
         Assert.Null(table[ReorderPolicyAnnotations.ScheduleInterval]);
         Assert.Null(table[ReorderPolicyAnnotations.MaxRuntime]);

@@ -34,7 +34,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     !AreChunkSkipColumnsEqual(x.Target.ChunkSkipColumns, x.Source.ChunkSkipColumns) ||
                     !AreDimensionsEqual(x.Target.AdditionalDimensions, x.Source.AdditionalDimensions) ||
                     !CompressionDiffHelper.AreStringListsEqual(x.Target.CompressionSegmentBy, x.Source.CompressionSegmentBy) ||
-                    !CompressionDiffHelper.AreOrderByListsEqual(x.Target.CompressionOrderBy, x.Source.CompressionOrderBy)
+                    !CompressionDiffHelper.AreOrderByListsEqual(x.Target.CompressionOrderBy, x.Source.CompressionOrderBy) ||
+                    x.Target.CompressionSparseIndex != x.Source.CompressionSparseIndex ||
+                    x.Target.CompressChunkTimeInterval != x.Source.CompressChunkTimeInterval
                 );
 
             foreach (var hypertable in updatedHypertables)
@@ -51,6 +53,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     AdditionalDimensions = hypertable.Target.AdditionalDimensions,
                     CompressionSegmentBy = hypertable.Target.CompressionSegmentBy,
                     CompressionOrderBy = hypertable.Target.CompressionOrderBy,
+                    CompressionSparseIndex = hypertable.Target.CompressionSparseIndex,
+                    CompressChunkTimeInterval = hypertable.Target.CompressChunkTimeInterval,
 
                     // Old values
                     OldChunkTimeInterval = hypertable.Source.ChunkTimeInterval,
@@ -58,7 +62,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     OldChunkSkipColumns = hypertable.Source.ChunkSkipColumns,
                     OldAdditionalDimensions = hypertable.Source.AdditionalDimensions,
                     OldCompressionSegmentBy = hypertable.Source.CompressionSegmentBy,
-                    OldCompressionOrderBy = hypertable.Source.CompressionOrderBy
+                    OldCompressionOrderBy = hypertable.Source.CompressionOrderBy,
+                    OldCompressionSparseIndex = hypertable.Source.CompressionSparseIndex,
+                    OldCompressChunkTimeInterval = hypertable.Source.CompressChunkTimeInterval,
                 });
             }
 
@@ -85,6 +91,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                 CompressionSegmentBy = CompressionDiffHelper.RewriteColumns(source.CompressionSegmentBy, schema, tableName, context),
                 CompressionOrderBy = CompressionDiffHelper.RewriteOrderByColumns(source.CompressionOrderBy, schema, tableName, context),
                 AdditionalDimensions = RewriteDimensions(source.AdditionalDimensions, schema, tableName, context),
+                CompressionSparseIndex = source.CompressionSparseIndex,
+                CompressChunkTimeInterval = source.CompressChunkTimeInterval,
             };
         }
 

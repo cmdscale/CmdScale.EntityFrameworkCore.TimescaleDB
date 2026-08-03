@@ -16,9 +16,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils
         private static string Fix(string commandText)
         {
             return commandText
-                // Fixes the invalid string-to-integer insert.
                 .Replace("' '", "0")
-                // Fixes the unquoted, case-sensitive table and column names.
                 .Replace("INSERT INTO Table1 (Id, Bar, Description)", "INSERT INTO \"Table1\" (\"Id\", \"Bar\", \"Description\")");
         }
 

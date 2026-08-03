@@ -196,7 +196,7 @@ public class OrderByTests
         ArgumentException ex = Assert.Throws<ArgumentException>(() =>
             OrderByBuilder.For<TestEntity>(x => x.Time.ToString()));
 
-        Assert.Contains("Invalid expression", ex.Message);
+        Assert.Contains("simple property access expression", ex.Message);
     }
 
     #endregion
@@ -273,7 +273,7 @@ public class OrderByTests
         ArgumentException ex = Assert.Throws<ArgumentException>(() =>
             selector.By(x => x.Time.ToString()));
 
-        Assert.Contains("Expression must be a property access", ex.Message);
+        Assert.Contains("simple property access expression", ex.Message);
     }
 
     #endregion

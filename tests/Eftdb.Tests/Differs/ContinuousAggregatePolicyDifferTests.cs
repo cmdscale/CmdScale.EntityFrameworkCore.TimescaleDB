@@ -289,7 +289,7 @@ public class ContinuousAggregatePolicyDifferTests
                         "1 hour",
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
-                    .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour"); // <-- Changed from "1 month"
+                    .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour");
             });
         }
     }
@@ -391,7 +391,7 @@ public class ContinuousAggregatePolicyDifferTests
                         "1 hour",
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
-                    .WithRefreshPolicy(startOffset: "1 month", endOffset: "30 minutes", scheduleInterval: "1 hour"); // <-- Changed from "1 hour"
+                    .WithRefreshPolicy(startOffset: "1 month", endOffset: "30 minutes", scheduleInterval: "1 hour");
             });
         }
     }
@@ -491,7 +491,7 @@ public class ContinuousAggregatePolicyDifferTests
                         "1 hour",
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
-                    .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "30 minutes"); // <-- Changed from "1 hour"
+                    .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "30 minutes");
             });
         }
     }
@@ -593,7 +593,7 @@ public class ContinuousAggregatePolicyDifferTests
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "1 hour")
-                    .WithInitialStart(new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc)); // <-- Changed from 2025-01-01
+                    .WithInitialStart(new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc));
             });
         }
     }
@@ -696,7 +696,7 @@ public class ContinuousAggregatePolicyDifferTests
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "1 hour")
-                    .WithIncludeTieredData(true); // <-- Changed from false
+                    .WithIncludeTieredData(true);
             });
         }
     }
@@ -798,7 +798,7 @@ public class ContinuousAggregatePolicyDifferTests
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "1 hour")
-                    .WithBucketsPerBatch(10); // <-- Changed from 5
+                    .WithBucketsPerBatch(10);
             });
         }
     }
@@ -900,7 +900,7 @@ public class ContinuousAggregatePolicyDifferTests
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "1 hour")
-                    .WithMaxBatchesPerExecution(10); // <-- Changed from 5
+                    .WithMaxBatchesPerExecution(10);
             });
         }
     }
@@ -1002,7 +1002,7 @@ public class ContinuousAggregatePolicyDifferTests
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "1 hour")
-                    .WithRefreshNewestFirst(false); // <-- Changed from true
+                    .WithRefreshNewestFirst(false);
             });
         }
     }
@@ -1330,7 +1330,7 @@ public class ContinuousAggregatePolicyDifferTests
                         "hourly_metrics",
                         "1 hour",
                         x => x.Timestamp)
-                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg); // <-- Policy removed
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
             });
 
             modelBuilder.Entity<MetricEntity15b>(entity =>
@@ -1348,7 +1348,7 @@ public class ContinuousAggregatePolicyDifferTests
                         "1 hour",
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgTemperature, x => x.Temperature, EAggregateFunction.Avg)
-                    .WithRefreshPolicy(startOffset: "7 days", endOffset: "30 minutes", scheduleInterval: "30 minutes"); // <-- Policy added
+                    .WithRefreshPolicy(startOffset: "7 days", endOffset: "30 minutes", scheduleInterval: "30 minutes");
             });
         }
     }

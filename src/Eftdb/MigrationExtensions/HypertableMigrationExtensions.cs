@@ -17,7 +17,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IReadOnlyList<string>? chunkSkipColumns = null,
             IReadOnlyList<Dimension>? additionalDimensions = null,
             IReadOnlyList<string>? compressionSegmentBy = null,
-            IReadOnlyList<string>? compressionOrderBy = null)
+            IReadOnlyList<string>? compressionOrderBy = null,
+            string? compressionSparseIndex = null,
+            string? compressChunkTimeInterval = null)
         {
             CreateHypertableOperation operation = new()
             {
@@ -31,6 +33,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 AdditionalDimensions = additionalDimensions,
                 CompressionSegmentBy = compressionSegmentBy,
                 CompressionOrderBy = compressionOrderBy,
+                CompressionSparseIndex = compressionSparseIndex,
+                CompressChunkTimeInterval = compressChunkTimeInterval,
             };
 
             migrationBuilder.Operations.Add(operation);
@@ -47,12 +51,16 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IReadOnlyList<Dimension>? additionalDimensions = null,
             IReadOnlyList<string>? compressionSegmentBy = null,
             IReadOnlyList<string>? compressionOrderBy = null,
+            string? compressionSparseIndex = null,
+            string? compressChunkTimeInterval = null,
             string? oldChunkTimeInterval = null,
             bool oldEnableCompression = false,
             IReadOnlyList<string>? oldChunkSkipColumns = null,
             IReadOnlyList<Dimension>? oldAdditionalDimensions = null,
             IReadOnlyList<string>? oldCompressionSegmentBy = null,
-            IReadOnlyList<string>? oldCompressionOrderBy = null)
+            IReadOnlyList<string>? oldCompressionOrderBy = null,
+            string? oldCompressionSparseIndex = null,
+            string? oldCompressChunkTimeInterval = null)
         {
             AlterHypertableOperation operation = new()
             {
@@ -64,12 +72,16 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 AdditionalDimensions = additionalDimensions,
                 CompressionSegmentBy = compressionSegmentBy,
                 CompressionOrderBy = compressionOrderBy,
+                CompressionSparseIndex = compressionSparseIndex,
+                CompressChunkTimeInterval = compressChunkTimeInterval,
                 OldChunkTimeInterval = oldChunkTimeInterval ?? string.Empty,
                 OldEnableCompression = oldEnableCompression,
                 OldChunkSkipColumns = oldChunkSkipColumns,
                 OldAdditionalDimensions = oldAdditionalDimensions,
                 OldCompressionSegmentBy = oldCompressionSegmentBy,
                 OldCompressionOrderBy = oldCompressionOrderBy,
+                OldCompressionSparseIndex = oldCompressionSparseIndex,
+                OldCompressChunkTimeInterval = oldCompressChunkTimeInterval,
             };
 
             migrationBuilder.Operations.Add(operation);

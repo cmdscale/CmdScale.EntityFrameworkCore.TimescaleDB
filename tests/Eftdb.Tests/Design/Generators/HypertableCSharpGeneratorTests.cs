@@ -77,7 +77,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             string result = Generate(op);
             string[] lines = result.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToArray();
 
-            // Assert — each named argument appears on its own line.
+            // Assert
             Assert.Contains(lines, l => l.StartsWith("tableName: "));
             Assert.Contains(lines, l => l.StartsWith("timeColumnName: "));
             Assert.Contains(lines, l => l.StartsWith("schema: "));
@@ -127,10 +127,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Act
             string result = Generate(op);
 
-            // Assert — fully qualified factory calls.
+            // Assert
             Assert.Contains("CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions.Dimension.CreateRange(\"range_col\", \"1 day\")", result);
             Assert.Contains("CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions.Dimension.CreateHash(\"hash_col\", 4)", result);
-            // Multi-line list with trailing comma on all but last entry.
             Assert.Contains("CreateRange(\"range_col\", \"1 day\"),", result);
         }
 
@@ -141,7 +140,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
         [Fact]
         public void CreateHypertable_DimensionWithNullIntervalAndPartitions_DefaultsEmitted()
         {
-            // Arrange — dimensions constructed directly so Interval/NumberOfPartitions stay null.
+            // Arrange
             CreateHypertableOperation op = new()
             {
                 TableName = "sensor_data",
@@ -156,7 +155,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Act
             string result = Generate(op);
 
-            // Assert — null Interval renders as "" and null NumberOfPartitions renders as 0.
+            // Assert
             Assert.Contains("Dimension.CreateRange(\"range_col\", \"\")", result);
             Assert.Contains("Dimension.CreateHash(\"hash_col\", 0)", result);
         }
@@ -260,7 +259,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             Assert.Contains("compressionOrderBy: [\"ts DESC\"]", result);
             Assert.Contains("additionalDimensions:", result);
 
-            // Assert
             Assert.Contains("oldChunkTimeInterval: \"1 day\"", result);
             Assert.Contains("oldEnableCompression: true", result);
             Assert.Contains("oldChunkSkipColumns: [\"a\"]", result);

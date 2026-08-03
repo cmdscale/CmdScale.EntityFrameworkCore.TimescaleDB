@@ -68,7 +68,7 @@ public class HypertableAnnotationRendererTests
     {
         using NotHypertableContext context = new();
         IEntityType entityType = GetEntityType<NotHypertableEntity>(context);
-        Dictionary<string, IAnnotation> annotations = Annotations(); // no IsHypertable
+        Dictionary<string, IAnnotation> annotations = Annotations();
 
         IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
 
@@ -724,7 +724,7 @@ public class HypertableAnnotationRendererTests
         Dictionary<string, IAnnotation> annotations = Annotations(
             (HypertableAnnotations.IsHypertable, true),
             (HypertableAnnotations.HypertableTimeColumn, "Ts"),
-            (HypertableAnnotations.ChunkTimeInterval, "1 hour")); // not the default "7 days"
+            (HypertableAnnotations.ChunkTimeInterval, "1 hour"));
 
         IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
 
@@ -756,7 +756,7 @@ public class HypertableAnnotationRendererTests
         Dictionary<string, IAnnotation> annotations = Annotations(
             (HypertableAnnotations.IsHypertable, true),
             (HypertableAnnotations.HypertableTimeColumn, "Ts"),
-            (HypertableAnnotations.ChunkTimeInterval, DefaultValues.ChunkTimeInterval)); // "7 days" == default
+            (HypertableAnnotations.ChunkTimeInterval, DefaultValues.ChunkTimeInterval));
 
         IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
 

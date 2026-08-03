@@ -367,10 +367,7 @@ public class HypertableTypeBuilderTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(SegmentByEntity))!;
 
-        // Verify Annotation Value (comma separated)
         Assert.Equal("TenantId, DeviceId", entityType.FindAnnotation(HypertableAnnotations.CompressionSegmentBy)?.Value);
-
-        // Verify Implicit Compression Enablement
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
     }
 
@@ -414,10 +411,7 @@ public class HypertableTypeBuilderTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(OrderByBuilderEntity))!;
 
-        // Verify Annotation Value
         Assert.Equal("Timestamp DESC, Value ASC NULLS FIRST", entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy)?.Value);
-
-        // Verify Implicit Compression Enablement
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
     }
 
@@ -461,7 +455,6 @@ public class HypertableTypeBuilderTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType(typeof(OrderBySelectorEntity))!;
 
-        // Verify Annotation Value matches the builder syntax result
         Assert.Equal("Timestamp DESC, Value ASC NULLS FIRST", entityType.FindAnnotation(HypertableAnnotations.CompressionOrderBy)?.Value);
         Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.EnableCompression)?.Value);
     }
@@ -495,7 +488,7 @@ public class HypertableTypeBuilderTests
                       .WithChunkTimeInterval("7 days")
                       .WithCompressionSegmentBy(x => x.DeviceId)
                       .WithCompressionOrderBy(s => [s.ByDescending(x => x.Timestamp)])
-                      .WithChunkSkipping(x => x.DeviceId); // Often same as segment by
+                      .WithChunkSkipping(x => x.DeviceId);
             });
         }
     }
@@ -1297,7 +1290,7 @@ public class HypertableTypeBuilderTests
             _ = GetModel(context);
         });
 
-        Assert.Contains("not a valid property expression", exception.Message);
+        Assert.Contains("simple property access expression", exception.Message);
     }
 
     #endregion
@@ -1339,7 +1332,7 @@ public class HypertableTypeBuilderTests
             _ = GetModel(context);
         });
 
-        Assert.Contains("not a valid property expression", exception.Message);
+        Assert.Contains("simple property access expression", exception.Message);
     }
 
     #endregion

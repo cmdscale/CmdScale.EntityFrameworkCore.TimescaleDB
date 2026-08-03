@@ -244,10 +244,10 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
             StartOffset = "1 month",
             EndOffset = "1 hour",
             ScheduleInterval = "1 hour",
-            IfNotExists = false, // Default value
-            BucketsPerBatch = 1, // Default value
-            MaxBatchesPerExecution = 0, // Default value
-            RefreshNewestFirst = true // Default value
+            IfNotExists = false,
+            BucketsPerBatch = 1,
+            MaxBatchesPerExecution = 0,
+            RefreshNewestFirst = true
         };
 
         // Act

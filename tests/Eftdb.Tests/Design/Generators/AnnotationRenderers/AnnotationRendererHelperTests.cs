@@ -163,7 +163,6 @@ public class AnnotationRendererHelperTests
     {
         Dictionary<string, IAnnotation> annotations = Annotations(("key:A", "a"));
 
-        // Should not throw even if key is absent
         AnnotationRendererHelper.Consume(annotations, "key:A", "key:NotPresent");
 
         Assert.Empty(annotations);

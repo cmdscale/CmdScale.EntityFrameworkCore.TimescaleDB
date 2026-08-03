@@ -54,10 +54,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Verifies that CreateTableOperation appears before CreateIndexOperation.
-    /// This is essential because indexes cannot be created on tables that don't exist yet.
-    /// </summary>
     [Fact]
     public void Should_Order_CreateTable_Before_CreateIndex()
     {
@@ -129,11 +125,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Verifies that CreateTableOperation appears before CreateIndexOperation for foreign key index.
-    /// EF Core includes foreign keys in the CreateTableOperation, but generates a separate
-    /// CreateIndexOperation for the foreign key index.
-    /// </summary>
     [Fact]
     public void Should_Order_CreateTable_Before_Foreign_Key_Index()
     {
@@ -192,10 +183,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Verifies that CreateTableOperation appears before CreateHypertableOperation.
-    /// TimescaleDB requires the table to exist before it can be converted to a hypertable.
-    /// </summary>
     [Fact]
     public void Should_Order_CreateTable_Before_CreateHypertable()
     {
@@ -248,10 +235,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Verifies that CreateIndexOperation appears before AddReorderPolicyOperation.
-    /// Reorder policies reference an index, so the index must exist first.
-    /// </summary>
     [Fact]
     public void Should_Order_CreateIndex_Before_AddReorderPolicy()
     {
@@ -336,11 +319,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Verifies that when multiple tables have indexes, each table's CreateTableOperation
-    /// appears before its associated CreateIndexOperations. This test is particularly sensitive
-    /// to unstable sorts because all standard EF Core operations have priority 0.
-    /// </summary>
     [Fact]
     public void Should_Preserve_Order_For_Multiple_Tables_With_Indexes()
     {
@@ -351,7 +329,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(null, context);
 
         // Assert
-        // Table A and its indexes
         int tableAIndex = operations.ToList().FindIndex(op =>
             op is CreateTableOperation createTable && createTable.Name == "OrderingTableA5");
         int indexA1Index = operations.ToList().FindIndex(op =>
@@ -359,7 +336,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         int indexA2Index = operations.ToList().FindIndex(op =>
             op is CreateIndexOperation createIndex && createIndex.Name == "idx_ordering5a_name");
 
-        // Table B and its indexes
         int tableBIndex = operations.ToList().FindIndex(op =>
             op is CreateTableOperation createTable && createTable.Name == "OrderingTableB5");
         int indexB1Index = operations.ToList().FindIndex(op =>
@@ -367,7 +343,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         int indexB2Index = operations.ToList().FindIndex(op =>
             op is CreateIndexOperation createIndex && createIndex.Name == "idx_ordering5b_description");
 
-        // Table C and its indexes
         int tableCIndex = operations.ToList().FindIndex(op =>
             op is CreateTableOperation createTable && createTable.Name == "OrderingTableC5");
         int indexC1Index = operations.ToList().FindIndex(op =>
@@ -375,7 +350,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         int indexC2Index = operations.ToList().FindIndex(op =>
             op is CreateIndexOperation createIndex && createIndex.Name == "idx_ordering5c_reason");
 
-        // Verify all operations were found
         Assert.NotEqual(-1, tableAIndex);
         Assert.NotEqual(-1, indexA1Index);
         Assert.NotEqual(-1, indexA2Index);
@@ -386,19 +360,16 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         Assert.NotEqual(-1, indexC1Index);
         Assert.NotEqual(-1, indexC2Index);
 
-        // Verify Table A comes before its indexes
         Assert.True(tableAIndex < indexA1Index,
             $"TableA (index {tableAIndex}) should appear before its first index (index {indexA1Index})");
         Assert.True(tableAIndex < indexA2Index,
             $"TableA (index {tableAIndex}) should appear before its second index (index {indexA2Index})");
 
-        // Verify Table B comes before its indexes
         Assert.True(tableBIndex < indexB1Index,
             $"TableB (index {tableBIndex}) should appear before its first index (index {indexB1Index})");
         Assert.True(tableBIndex < indexB2Index,
             $"TableB (index {tableBIndex}) should appear before its second index (index {indexB2Index})");
 
-        // Verify Table C comes before its indexes
         Assert.True(tableCIndex < indexC1Index,
             $"TableC (index {tableCIndex}) should appear before its first index (index {indexC1Index})");
         Assert.True(tableCIndex < indexC2Index,
@@ -470,11 +441,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Verifies correct ordering in a complex migration with multiple operation types:
-    /// CreateTable, CreateIndex, AddForeignKey, CreateHypertable, and AddReorderPolicy.
-    /// This comprehensive test ensures the stable sort preserves all necessary dependencies.
-    /// </summary>
     [Fact]
     public void Should_Order_Complex_Migration_With_All_Operation_Types()
     {
@@ -485,7 +451,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(null, context);
 
         // Assert
-        // Find all operation indices
         int parentTableIndex = operations.ToList().FindIndex(op =>
             op is CreateTableOperation createTable && createTable.Name == "OrderingParents6");
         int childTableIndex = operations.ToList().FindIndex(op =>
@@ -509,7 +474,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         int reorderPolicyIndex = operations.ToList().FindIndex(op =>
             op is AddReorderPolicyOperation);
 
-        // Verify all operations were found
         Assert.NotEqual(-1, parentTableIndex);
         Assert.NotEqual(-1, childTableIndex);
         Assert.NotEqual(-1, metricsTableIndex);
@@ -520,7 +484,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         Assert.NotEqual(-1, hypertableIndex);
         Assert.NotEqual(-1, reorderPolicyIndex);
 
-        // Verify CreateTable operations come before their dependent operations
         Assert.True(parentTableIndex < parentIndexIndex,
             "Parent table should be created before its index");
         Assert.True(parentTableIndex < foreignKeyIndexIndex,
@@ -528,7 +491,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         Assert.True(childTableIndex < foreignKeyIndexIndex,
             "Child table should be created before foreign key index");
 
-        // Verify metrics table dependencies
         Assert.True(metricsTableIndex < metricsTimestampIndexIndex,
             "Metrics table should be created before its timestamp index");
         Assert.True(metricsTableIndex < metricsDeviceIndexIndex,
@@ -536,11 +498,9 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         Assert.True(metricsTableIndex < hypertableIndex,
             "Metrics table should be created before hypertable operation");
 
-        // Verify hypertable comes before reorder policy
         Assert.True(hypertableIndex < reorderPolicyIndex,
             "Hypertable should be created before reorder policy");
 
-        // Verify index comes before reorder policy
         Assert.True(metricsTimestampIndexIndex < reorderPolicyIndex,
             "Index should be created before reorder policy that references it");
     }
@@ -590,11 +550,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Verifies that the stable sort preserves the relative order of standard EF Core operations.
-    /// All standard operations have priority 0, so using an unstable sort (List.Sort) would
-    /// scramble their order. This test ensures tables are created before their dependent indexes.
-    /// </summary>
     [Fact]
     public void Should_Preserve_Relative_Order_Of_Standard_Operations()
     {
@@ -618,7 +573,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         Assert.NotEqual(-1, detailTableIndex);
         Assert.NotEqual(-1, foreignKeyIndexIndex);
 
-        // Both tables must be created before the foreign key index
         Assert.True(masterTableIndex < foreignKeyIndexIndex,
             $"Master table (index {masterTableIndex}) should be created before foreign key index (index {foreignKeyIndexIndex})");
         Assert.True(detailTableIndex < foreignKeyIndexIndex,
@@ -660,12 +614,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Verifies that in a hypertable with multiple indexes:
-    /// 1. CreateTable comes first
-    /// 2. CreateHypertable comes after table creation
-    /// 3. All CreateIndex operations come after table creation
-    /// </summary>
     [Fact]
     public void Should_Order_Hypertable_And_Indexes_Correctly()
     {
@@ -693,11 +641,9 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         Assert.NotEqual(-1, humidityIndexIndex);
         Assert.NotEqual(-1, sensorIndexIndex);
 
-        // Table must come before hypertable
         Assert.True(tableIndex < hypertableIndex,
             $"Table (index {tableIndex}) should be created before hypertable (index {hypertableIndex})");
 
-        // Table must come before all indexes
         Assert.True(tableIndex < tempIndexIndex,
             $"Table (index {tableIndex}) should be created before temperature index (index {tempIndexIndex})");
         Assert.True(tableIndex < humidityIndexIndex,
@@ -737,10 +683,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// Verifies that CreateHypertableOperation appears before AddRetentionPolicyOperation.
-    /// Retention policies require the hypertable to exist first.
-    /// </summary>
     [Fact]
     public void Should_Order_CreateHypertable_Before_AddRetentionPolicy()
     {
@@ -806,10 +748,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
                             .UseTimescaleDb();
     }
 
-    /// <summary>
-    /// Verifies that DropRetentionPolicyOperation appears before DropTableOperation.
-    /// The retention policy must be removed before the hypertable is dropped.
-    /// </summary>
     [Fact]
     public void Should_Order_DropRetentionPolicy_Before_DropTable()
     {
@@ -817,7 +755,7 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         using OrderingSourceContext10 sourceContext = new();
         using OrderingTargetContext10 targetContext = new();
 
-        // Act — diff from source (has table + retention policy) to target (empty)
+        // Act
         IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(sourceContext, targetContext);
 
         // Assert
@@ -837,7 +775,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
 
     #region Should_Fail_With_Unstable_Sort_Many_Tables
 
-    // Many entity classes to generate enough operations to trigger unstable sort behavior
     private class LargeEntity01 { public int Id { get; set; } public string? Field1 { get; set; } public string? Field2 { get; set; } }
     private class LargeEntity02 { public int Id { get; set; } public string? Field1 { get; set; } public string? Field2 { get; set; } }
     private class LargeEntity03 { public int Id { get; set; } public string? Field1 { get; set; } public string? Field2 { get; set; } }
@@ -868,7 +805,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Configure 10 tables, each with 2 indexes = 30 operations (well above 16 threshold)
             ConfigureEntity<LargeEntity01>(modelBuilder, "LargeTable01");
             ConfigureEntity<LargeEntity02>(modelBuilder, "LargeTable02");
             ConfigureEntity<LargeEntity03>(modelBuilder, "LargeTable03");
@@ -893,12 +829,6 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         }
     }
 
-    /// <summary>
-    /// This test uses a large model (10 tables with 2 indexes each = 30+ operations) to trigger
-    /// the unstable sort behavior in List.Sort(). IntroSort uses InsertionSort for lists under 16 elements,
-    /// which is stable. For larger lists, it uses QuickSort which is unstable.
-    /// This test should FAIL when using Sort() and PASS when using OrderBy().
-    /// </summary>
     [Fact]
     public void Should_Maintain_Order_With_Many_Tables_And_Indexes()
     {
@@ -908,7 +838,7 @@ public class MigrationOperationOrderingTests : MigrationTestBase
         // Act
         IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(null, context);
 
-        // Assert - verify each table's CreateTable comes before its indexes
+        // Assert
         List<MigrationOperation> opsList = [.. operations];
 
         for (int i = 1; i <= 10; i++)

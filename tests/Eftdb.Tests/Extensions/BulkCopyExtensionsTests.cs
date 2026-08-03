@@ -413,7 +413,6 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         int count = await context.Set<HypertableEntity>().CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(3, count);
 
-        // Verify data integrity
         List<HypertableEntity> inserted = await context.Set<HypertableEntity>()
             .OrderBy(e => e.Timestamp)
             .ThenBy(e => e.SensorId)
@@ -641,14 +640,12 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
 
         List<NullableTypeEntity> inserted = await context.Set<NullableTypeEntity>().OrderBy(e => e.Id).ToListAsync(TestContext.Current.CancellationToken);
 
-        // First record with values
         Assert.Equal(42, inserted[0].NullableInt);
         Assert.NotNull(inserted[0].NullableDateTime);
         Assert.True(inserted[0].NullableBool);
         Assert.Equal(3.14, inserted[0].NullableDouble);
         Assert.Equal("Test", inserted[0].NullableString);
 
-        // Second record with nulls
         Assert.Null(inserted[1].NullableInt);
         Assert.Null(inserted[1].NullableDateTime);
         Assert.Null(inserted[1].NullableBool);
@@ -747,7 +744,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         using TimeSpanContext context = new(_connectionString!);
         await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
-        TimeSpan testDuration = new(2, 30, 45); // 2 hours, 30 minutes, 45 seconds
+        TimeSpan testDuration = new(2, 30, 45);
 
         List<TimeSpanEntity> data =
         [
@@ -854,7 +851,6 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
         using MultiWorkerSmallContext context = new(_connectionString!);
         await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
-        // Only 3 items but 10 workers - should handle gracefully
         List<MultiWorkerSmallEntity> data =
         [
             new() { Id = 1, Data = "Item1" },
@@ -972,7 +968,6 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
             new() { Column1 = 100, Column2 = testTime, Column3 = "Test" }
         ];
 
-        // Map columns in specific order to match database
         TimescaleCopyConfig<ColumnOrderEntity> config = new TimescaleCopyConfig<ColumnOrderEntity>()
             .ToTable("ColumnOrderEntity")
             .MapColumn("Column1", e => e.Column1, NpgsqlDbType.Integer)

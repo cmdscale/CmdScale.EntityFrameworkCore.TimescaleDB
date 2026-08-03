@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Text;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
 {
@@ -69,7 +70,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
     /// </summary>
     public class OrderByConfiguration<TEntity>(Expression<Func<TEntity, object>> expression)
     {
-        private readonly string _propertyName = GetPropertyName(expression);
+        private readonly string _propertyName = ExpressionHelper.GetPropertyName(expression);
 
         /// <summary>Creates an OrderBy using the database default direction.</summary>
         /// <param name="nullsFirst">Optional null sorting behavior. Null uses database default.</param>
@@ -82,14 +83,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         /// <summary>Creates a descending OrderBy specification.</summary>
         /// <param name="nullsFirst">Optional null sorting behavior. Null uses database default.</param>
         public OrderBy Descending(bool? nullsFirst = null) => new(_propertyName, false, nullsFirst);
-
-        // Helper to extract the string name from the expression
-        private static string GetPropertyName(Expression<Func<TEntity, object>> expression)
-        {
-            if (expression.Body is MemberExpression member) return member.Member.Name;
-            if (expression.Body is UnaryExpression unary && unary.Operand is MemberExpression m) return m.Member.Name;
-            throw new ArgumentException("Invalid expression. Please use a simple property access expression.");
-        }
     }
 
     /// <summary>
@@ -102,26 +95,19 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
         /// <param name="expression">A lambda expression selecting the property to order by.</param>
         /// <param name="nullsFirst">Optional null sorting behavior. Null uses database default.</param>
         public OrderBy By(Expression<Func<TEntity, object>> expression, bool? nullsFirst = null)
-            => new(GetPropertyName(expression), null, nullsFirst);
+            => new(ExpressionHelper.GetPropertyName(expression), null, nullsFirst);
 
         /// <summary>Creates an ascending OrderBy specification for the selected property.</summary>
         /// <param name="expression">A lambda expression selecting the property to order by.</param>
         /// <param name="nullsFirst">Optional null sorting behavior. Null uses database default.</param>
         public OrderBy ByAscending(Expression<Func<TEntity, object>> expression, bool? nullsFirst = null)
-            => new(GetPropertyName(expression), true, nullsFirst);
+            => new(ExpressionHelper.GetPropertyName(expression), true, nullsFirst);
 
         /// <summary>Creates a descending OrderBy specification for the selected property.</summary>
         /// <param name="expression">A lambda expression selecting the property to order by.</param>
         /// <param name="nullsFirst">Optional null sorting behavior. Null uses database default.</param>
         public OrderBy ByDescending(Expression<Func<TEntity, object>> expression, bool? nullsFirst = null)
-            => new(GetPropertyName(expression), false, nullsFirst);
-
-        private static string GetPropertyName(Expression<Func<TEntity, object>> expression)
-        {
-            if (expression.Body is MemberExpression m) return m.Member.Name;
-            if (expression.Body is UnaryExpression u && u.Operand is MemberExpression m2) return m2.Member.Name;
-            throw new ArgumentException("Expression must be a property access.");
-        }
+            => new(ExpressionHelper.GetPropertyName(expression), false, nullsFirst);
     }
 
     /// <summary>

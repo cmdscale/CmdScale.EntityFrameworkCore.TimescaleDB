@@ -14,7 +14,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils
 
         public string ConnectionString => _dbContainer.GetConnectionString();
 
-        // Start the container before tests run
         public override async Task InitializeAsync()
         {
             await _dbContainer.StartAsync();
@@ -22,7 +21,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils
             await base.InitializeAsync();
         }
 
-        // Stop the container after tests finish
         public override async Task DisposeAsync()
         {
             await base.DisposeAsync();

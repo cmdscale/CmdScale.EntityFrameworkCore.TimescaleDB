@@ -38,7 +38,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         Assert.Equal(2, statements.Count);
         string compressionStmt = statements[1];
         Assert.Contains("DO $$", compressionStmt);
-        Assert.Contains("timescaledb.compress = true", compressionStmt);
+        Assert.Contains("timescaledb.enable_columnstore = true", compressionStmt);
         Assert.DoesNotContain("compress_segmentby", compressionStmt);
         Assert.DoesNotContain("compress_orderby", compressionStmt);
     }
@@ -70,8 +70,8 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         // Assert
         Assert.Equal(2, statements.Count);
         string compressionStmt = statements[1];
-        Assert.Contains("timescaledb.compress = true", compressionStmt);
-        Assert.Contains("compress_segmentby = ''\"region\"''", compressionStmt);
+        Assert.Contains("timescaledb.enable_columnstore = true", compressionStmt);
+        Assert.Contains("segmentby = ''\"region\"''", compressionStmt);
     }
 
     #endregion
@@ -101,8 +101,8 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         // Assert
         Assert.Equal(2, statements.Count);
         string compressionStmt = statements[1];
-        Assert.Contains("timescaledb.compress = true", compressionStmt);
-        Assert.Contains("compress_orderby = ''\"time\" DESC''", compressionStmt);
+        Assert.Contains("timescaledb.enable_columnstore = true", compressionStmt);
+        Assert.Contains("orderby = ''\"time\" DESC''", compressionStmt);
     }
 
     #endregion
@@ -133,9 +133,9 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         // Assert
         Assert.Equal(2, statements.Count);
         string compressionStmt = statements[1];
-        Assert.Contains("timescaledb.compress = true", compressionStmt);
-        Assert.Contains("compress_segmentby", compressionStmt);
-        Assert.Contains("compress_orderby", compressionStmt);
+        Assert.Contains("timescaledb.enable_columnstore = true", compressionStmt);
+        Assert.Contains("segmentby", compressionStmt);
+        Assert.Contains("orderby", compressionStmt);
     }
 
     #endregion
@@ -191,7 +191,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         Assert.Equal(2, statements.Count);
         Assert.Contains("CREATE MATERIALIZED VIEW", statements[0]);
         Assert.Contains("DO $$", statements[1]);
-        Assert.Contains("timescaledb.compress = true", statements[1]);
+        Assert.Contains("timescaledb.enable_columnstore = true", statements[1]);
     }
 
     #endregion
@@ -248,7 +248,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         Assert.Single(statements);
         string stmt = statements[0];
         Assert.Contains("DO $$", stmt);
-        Assert.Contains("timescaledb.compress = true", stmt);
+        Assert.Contains("timescaledb.enable_columnstore = true", stmt);
     }
 
     #endregion
@@ -272,7 +272,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
         // Assert
         Assert.Single(statements);
-        Assert.Contains("timescaledb.compress = false", statements[0]);
+        Assert.Contains("timescaledb.enable_columnstore = false", statements[0]);
     }
 
     #endregion
@@ -299,7 +299,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         // Assert
         Assert.Single(statements);
         string stmt = statements[0];
-        Assert.Contains("compress_segmentby = ''\"device_id\"''", stmt);
+        Assert.Contains("segmentby = ''\"device_id\"''", stmt);
         Assert.DoesNotContain("\"region\"", stmt);
     }
 
@@ -326,7 +326,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
         // Assert
         Assert.Single(statements);
-        Assert.Contains("compress_segmentby = ''", statements[0]);
+        Assert.Contains("segmentby = ''", statements[0]);
     }
 
     #endregion
@@ -352,7 +352,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
         // Assert
         Assert.Single(statements);
-        Assert.Contains("compress_orderby = ''\"time\" DESC''", statements[0]);
+        Assert.Contains("orderby = ''\"time\" DESC''", statements[0]);
     }
 
     #endregion
@@ -379,7 +379,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.DoesNotContain(statements, s => s.Contains("timescaledb.compress"));
+        Assert.DoesNotContain(statements, s => s.Contains("timescaledb.enable_columnstore"));
     }
 
     #endregion
@@ -406,7 +406,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         // Assert
         Assert.Equal(2, statements.Count);
         Assert.Contains(statements, s => s.Contains("create_group_indexes"));
-        Assert.Contains(statements, s => s.Contains("timescaledb.compress"));
+        Assert.Contains(statements, s => s.Contains("timescaledb.enable_columnstore"));
     }
 
     #endregion
@@ -462,6 +462,91 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         // Assert
         Assert.Single(statements);
         Assert.Contains("\"bucket_time\" DESC NULLS LAST", statements[0]);
+    }
+
+    #endregion
+
+    // ── Legacy mode ───────────────────────────────────────────────────────────
+
+    #region Legacy_Create_WithCompression_EmitsLegacyCompressionNames
+
+    [Fact]
+    public void Legacy_Create_WithCompression_EmitsLegacyCompressionNames()
+    {
+        // Arrange
+        CreateContinuousAggregateOperation op = new()
+        {
+            MaterializedViewName = "legacy_comp_cagg",
+            Schema = "public",
+            ParentName = "metrics",
+            TimeBucketWidth = "1 hour",
+            TimeBucketSourceColumn = "time",
+            TimeBucketGroupBy = true,
+            AggregateFunctions = ["avg_v:Avg:value"],
+            EnableCompression = true,
+            CompressionSegmentBy = ["region"],
+            CompressionOrderBy = ["time DESC"],
+        };
+
+        // Act
+        List<string> statements = ContinuousAggregateSqlGenerator.Generate(op, useLegacyCompressionNames: true);
+        string compressionStmt = statements[1];
+
+        // Assert
+        Assert.Contains("timescaledb.compress = true", compressionStmt);
+        Assert.Contains("timescaledb.compress_segmentby", compressionStmt);
+        Assert.Contains("timescaledb.compress_orderby", compressionStmt);
+        Assert.DoesNotContain("enable_columnstore", compressionStmt);
+    }
+
+    #endregion
+
+    #region Legacy_Alter_EnableCompression_EmitsLegacyCompressName
+
+    [Fact]
+    public void Legacy_Alter_EnableCompression_EmitsLegacyCompressName()
+    {
+        // Arrange
+        AlterContinuousAggregateOperation op = new()
+        {
+            MaterializedViewName = "legacy_alter_cagg",
+            Schema = "public",
+            EnableCompression = true,
+            OldEnableCompression = false,
+        };
+
+        // Act
+        List<string> statements = ContinuousAggregateSqlGenerator.Generate(op, useLegacyCompressionNames: true);
+
+        // Assert
+        Assert.Single(statements);
+        Assert.Contains("timescaledb.compress = true", statements[0]);
+        Assert.DoesNotContain("enable_columnstore", statements[0]);
+    }
+
+    #endregion
+
+    #region Legacy_Alter_DisableCompression_EmitsLegacyCompressFalse
+
+    [Fact]
+    public void Legacy_Alter_DisableCompression_EmitsLegacyCompressFalse()
+    {
+        // Arrange
+        AlterContinuousAggregateOperation op = new()
+        {
+            MaterializedViewName = "legacy_disable_cagg",
+            Schema = "public",
+            EnableCompression = false,
+            OldEnableCompression = true,
+        };
+
+        // Act
+        List<string> statements = ContinuousAggregateSqlGenerator.Generate(op, useLegacyCompressionNames: true);
+
+        // Assert
+        Assert.Single(statements);
+        Assert.Contains("timescaledb.compress = false", statements[0]);
+        Assert.DoesNotContain("enable_columnstore", statements[0]);
     }
 
     #endregion

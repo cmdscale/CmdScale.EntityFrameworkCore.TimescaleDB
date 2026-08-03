@@ -120,6 +120,37 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             DbConnection connection,
             Dictionary<(string, string), ContinuousAggregateInfo> continuousAggregates)
         {
+            bool usedNewView = CompressionSettingsScaffoldingHelper.TryReadCompressionSettingsFromColumnstoreView(
+                connection,
+                rawKey =>
+                {
+                    if (!_matHypertableToView.TryGetValue(rawKey, out (string ViewSchema, string ViewName) viewKey))
+                    {
+                        return (default, false);
+                    }
+
+                    return ((viewKey.ViewSchema, viewKey.ViewName), true);
+                },
+                (key, columnName) =>
+                {
+                    if (continuousAggregates.TryGetValue(key, out ContinuousAggregateInfo? info))
+                    {
+                        info.CompressionSegmentBy?.Add(columnName);
+                    }
+                },
+                (key, orderByEntry) =>
+                {
+                    if (continuousAggregates.TryGetValue(key, out ContinuousAggregateInfo? info))
+                    {
+                        info.CompressionOrderBy?.Add(orderByEntry);
+                    }
+                });
+
+            if (usedNewView)
+            {
+                return;
+            }
+
             CompressionSettingsScaffoldingHelper.ReadCompressionSettings(
                 connection,
                 rawKey =>

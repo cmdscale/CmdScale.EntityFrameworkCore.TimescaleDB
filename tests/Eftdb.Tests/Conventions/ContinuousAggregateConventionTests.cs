@@ -1105,7 +1105,7 @@ public class ContinuousAggregateConventionTests
         IModel model = GetModel(context);
         IEntityType entityType = model.FindEntityType("PropertyBagCaTestEntity")!;
 
-        // Act + Assert
+        // Act & Assert
         Assert.NotNull(entityType);
         Assert.Null(entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName));
         Assert.Null(entityType.FindAnnotation(ContinuousAggregateAnnotations.ParentName));

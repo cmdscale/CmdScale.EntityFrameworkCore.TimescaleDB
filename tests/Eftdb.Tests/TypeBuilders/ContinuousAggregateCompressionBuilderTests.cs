@@ -299,7 +299,6 @@ public class ContinuousAggregateCompressionBuilderTests
             m.Entity<StrOrdAgg7>(e =>
             {
                 e.HasNoKey();
-                // Uses IsContinuousAggregate without type params (string builder route)
                 e.IsContinuousAggregate<StrOrdAgg7, StrOrdSrc7>("str_ord_cagg7", "1 hour", x => x.Timestamp)
                  .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
                  .WithCompressionOrderBy(new OrderBy("time_bucket", isAscending: false));

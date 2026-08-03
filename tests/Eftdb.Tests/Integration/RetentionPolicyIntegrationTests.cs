@@ -340,7 +340,7 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
                 entity.IsHypertable(e => e.Time);
                 entity.WithRetentionPolicy(
                     dropAfter: "7 days",
-                    scheduleInterval: "12 hours"  // <-- Changed from "1 day"
+                    scheduleInterval: "12 hours"
                 );
             });
         }
@@ -408,7 +408,7 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
                 entity.ToTable("retention_alter_drop_after");
                 entity.HasKey(e => new { e.Time, e.Id });
                 entity.IsHypertable(e => e.Time);
-                entity.WithRetentionPolicy(dropAfter: "30 days");  // <-- Changed from "7 days"
+                entity.WithRetentionPolicy(dropAfter: "30 days");
             });
         }
     }
@@ -478,7 +478,6 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
                 entity.ToTable("retention_drop_policy");
                 entity.HasKey(e => new { e.Time, e.Id });
                 entity.IsHypertable(e => e.Time);
-                // <-- Retention policy removed
             });
         }
     }
@@ -590,7 +589,7 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
                 entity.ToTable("retention_alter_da_to_dcb");
                 entity.HasKey(e => new { e.Time, e.Id });
                 entity.IsHypertable(e => e.Time);
-                entity.WithRetentionPolicy(dropCreatedBefore: "30 days");  // <-- Changed from dropAfter: "7 days"
+                entity.WithRetentionPolicy(dropCreatedBefore: "30 days");
             });
         }
     }
@@ -817,7 +816,7 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
                 entity.HasKey(e => new { e.Time, e.Id });
                 entity.IsHypertable(e => e.Time);
                 entity.WithRetentionPolicy(
-                    dropCreatedBefore: "30 days",   // <-- Changed from dropAfter: "7 days"
+                    dropCreatedBefore: "30 days",
                     scheduleInterval: "6 hours",
                     maxRetries: 5
                 );
@@ -898,7 +897,7 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
                 entity.IsHypertable(e => e.Time);
                 entity.WithRetentionPolicy(
                     dropCreatedBefore: "30 days",
-                    scheduleInterval: "12 hours"   // <-- Changed from "1 day"
+                    scheduleInterval: "12 hours"
                 );
             });
         }
@@ -917,8 +916,6 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
         await using ModifiedAlterDcbScheduleContext modifiedContext = new(_connectionString!);
         await AlterDatabaseViaMigrationAsync(initialContext, modifiedContext);
 
-        // Pre-2.26.3 this alter_job call would fail because the policy config carries
-        // drop_created_before instead of drop_after.
         TimeSpan newSchedule = await GetScheduleIntervalAsync(modifiedContext, jobId);
         Assert.Equal(TimeSpan.FromHours(12), newSchedule);
     }
@@ -972,7 +969,7 @@ public class RetentionPolicyIntegrationTests : MigrationTestBase, IAsyncLifetime
                 entity.IsHypertable(e => e.Time);
                 entity.WithRetentionPolicy(
                     dropAfter: "7 days",
-                    initialStart: new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc)   // <-- Changed from 2025-01-01
+                    initialStart: new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc)
                 );
             });
         }

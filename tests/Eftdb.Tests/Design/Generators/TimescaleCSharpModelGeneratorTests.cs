@@ -447,7 +447,7 @@ public class TimescaleCSharpModelGeneratorTests
             .GetMethod("AddNamespace", BindingFlags.NonPublic | BindingFlags.Static)!;
 
         string ns = typeof(EAggregateFunction).Namespace!;
-        List<string> namespaces = [ns]; // pre-populated
+        List<string> namespaces = [ns];
 
         // Act
         method.Invoke(null, [namespaces, typeof(EAggregateFunction)]);

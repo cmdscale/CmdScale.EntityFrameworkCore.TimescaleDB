@@ -34,13 +34,11 @@ public class ContinuousAggregateAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - verify all mandatory annotations are set
+        // Assert
         Assert.Equal("hourly_metrics", table[ContinuousAggregateAnnotations.MaterializedViewName]);
         Assert.Equal("metrics", table[ContinuousAggregateAnnotations.ParentName]);
         Assert.Equal(false, table[ContinuousAggregateAnnotations.MaterializedOnly]);
         Assert.Equal("SELECT time_bucket('1 hour', timestamp) AS bucket, COUNT(*) FROM metrics GROUP BY 1", table["TimescaleDB:ViewDefinition"]);
-
-        // ChunkInterval should NOT be set when null
         Assert.Null(table[ContinuousAggregateAnnotations.ChunkInterval]);
     }
 
@@ -323,7 +321,7 @@ public class ContinuousAggregateAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - verify ALL annotations are applied
+        // Assert
         Assert.Equal("daily_summary", table[ContinuousAggregateAnnotations.MaterializedViewName]);
         Assert.Equal("transactions", table[ContinuousAggregateAnnotations.ParentName]);
         Assert.Equal(true, table[ContinuousAggregateAnnotations.MaterializedOnly]);
@@ -410,12 +408,10 @@ public class ContinuousAggregateAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - table properties should be preserved
+        // Assert
         Assert.Equal("existing_view", table.Name);
         Assert.Equal("custom_schema", table.Schema);
         Assert.Equal("Pre-existing comment", table.Comment);
-
-        // And annotations should still be applied
         Assert.Equal("hourly_metrics", table[ContinuousAggregateAnnotations.MaterializedViewName]);
     }
 
@@ -477,7 +473,7 @@ public class ContinuousAggregateAnnotationApplierTests
         // Act
         _applier.ApplyAnnotations(table, info);
 
-        // Assert - ParentName should be the table name, not including schema
+        // Assert
         Assert.Equal("raw_events", table[ContinuousAggregateAnnotations.ParentName]);
     }
 

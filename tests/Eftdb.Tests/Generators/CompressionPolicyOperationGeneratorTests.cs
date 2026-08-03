@@ -26,7 +26,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT add_compression_policy('public.""TestTable""', compress_after => INTERVAL '7 days');
+            CALL add_columnstore_policy('public.""TestTable""', after => INTERVAL '7 days');
         ";
 
         // Act
@@ -38,10 +38,10 @@ public class CompressionPolicyOperationGeneratorTests
 
     #endregion
 
-    #region Generate_Add_CreatedBefore_creates_compress_created_before_sql
+    #region Generate_Add_CreatedBefore_creates_created_before_sql
 
     [Fact]
-    public void Generate_Add_CreatedBefore_creates_compress_created_before_sql()
+    public void Generate_Add_CreatedBefore_creates_created_before_sql()
     {
         // Arrange
         AddCompressionPolicyOperation operation = new()
@@ -52,7 +52,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT add_compression_policy('public.""TestTable""', compress_created_before => INTERVAL '30 days');
+            CALL add_columnstore_policy('public.""TestTable""', created_before => INTERVAL '30 days');
         ";
 
         // Act
@@ -60,7 +60,7 @@ public class CompressionPolicyOperationGeneratorTests
 
         // Assert
         Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
-        Assert.DoesNotContain("compress_after", result);
+        Assert.DoesNotContain("after =>", result);
     }
 
     #endregion
@@ -80,7 +80,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT add_compression_policy('public.""TestTable""', compress_after => INTERVAL '7 days', schedule_interval => INTERVAL '12 hours');
+            CALL add_columnstore_policy('public.""TestTable""', after => INTERVAL '7 days', schedule_interval => INTERVAL '12 hours');
         ";
 
         // Act
@@ -108,7 +108,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT add_compression_policy('public.""TestTable""', compress_after => INTERVAL '7 days', initial_start => '2025-10-20T12:30:00.0000000Z');
+            CALL add_columnstore_policy('public.""TestTable""', after => INTERVAL '7 days', initial_start => '2025-10-20T12:30:00.0000000Z');
         ";
 
         // Act
@@ -135,7 +135,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT add_compression_policy('public.""TestTable""', compress_after => INTERVAL '7 days', timezone => 'Europe/Berlin');
+            CALL add_columnstore_policy('public.""TestTable""', after => INTERVAL '7 days', timezone => 'Europe/Berlin');
         ";
 
         // Act
@@ -162,7 +162,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT add_compression_policy('public.""TestTable""', compress_after => INTERVAL '7 days', if_not_exists => true);
+            CALL add_columnstore_policy('public.""TestTable""', after => INTERVAL '7 days', if_not_exists => true);
         ";
 
         // Act
@@ -193,7 +193,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT add_compression_policy('public.""TestTable""', compress_after => INTERVAL '14 days', schedule_interval => INTERVAL '12 hours', initial_start => '2025-01-01T00:00:00.0000000Z', timezone => 'UTC', if_not_exists => true);
+            CALL add_columnstore_policy('public.""TestTable""', after => INTERVAL '14 days', schedule_interval => INTERVAL '12 hours', initial_start => '2025-01-01T00:00:00.0000000Z', timezone => 'UTC', if_not_exists => true);
         ";
 
         // Act
@@ -219,7 +219,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT add_compression_policy('analytics.""EventLogs""', compress_after => INTERVAL '7 days');
+            CALL add_columnstore_policy('analytics.""EventLogs""', after => INTERVAL '7 days');
         ";
 
         // Act
@@ -250,8 +250,8 @@ public class CompressionPolicyOperationGeneratorTests
 
         // Assert
         Assert.Equal(2, statements.Count);
-        Assert.Contains("remove_compression_policy", statements[0]);
-        Assert.Contains("add_compression_policy", statements[1]);
+        Assert.Contains("remove_columnstore_policy", statements[0]);
+        Assert.Contains("add_columnstore_policy", statements[1]);
     }
 
     #endregion
@@ -293,8 +293,8 @@ public class CompressionPolicyOperationGeneratorTests
             OldAfter = "7 days"
         };
 
-        string expectedRemove = @"SELECT remove_compression_policy('public.""TestTable""', if_exists => true);";
-        string expectedAdd = @"SELECT add_compression_policy('public.""TestTable""', compress_after => INTERVAL '14 days');";
+        string expectedRemove = @"CALL remove_columnstore_policy('public.""TestTable""', if_exists => true);";
+        string expectedAdd = @"CALL add_columnstore_policy('public.""TestTable""', after => INTERVAL '14 days');";
 
         // Act
         List<string> statements = CompressionPolicySqlGenerator.Generate(operation);
@@ -323,7 +323,7 @@ public class CompressionPolicyOperationGeneratorTests
             OldCreatedBefore = null
         };
 
-        string expectedAdd = @"SELECT add_compression_policy('public.""TestTable""', compress_created_before => INTERVAL '30 days');";
+        string expectedAdd = @"CALL add_columnstore_policy('public.""TestTable""', created_before => INTERVAL '30 days');";
 
         // Act
         List<string> statements = CompressionPolicySqlGenerator.Generate(operation);
@@ -331,7 +331,7 @@ public class CompressionPolicyOperationGeneratorTests
         // Assert
         Assert.Equal(2, statements.Count);
         Assert.Equal(SqlHelper.NormalizeSql(expectedAdd), SqlHelper.NormalizeSql(statements[1]));
-        Assert.DoesNotContain("compress_after", statements[1]);
+        Assert.DoesNotContain("after =>", statements[1]);
     }
 
     #endregion
@@ -360,7 +360,7 @@ public class CompressionPolicyOperationGeneratorTests
 
         // Assert
         Assert.Equal(2, statements.Count);
-        Assert.Contains("compress_after => INTERVAL '14 days'", statements[1]);
+        Assert.Contains("after => INTERVAL '14 days'", statements[1]);
         Assert.Contains("schedule_interval => INTERVAL '6 hours'", statements[1]);
         Assert.Contains("2026-06-15T00:00:00.0000000Z", statements[1]);
         Assert.Contains("timezone => 'Europe/Berlin'", statements[1]);
@@ -405,7 +405,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT remove_compression_policy('public.""TestTable""', if_exists => true);
+            CALL remove_columnstore_policy('public.""TestTable""', if_exists => true);
         ";
 
         // Act
@@ -430,7 +430,7 @@ public class CompressionPolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT remove_compression_policy('analytics.""EventLogs""', if_exists => true);
+            CALL remove_columnstore_policy('analytics.""EventLogs""', if_exists => true);
         ";
 
         // Act
@@ -442,10 +442,10 @@ public class CompressionPolicyOperationGeneratorTests
 
     #endregion
 
-    #region Generate_Add_After_does_not_emit_compress_created_before
+    #region Generate_Add_After_does_not_emit_created_before
 
     [Fact]
-    public void Generate_Add_After_does_not_emit_compress_created_before()
+    public void Generate_Add_After_does_not_emit_created_before()
     {
         // Arrange
         AddCompressionPolicyOperation operation = new()
@@ -460,16 +460,16 @@ public class CompressionPolicyOperationGeneratorTests
 
         // Assert
         Assert.Single(statements);
-        Assert.Contains("compress_after => INTERVAL '7 days'", statements[0]);
-        Assert.DoesNotContain("compress_created_before", statements[0]);
+        Assert.Contains("after => INTERVAL '7 days'", statements[0]);
+        Assert.DoesNotContain("created_before =>", statements[0]);
     }
 
     #endregion
 
-    #region Generate_Add_CreatedBefore_does_not_emit_compress_after
+    #region Generate_Add_CreatedBefore_does_not_emit_after
 
     [Fact]
-    public void Generate_Add_CreatedBefore_does_not_emit_compress_after()
+    public void Generate_Add_CreatedBefore_does_not_emit_after()
     {
         // Arrange
         AddCompressionPolicyOperation operation = new()
@@ -484,8 +484,8 @@ public class CompressionPolicyOperationGeneratorTests
 
         // Assert
         Assert.Single(statements);
-        Assert.Contains("compress_created_before => INTERVAL '30 days'", statements[0]);
-        Assert.DoesNotContain("compress_after", statements[0]);
+        Assert.Contains("created_before => INTERVAL '30 days'", statements[0]);
+        Assert.DoesNotContain("after => INTERVAL", statements[0]);
     }
 
     #endregion
@@ -531,6 +531,115 @@ public class CompressionPolicyOperationGeneratorTests
         // Assert
         Assert.Single(statements);
         Assert.Contains("'public.\"TestTable\"'", statements[0]);
+    }
+
+    #endregion
+
+    // ── Legacy mode ───────────────────────────────────────────────────────────
+
+    #region Legacy_Generate_Add_After_emits_select_add_compression_policy
+
+    [Fact]
+    public void Legacy_Generate_Add_After_emits_select_add_compression_policy()
+    {
+        // Arrange
+        AddCompressionPolicyOperation operation = new()
+        {
+            Schema = "public",
+            TableName = "TestTable",
+            After = "7 days"
+        };
+
+        string expected = @"
+            SELECT add_compression_policy('public.""TestTable""', compress_after => INTERVAL '7 days');
+        ";
+
+        // Act
+        List<string> statements = CompressionPolicySqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+        string result = string.Join("\n", statements);
+
+        // Assert
+        Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+    }
+
+    #endregion
+
+    #region Legacy_Generate_Add_CreatedBefore_emits_compress_created_before
+
+    [Fact]
+    public void Legacy_Generate_Add_CreatedBefore_emits_compress_created_before()
+    {
+        // Arrange
+        AddCompressionPolicyOperation operation = new()
+        {
+            Schema = "public",
+            TableName = "TestTable",
+            CreatedBefore = "30 days"
+        };
+
+        string expected = @"
+            SELECT add_compression_policy('public.""TestTable""', compress_created_before => INTERVAL '30 days');
+        ";
+
+        // Act
+        List<string> statements = CompressionPolicySqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+        string result = string.Join("\n", statements);
+
+        // Assert
+        Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        Assert.DoesNotContain("compress_after", result);
+    }
+
+    #endregion
+
+    #region Legacy_Generate_Drop_emits_select_remove_compression_policy
+
+    [Fact]
+    public void Legacy_Generate_Drop_emits_select_remove_compression_policy()
+    {
+        // Arrange
+        DropCompressionPolicyOperation operation = new()
+        {
+            Schema = "public",
+            TableName = "TestTable"
+        };
+
+        string expected = @"
+            SELECT remove_compression_policy('public.""TestTable""', if_exists => true);
+        ";
+
+        // Act
+        List<string> statements = CompressionPolicySqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+        string result = string.Join("\n", statements);
+
+        // Assert
+        Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+    }
+
+    #endregion
+
+    #region Legacy_Generate_Alter_emits_legacy_remove_then_add
+
+    [Fact]
+    public void Legacy_Generate_Alter_emits_legacy_remove_then_add()
+    {
+        // Arrange
+        AlterCompressionPolicyOperation operation = new()
+        {
+            Schema = "public",
+            TableName = "TestTable",
+            After = "14 days",
+            OldAfter = "7 days"
+        };
+
+        // Act
+        List<string> statements = CompressionPolicySqlGenerator.Generate(operation, useLegacyCompressionNames: true);
+
+        // Assert
+        Assert.Equal(2, statements.Count);
+        Assert.Contains("SELECT remove_compression_policy", statements[0]);
+        Assert.Contains("SELECT add_compression_policy", statements[1]);
+        Assert.Contains("compress_after => INTERVAL '14 days'", statements[1]);
     }
 
     #endregion

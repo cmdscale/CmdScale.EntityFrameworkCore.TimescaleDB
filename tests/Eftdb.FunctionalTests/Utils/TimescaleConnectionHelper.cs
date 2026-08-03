@@ -17,7 +17,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils
                 Username = Username,
                 Password = Password,
                 Database = database,
-                Pooling = false // Disable pooling for test isolation
+                Pooling = false
             }.ToString();
     }
 }

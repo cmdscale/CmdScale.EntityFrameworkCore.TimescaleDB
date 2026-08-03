@@ -722,7 +722,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
                             "trade_aggregate_alterable",
                             "1 hour",
                             x => x.Timestamp,
-                            chunkInterval: "14 days") // <-- Changed from "7 days"
+                            chunkInterval: "14 days")
                         .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg);
 
                     entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");

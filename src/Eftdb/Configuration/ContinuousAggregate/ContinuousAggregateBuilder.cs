@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.Linq.Expressions;
 
@@ -70,8 +71,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             Expression<Func<TSourceEntity, TSourceProperty>> sourceColumn,
             EAggregateFunction function)
         {
-            string propertyName = GetPropertyName(propertyExpression);
-            string sourceColumnName = GetPropertyName(sourceColumn);
+            string propertyName = ExpressionHelper.GetPropertyName(propertyExpression);
+            string sourceColumnName = ExpressionHelper.GetPropertyName(sourceColumn);
             ContinuousAggregateBuilderCore.AddAggregateFunction(EntityTypeBuilder, propertyName, sourceColumnName, function);
             return this;
         }
@@ -85,7 +86,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         public ContinuousAggregateBuilder<TEntity, TSourceEntity> AddGroupByColumn<TProperty>(
             Expression<Func<TSourceEntity, TProperty>> propertyExpression)
         {
-            ContinuousAggregateBuilderCore.AddGroupByColumn(EntityTypeBuilder, GetPropertyName(propertyExpression));
+            ContinuousAggregateBuilderCore.AddGroupByColumn(EntityTypeBuilder, ExpressionHelper.GetPropertyName(propertyExpression));
             return this;
         }
 
@@ -133,7 +134,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         public ContinuousAggregateBuilder<TEntity, TSourceEntity> WithCompressionSegmentBy(
             params Expression<Func<TEntity, object>>[] segmentByColumns)
         {
-            string[] columnNames = [.. segmentByColumns.Select(GetPropertyName<TEntity, object>)];
+            string[] columnNames = [.. segmentByColumns.Select(ExpressionHelper.GetPropertyName<TEntity, object>)];
             ContinuousAggregateBuilderCore.WithCompressionSegmentBy(EntityTypeBuilder, string.Join(", ", columnNames));
             return this;
         }
@@ -179,19 +180,5 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             return WithCompressionOrderBy([.. orderSelectors.Select(s => s(selector))]);
         }
 
-        internal static string GetPropertyName<T, TProperty>(Expression<Func<T, TProperty>> propertyExpression)
-        {
-            if (propertyExpression.Body is MemberExpression memberExpression)
-            {
-                return memberExpression.Member.Name;
-            }
-
-            if (propertyExpression.Body is UnaryExpression unaryExpression && unaryExpression.Operand is MemberExpression unaryMemberExpression)
-            {
-                return unaryMemberExpression.Member.Name;
-            }
-
-            throw new ArgumentException("Expression must be a simple property access expression.", nameof(propertyExpression));
-        }
     }
 }

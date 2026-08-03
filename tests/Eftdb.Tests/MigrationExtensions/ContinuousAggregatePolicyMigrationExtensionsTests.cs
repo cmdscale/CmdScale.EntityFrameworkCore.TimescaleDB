@@ -16,7 +16,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.MigrationExtensions
             // Arrange
             MigrationBuilder mb = new(activeProvider: null);
 
-            // Act — only required argument; everything else falls to the signature defaults.
+            // Act
             mb.AddContinuousAggregatePolicy(materializedViewName: "hourly");
 
             // Assert

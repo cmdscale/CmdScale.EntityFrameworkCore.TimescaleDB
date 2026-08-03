@@ -33,7 +33,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
         [Fact]
         public void AddPolicy_DefaultValues_OmitInvertedAndDefaultArgs()
         {
-            // Arrange — all defaults (BucketsPerBatch=1, MaxBatchesPerExecution=0, RefreshNewestFirst=true).
+            // Arrange
             AddContinuousAggregatePolicyOperation op = new()
             {
                 MaterializedViewName = "hourly",

@@ -48,7 +48,7 @@ public class MigrationDifferRenameTests : MigrationTestBase
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
-                            .UseSnakeCaseNamingConvention() // <-- Added on top of the existing migration
+                            .UseSnakeCaseNamingConvention()
                             .UseTimescaleDb();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -112,7 +112,7 @@ public class MigrationDifferRenameTests : MigrationTestBase
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
-                            .UseSnakeCaseNamingConvention() // <-- Added on top of the existing migration
+                            .UseSnakeCaseNamingConvention()
                             .UseTimescaleDb();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -178,7 +178,7 @@ public class MigrationDifferRenameTests : MigrationTestBase
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
-                            .UseSnakeCaseNamingConvention() // <-- Added on top of the existing migration
+                            .UseSnakeCaseNamingConvention()
                             .UseTimescaleDb();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -240,7 +240,7 @@ public class MigrationDifferRenameTests : MigrationTestBase
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
-                            .UseSnakeCaseNamingConvention() // <-- Added on top of the existing migration
+                            .UseSnakeCaseNamingConvention()
                             .UseTimescaleDb();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -319,7 +319,7 @@ public class MigrationDifferRenameTests : MigrationTestBase
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
-                            .UseSnakeCaseNamingConvention() // <-- Added on top of the existing migration
+                            .UseSnakeCaseNamingConvention()
                             .UseTimescaleDb();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -361,11 +361,9 @@ public class MigrationDifferRenameTests : MigrationTestBase
         AddRetentionPolicyOperation retention = Assert.Single(operations.OfType<AddRetentionPolicyOperation>());
         Assert.Equal("sensor_hourly", retention.TableName);
 
-        // The cascade already removed these, so no explicit remove/drop should be emitted for the view.
         Assert.Empty(operations.OfType<RemoveContinuousAggregatePolicyOperation>());
         Assert.DoesNotContain(operations.OfType<DropRetentionPolicyOperation>(), o => o.TableName == "sensor_hourly");
 
-        // Re-adds must be ordered after the recreate.
         int createIndex = IndexOf<CreateContinuousAggregateOperation>(operations);
         Assert.True(createIndex < IndexOf<AddContinuousAggregatePolicyOperation>(operations));
         Assert.True(createIndex < IndexOf<AddRetentionPolicyOperation>(operations));

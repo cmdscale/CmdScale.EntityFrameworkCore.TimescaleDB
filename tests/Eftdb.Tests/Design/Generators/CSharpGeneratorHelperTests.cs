@@ -44,7 +44,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Act
             string result = Generate(op);
 
-            // Assert — collection expression ["a", "b"].
+            // Assert
             Assert.Contains("[\"a\", \"b\"]", result);
         }
 
@@ -77,7 +77,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
         [Fact]
         public void StaticCall_RendersIntArgUnquoted()
         {
-            // Arrange — a hash dimension forces StaticCall(..., columnName, numberOfPartitions:int).
+            // Arrange
             CreateHypertableOperation op = new()
             {
                 TableName = "t",
@@ -88,7 +88,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Act
             string result = Generate(op);
 
-            // Assert — string arg is quoted, int arg is unquoted.
+            // Assert
             Assert.Contains(".CreateHash(\"hash_col\", 4)", result);
             Assert.DoesNotContain("CreateHash(\"hash_col\", \"4\")", result);
         }
@@ -111,7 +111,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Generators
             // Act
             string result = Generate(op);
 
-            // Assert — both args are strings and quoted.
+            // Assert
             Assert.Contains(".CreateRange(\"range_col\", \"1 day\")", result);
         }
 

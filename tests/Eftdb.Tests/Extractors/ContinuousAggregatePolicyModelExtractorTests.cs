@@ -243,7 +243,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
                 entity.IsContinuousAggregate<NoRefreshAggregate, NoRefreshMetric>(
                         "hourly_metrics", "1 hour", x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
-                // Note: No WithRefreshPolicy() call
             });
         }
     }
@@ -372,7 +371,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
                         "hourly_metrics", "1 hour", x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
                     .WithRefreshPolicy(startOffset: "1 month", endOffset: "1 hour", scheduleInterval: "1 hour");
-                // No optional policy methods called
             });
         }
     }
@@ -559,7 +557,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
             modelBuilder.Entity<ViewSchemaPolicySourceMetric>(entity =>
             {
                 entity.HasNoKey();
-                // Parent in a different schema than the CA's view schema
                 entity.ToTable("Metrics", "telemetry");
                 entity.IsHypertable(x => x.Timestamp);
             });
@@ -567,7 +564,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
             modelBuilder.Entity<ViewSchemaPolicyAggregate>(entity =>
             {
                 entity.HasNoKey();
-                // CA mapped via .ToView with explicit custom schema
                 entity.ToView("agg_view", "custom_schema");
 
                 entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
@@ -614,7 +610,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
 
     private class TableNameParentLookupPolicyContext : DbContext
     {
-        // Note: CLR name "TableNameParentLookupPolicyMetric" but the table is "ApiRequestLogs".
         public DbSet<TableNameParentLookupPolicyMetric> Logs => Set<TableNameParentLookupPolicyMetric>();
         public DbSet<TableNameParentLookupPolicyAggregate> HourlyLogs => Set<TableNameParentLookupPolicyAggregate>();
 
@@ -636,7 +631,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
                 entity.HasNoKey();
                 entity.ToView("hourly_api_logs", "telemetry");
 
-                // Scaffolder writes the table name into ParentName, not the CLR / short name.
                 entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_api_logs");
                 entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "ApiRequestLogs");
                 entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
@@ -702,7 +696,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
                 entity.HasNoKey();
                 entity.ToView("agg_view", "custom_schema");
 
-                // HasRefreshPolicy set, but ParentName annotation deliberately omitted
                 entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
                 entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
                 entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset, "1 month");
@@ -768,9 +761,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
                 entity.ToView("agg_view", "custom_schema");
 
                 entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
-                // ParentName matches nothing in the model — covers the path where all three
-                // disjuncts in the FirstOrDefault predicate (CLR name / ShortName / table name)
-                // return false for every entity.
                 entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "DoesNotExist");
                 entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
                 entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset, "1 month");
@@ -885,7 +875,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Parent has no explicit schema.
             modelBuilder.Entity<NoSchemaMetric>(entity =>
             {
                 entity.HasNoKey();
@@ -896,9 +885,6 @@ public class ContinuousAggregatePolicyModelExtractorTests
             modelBuilder.Entity<NoSchemaAggregate>(entity =>
             {
                 entity.HasNoKey();
-                // No .ToView / .ToTable — view schema and entity schema both null.
-                // Combined with parent having no schema, the resolution chain falls
-                // all the way through to DefaultValues.DefaultSchema.
                 entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
                 entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(NoSchemaMetric));
                 entity.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);

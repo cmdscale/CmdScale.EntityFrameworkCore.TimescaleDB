@@ -1706,7 +1706,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<MissingViewNameHourlyMetric>(entity =>
             {
                 entity.HasNoKey();
-                // Manually add incomplete annotations - missing MaterializedViewName
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MissingViewNameSourceMetric));
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, nameof(MissingViewNameSourceMetric.Timestamp));
@@ -1763,7 +1762,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<MissingParentNameHourlyMetric>(entity =>
             {
                 entity.HasNoKey();
-                // Missing ParentName annotation
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, nameof(MissingParentNameSourceMetric.Timestamp));
@@ -1820,7 +1818,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<ParentNotFoundHourlyMetric>(entity =>
             {
                 entity.HasNoKey();
-                // Reference non-existent parent entity
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, "NonExistentEntity");
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
@@ -1871,7 +1868,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<NoTableNameSourceMetric>(entity =>
             {
                 entity.HasNoKey();
-                // Map to view instead of table - GetTableName() will return null
                 entity.ToView("metrics_view");
                 entity.IsHypertable(x => x.Timestamp);
             });
@@ -1937,7 +1933,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<MissingTimeBucketWidthHourlyMetric>(entity =>
             {
                 entity.HasNoKey();
-                // Missing TimeBucketWidth
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MissingTimeBucketWidthSourceMetric));
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, nameof(MissingTimeBucketWidthSourceMetric.Timestamp));
@@ -1994,7 +1989,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<MissingTimeBucketSourceAnnotationHourlyMetric>(entity =>
             {
                 entity.HasNoKey();
-                // Missing TimeBucketSourceColumn annotation
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MissingTimeBucketSourceAnnotationSourceMetric));
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
@@ -2051,7 +2045,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<MissingTimeBucketPropertyHourlyMetric>(entity =>
             {
                 entity.HasNoKey();
-                // Reference non-existent property in parent entity
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(MissingTimeBucketPropertySourceMetric));
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
@@ -2116,7 +2109,6 @@ public class ContinuousAggregateModelExtractorTests
                     "1 hour",
                     x => x.Timestamp
                 );
-                // Add malformed aggregate function string (missing parts)
                 List<string> malformedList = ["AvgValue:Avg", "GoodValue:Sum:Value"];
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, malformedList);
             });
@@ -2135,7 +2127,6 @@ public class ContinuousAggregateModelExtractorTests
 
         // Assert
         Assert.Single(operations);
-        // Should only include the well-formed function, skipping the malformed one
         Assert.Single(operations[0].AggregateFunctions);
         Assert.Equal("GoodValue:Sum:Value", operations[0].AggregateFunctions[0]);
     }
@@ -2183,10 +2174,9 @@ public class ContinuousAggregateModelExtractorTests
                     "1 hour",
                     x => x.Timestamp
                 );
-                // Add aggregate functions - one with valid source, one with invalid
                 List<string> aggregateFunctions = [
-                    "AvgValue:Avg:NonExistentColumn",  // Invalid - source column doesn't exist
-                    "MinValue:Min:Value"  // Valid
+                    "AvgValue:Avg:NonExistentColumn",
+                    "MinValue:Min:Value"
                 ];
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, aggregateFunctions);
             });
@@ -2205,7 +2195,6 @@ public class ContinuousAggregateModelExtractorTests
 
         // Assert
         Assert.Single(operations);
-        // Should only include the valid function, skipping the one with non-existent source column
         Assert.Single(operations[0].AggregateFunctions);
         Assert.Equal("MinValue:Min:Value", operations[0].AggregateFunctions[0]);
     }
@@ -2223,7 +2212,6 @@ public class ContinuousAggregateModelExtractorTests
     private class FallbackAliasHourlyMetric
     {
         public DateTime Bucket { get; set; }
-        // Note: AvgValue property is NOT defined here to test the fallback
     }
 
     private class FallbackAliasContext : DbContext
@@ -2252,7 +2240,6 @@ public class ContinuousAggregateModelExtractorTests
                     "1 hour",
                     x => x.Timestamp
                 );
-                // Manually add aggregate function where alias property doesn't exist in aggregate entity
                 List<string> aggregateFunctions = ["AvgValue:Avg:Value"];
                 entity.Metadata.SetAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, aggregateFunctions);
             });
@@ -2272,7 +2259,6 @@ public class ContinuousAggregateModelExtractorTests
         // Assert
         Assert.Single(operations);
         Assert.Single(operations[0].AggregateFunctions);
-        // Should use the model name directly since the property doesn't exist in the aggregate entity
         Assert.Equal("AvgValue:Avg:Value", operations[0].AggregateFunctions[0]);
     }
 
@@ -2315,9 +2301,6 @@ public class ContinuousAggregateModelExtractorTests
                 entity.HasNoKey();
                 entity.ToView("hourly_metrics");
 
-                // Scaffolder emits the resolved database column name (snake_case "time"),
-                // not the CLR property name. Bug #44 dropped the aggregate when the
-                // extractor only matched CLR property names.
                 entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
                 entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(ScaffoldedTimeBucketSourceMetric));
                 entity.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
@@ -2381,8 +2364,6 @@ public class ContinuousAggregateModelExtractorTests
                 entity.HasNoKey();
                 entity.ToView("hourly_metrics");
 
-                // Scaffolder writes the source-column part of "alias:fn:source" in
-                // resolved-column-name form (snake_case "sensor_value").
                 entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "hourly_metrics");
                 entity.HasAnnotation(ContinuousAggregateAnnotations.ParentName, nameof(ScaffoldedAggregateFunctionSourceMetric));
                 entity.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, "1 hour");
@@ -2407,7 +2388,6 @@ public class ContinuousAggregateModelExtractorTests
         // Assert
         Assert.Single(operations);
         Assert.Single(operations[0].AggregateFunctions);
-        // Alias resolves via the aggregate entity's snake_case convention; source resolves via reverse lookup.
         Assert.Equal("avg_value:Avg:sensor_value", operations[0].AggregateFunctions[0]);
     }
 
@@ -2467,7 +2447,7 @@ public class ContinuousAggregateModelExtractorTests
         // Act
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        // Assert - exactly one operation emitted with raw ViewDefinition populated, structured fields empty
+        // Assert
         CreateContinuousAggregateOperation operation = Assert.Single(operations);
         Assert.NotNull(operation.ViewDefinition);
         Assert.Contains("time_bucket('1 hour'", operation.ViewDefinition);
@@ -2550,7 +2530,6 @@ public class ContinuousAggregateModelExtractorTests
 
     private class TableNameParentLookupContext : DbContext
     {
-        // Note: CLR class is "ApiRequestLog" but the table is "ApiRequestLogs".
         public DbSet<ApiRequestLog> Logs => Set<ApiRequestLog>();
         public DbSet<ApiRequestLogHourlyAggregate> HourlyLogs => Set<ApiRequestLogHourlyAggregate>();
 
@@ -2563,7 +2542,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<ApiRequestLog>(entity =>
             {
                 entity.HasNoKey();
-                // Distinct table name so ParentName == "ApiRequestLogs" matches table only, not CLR / short name
                 entity.ToTable("ApiRequestLogs");
                 entity.IsHypertable(x => x.Timestamp);
             });
@@ -2626,7 +2604,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<ViewSchemaSourceMetric>(entity =>
             {
                 entity.HasNoKey();
-                // Parent in different schema than the CA's view schema
                 entity.ToTable("Metrics", "telemetry");
                 entity.IsHypertable(x => x.Timestamp);
             });
@@ -2634,7 +2611,6 @@ public class ContinuousAggregateModelExtractorTests
             modelBuilder.Entity<ViewSchemaAggregate>(entity =>
             {
                 entity.HasNoKey();
-                // CA mapped via .ToView with explicit custom schema
                 entity.ToView("agg_view", "custom_schema");
 
                 entity.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "agg_view");
@@ -2656,7 +2632,7 @@ public class ContinuousAggregateModelExtractorTests
         // Act
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        // Assert - schema resolution prefers GetViewSchema() over the parent's schema and the default
+        // Assert
         CreateContinuousAggregateOperation operation = Assert.Single(operations);
         Assert.Equal("custom_schema", operation.Schema);
     }
