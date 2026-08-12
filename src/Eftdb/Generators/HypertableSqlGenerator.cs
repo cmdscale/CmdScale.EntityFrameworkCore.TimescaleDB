@@ -23,14 +23,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (!string.IsNullOrEmpty(operation.ChunkTimeInterval))
             {
-                if (long.TryParse(operation.ChunkTimeInterval, out _))
-                {
-                    createHypertableCall.Append($", chunk_time_interval => {operation.ChunkTimeInterval}::bigint");
-                }
-                else
-                {
-                    createHypertableCall.Append($", chunk_time_interval => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(operation.ChunkTimeInterval)}'");
-                }
+                createHypertableCall.Append($", chunk_time_interval => {SqlBuilderHelper.IntervalOrBigint(operation.ChunkTimeInterval)}");
             }
 
             createHypertableCall.Append(");");
@@ -92,10 +85,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 {
                     if (dimension.Type == EDimensionType.Range)
                     {
-                        bool isIntegerRange = long.TryParse(dimension.Interval, out _);
-                        string intervalExpression = isIntegerRange
-                            ? dimension.Interval!
-                            : $"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(dimension.Interval ?? string.Empty)}'";
+                        string intervalExpression = SqlBuilderHelper.IntervalOrBigint(dimension.Interval ?? string.Empty);
 
                         statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(dimension.ColumnName)}', {intervalExpression}));");
                     }
@@ -126,14 +116,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 StringBuilder setChunkTimeInterval = new();
                 setChunkTimeInterval.Append($"SELECT set_chunk_time_interval({qualifiedTableName}, ");
 
-                if (long.TryParse(operation.ChunkTimeInterval, out _))
-                {
-                    setChunkTimeInterval.Append($"{operation.ChunkTimeInterval}::bigint");
-                }
-                else
-                {
-                    setChunkTimeInterval.Append($"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(operation.ChunkTimeInterval)}'");
-                }
+                setChunkTimeInterval.Append(SqlBuilderHelper.IntervalOrBigint(operation.ChunkTimeInterval));
 
                 setChunkTimeInterval.Append(");");
                 statements.Add(setChunkTimeInterval.ToString());
@@ -268,10 +251,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 {
                     if (newDim.Type == EDimensionType.Range)
                     {
-                        bool isIntegerRange = long.TryParse(newDim.Interval, out _);
-                        string intervalExpression = isIntegerRange
-                            ? newDim.Interval!
-                            : $"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(newDim.Interval ?? string.Empty)}'";
+                        string intervalExpression = SqlBuilderHelper.IntervalOrBigint(newDim.Interval ?? string.Empty);
 
                         statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}', {intervalExpression}));");
                     }

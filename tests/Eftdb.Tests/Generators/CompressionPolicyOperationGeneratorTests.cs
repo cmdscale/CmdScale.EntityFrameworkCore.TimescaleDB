@@ -38,6 +38,32 @@ public class CompressionPolicyOperationGeneratorTests
 
     #endregion
 
+    #region Generate_Add_Numeric_After_emits_bigint_for_integer_time_columns
+
+    [Fact]
+    public void Generate_Add_Numeric_After_emits_bigint_for_integer_time_columns()
+    {
+        // Arrange
+        AddCompressionPolicyOperation operation = new()
+        {
+            Schema = "public",
+            TableName = "TestTable",
+            After = "604800000000"
+        };
+
+        string expected = @"
+            CALL add_columnstore_policy('public.""TestTable""', after => 604800000000::bigint);
+        ";
+
+        // Act
+        string result = GetGeneratedCode(operation);
+
+        // Assert
+        Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+    }
+
+    #endregion
+
     #region Generate_Add_CreatedBefore_creates_created_before_sql
 
     [Fact]

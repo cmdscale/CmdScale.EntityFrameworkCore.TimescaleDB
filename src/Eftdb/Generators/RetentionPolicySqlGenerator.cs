@@ -80,7 +80,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             List<string> args = [];
 
             if (!string.IsNullOrWhiteSpace(dropAfter))
-                args.Add($"drop_after => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(dropAfter)}'");
+                args.Add($"drop_after => {SqlBuilderHelper.IntervalOrBigint(dropAfter)}");
             else if (!string.IsNullOrWhiteSpace(dropCreatedBefore))
                 args.Add($"drop_created_before => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(dropCreatedBefore)}'");
 

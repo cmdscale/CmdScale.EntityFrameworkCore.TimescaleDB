@@ -121,6 +121,40 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region IntervalOrBigint
+
+        [Fact]
+        public void IntervalOrBigint_NumericValue_EmitsBigintCast()
+        {
+            // Act
+            string result = SqlBuilderHelper.IntervalOrBigint("604800000000");
+
+            // Assert
+            Assert.Equal("604800000000::bigint", result);
+        }
+
+        [Fact]
+        public void IntervalOrBigint_IntervalString_EmitsEscapedIntervalLiteral()
+        {
+            // Act
+            string result = SqlBuilderHelper.IntervalOrBigint("7 days");
+
+            // Assert
+            Assert.Equal("INTERVAL '7 days'", result);
+        }
+
+        [Fact]
+        public void IntervalOrBigint_Iso8601Duration_EmitsIntervalLiteral()
+        {
+            // Act
+            string result = SqlBuilderHelper.IntervalOrBigint("P7D");
+
+            // Assert
+            Assert.Equal("INTERVAL 'P7D'", result);
+        }
+
+        #endregion
+
         #region ReplaceSelectWithPerform_NonSelect_Returns_Unchanged
 
         [Fact]
@@ -200,7 +234,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         {
             string input = """
                 SELECT create_hypertable('public."Events"', 'Time');
-                SELECT add_dimension('public."Events"', by_range('sensor_id', 100));
+                SELECT add_dimension('public."Events"', by_range('sensor_id', 100::bigint));
                 SELECT alter_job(job_id, schedule_interval => INTERVAL '1 day')
                 FROM timescaledb_information.jobs
                 WHERE proc_name = 'policy_retention';

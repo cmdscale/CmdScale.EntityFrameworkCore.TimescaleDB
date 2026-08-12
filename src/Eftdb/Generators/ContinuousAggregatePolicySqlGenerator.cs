@@ -26,15 +26,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             {
                 arguments.Add("start_offset => NULL");
             }
-            else if (int.TryParse(operation.StartOffset, out _))
-            {
-                // Integer-based time column
-                arguments.Add($"start_offset => {operation.StartOffset}");
-            }
             else
             {
-                // Interval string
-                arguments.Add($"start_offset => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(operation.StartOffset)}'");
+                arguments.Add($"start_offset => {SqlBuilderHelper.IntervalOrBigint(operation.StartOffset)}");
             }
 
             // end_offset - NULL means latest data
@@ -42,15 +36,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             {
                 arguments.Add("end_offset => NULL");
             }
-            else if (int.TryParse(operation.EndOffset, out _))
-            {
-                // Integer-based time column
-                arguments.Add($"end_offset => {operation.EndOffset}");
-            }
             else
             {
-                // Interval string
-                arguments.Add($"end_offset => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(operation.EndOffset)}'");
+                arguments.Add($"end_offset => {SqlBuilderHelper.IntervalOrBigint(operation.EndOffset)}");
             }
 
             // Optional parameters - only add if they differ from defaults
