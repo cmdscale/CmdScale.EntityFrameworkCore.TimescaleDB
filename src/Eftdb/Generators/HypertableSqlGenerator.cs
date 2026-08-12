@@ -95,7 +95,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                         bool isIntegerRange = long.TryParse(dimension.Interval, out _);
                         string intervalExpression = isIntegerRange
                             ? dimension.Interval!
-                            : $"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(dimension.Interval)}'";
+                            : $"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(dimension.Interval ?? string.Empty)}'";
 
                         statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(dimension.ColumnName)}', {intervalExpression}));");
                     }
@@ -271,7 +271,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                         bool isIntegerRange = long.TryParse(newDim.Interval, out _);
                         string intervalExpression = isIntegerRange
                             ? newDim.Interval!
-                            : $"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(newDim.Interval)}'";
+                            : $"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(newDim.Interval ?? string.Empty)}'";
 
                         statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}', {intervalExpression}));");
                     }

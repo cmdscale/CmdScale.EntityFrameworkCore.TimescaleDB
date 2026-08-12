@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
@@ -75,7 +76,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
         /// </summary>
         internal static string? ExtractSparseIndex(IEntityType entityType, StoreObjectIdentifier storeIdentifier)
         {
-            var annotation = entityType.FindAnnotation(HypertableAnnotations.CompressionSparseIndex);
+            IAnnotation? annotation = entityType.FindAnnotation(HypertableAnnotations.CompressionSparseIndex);
             if (annotation == null)
             {
                 return null;

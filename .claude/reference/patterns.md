@@ -141,13 +141,11 @@ new ContinuousAggregateFunction("average_price", EAggregateFunction.Avg, "price"
 
 `ToAnnotationValue()` serializes it to the colon-delimited wire format stored on `CreateContinuousAggregateOperation.AggregateFunctions`:
 
-**Format:**
-- Basic: `"alias:Function:sourceColumn"`
-- First/Last: `"alias:Function:sourceColumn:timeColumn"`
+**Format:** `"alias:Function:sourceColumn"` (always three parts — First/Last take no time column in the wire format; the SQL generator supplies the time-bucket column as their second argument: `last("price", "timestamp")`).
 
-**Examples:** `"average_price:Avg:price"`, `"last_price:Last:price:timestamp"`
+**Examples:** `"average_price:Avg:price"`, `"last_price:Last:price"`
 
-**Parsing:** Split by `:` and validate array length (3 or 4 elements).
+**Parsing:** Split by `:` and validate array length (exactly 3 elements; malformed entries are skipped).
 
 **Location:** `Abstractions/ContinuousAggregateFunction.cs`, `ContinuousAggregateModelExtractor.cs`, `Generators/ContinuousAggregateSqlGenerator.cs`
 
@@ -166,12 +164,12 @@ builder.AddAggregateFunction(
     function: EAggregateFunction.Avg
 )
 
-// First/Last with time column
+// First/Last — the time argument is always the continuous aggregate's
+// time-bucket column; there is no timeColumn parameter
 builder.AddAggregateFunction(
     aggregateProperty: x => x.LastPrice,
     sourceProperty: x => x.Price,
-    function: EAggregateFunction.Last,
-    timeColumn: x => x.Timestamp
+    function: EAggregateFunction.Last
 )
 
 // Group by columns

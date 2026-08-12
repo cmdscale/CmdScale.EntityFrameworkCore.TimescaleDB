@@ -66,10 +66,5 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Compressio
                 yield return new CompressionPolicyEntry(operation, chunkTimeInterval);
             }
         }
-
-        public static IEnumerable<AddCompressionPolicyOperation> GetCompressionPolicies(IRelationalModel? relationalModel)
-        {
-            return GetCompressionPolicyEntries(relationalModel).Select(e => e.Operation);
-        }
     }
 }
