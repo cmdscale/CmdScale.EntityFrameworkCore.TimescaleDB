@@ -112,7 +112,31 @@ public class ContinuousAggregatePolicyOperationGeneratorTests
         };
 
         string expected = @"
-            SELECT add_continuous_aggregate_policy('public.""sensor_data_hourly""', start_offset => 100000, end_offset => 1000, schedule_interval => INTERVAL '1 hour');
+            SELECT add_continuous_aggregate_policy('public.""sensor_data_hourly""', start_offset => 100000::bigint, end_offset => 1000::bigint, schedule_interval => INTERVAL '1 hour');
+        ";
+
+        // Act
+        string result = GetGeneratedCode(operation);
+
+        // Assert
+        Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+    }
+
+    [Fact]
+    public void Generate_Add_With_LongRange_Integer_Offsets()
+    {
+        // Arrange
+        AddContinuousAggregatePolicyOperation operation = new()
+        {
+            Schema = "public",
+            MaterializedViewName = "sensor_data_hourly",
+            StartOffset = "604800000000",
+            EndOffset = "3600000000",
+            ScheduleInterval = "1 hour"
+        };
+
+        string expected = @"
+            SELECT add_continuous_aggregate_policy('public.""sensor_data_hourly""', start_offset => 604800000000::bigint, end_offset => 3600000000::bigint, schedule_interval => INTERVAL '1 hour');
         ";
 
         // Act
