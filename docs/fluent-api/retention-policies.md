@@ -97,6 +97,10 @@ public class ApplicationLog
 }
 ```
 
+## Interval Values
+
+`dropAfter`, `dropCreatedBefore`, `scheduleInterval`, `maxRuntime`, and `retryPeriod` are strings passed verbatim to PostgreSQL — every format the server accepts in raw SQL works, including ISO 8601 durations (`"P7D"`, so NodaTime `Period.ToString()` can be passed directly) and, for `dropAfter` on integer-time-column hypertables, plain numbers emitted as `{value}::bigint`. See [Compression Policies — Interval Values](compression-policies.md#interval-values) for details and caveats.
+
 ## Supported Parameters
 
 | Parameter           | Description                                                                                                                                                                                      | Type        | Database Type | Default Value                               |
