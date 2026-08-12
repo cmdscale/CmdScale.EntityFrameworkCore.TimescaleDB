@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 
@@ -31,7 +32,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
                 return;
             }
 
-            var sparseIndexAnnotation = entityType.FindAnnotation(HypertableAnnotations.CompressionSparseIndex);
+            IAnnotation? sparseIndexAnnotation = entityType.FindAnnotation(HypertableAnnotations.CompressionSparseIndex);
             if (sparseIndexAnnotation == null)
             {
                 return;
