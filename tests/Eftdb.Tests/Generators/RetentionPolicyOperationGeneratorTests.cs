@@ -15,6 +15,32 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             return string.Join("\n", statements);
         }
 
+        #region Generate_Add_Numeric_DropAfter_emits_bigint_for_integer_time_columns
+
+        [Fact]
+        public void Generate_Add_Numeric_DropAfter_emits_bigint_for_integer_time_columns()
+        {
+            // Arrange
+            AddRetentionPolicyOperation operation = new()
+            {
+                Schema = "public",
+                TableName = "TestTable",
+                DropAfter = "604800000000"
+            };
+
+            string expected = @"
+                SELECT add_retention_policy('public.""TestTable""', drop_after => 604800000000::bigint);
+            ";
+
+            // Act
+            string result = GetGeneratedCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        #endregion
+
         #region Generate_Add_DropAfter_with_minimal_config_creates_only_add_policy_sql
 
         [Fact]

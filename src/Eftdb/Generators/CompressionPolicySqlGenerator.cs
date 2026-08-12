@@ -89,14 +89,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (useLegacy)
             {
                 if (!string.IsNullOrWhiteSpace(after))
-                    args.Add($"compress_after => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(after)}'");
+                    args.Add($"compress_after => {SqlBuilderHelper.IntervalOrBigint(after)}");
                 else if (!string.IsNullOrWhiteSpace(createdBefore))
                     args.Add($"compress_created_before => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(createdBefore)}'");
             }
             else
             {
                 if (!string.IsNullOrWhiteSpace(after))
-                    args.Add($"after => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(after)}'");
+                    args.Add($"after => {SqlBuilderHelper.IntervalOrBigint(after)}");
                 else if (!string.IsNullOrWhiteSpace(createdBefore))
                     args.Add($"created_before => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(createdBefore)}'");
             }

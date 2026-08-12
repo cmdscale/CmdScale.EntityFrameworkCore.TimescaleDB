@@ -112,6 +112,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         public static string EscapeStringLiteral(string value) => value.Replace("'", "''");
 
         /// <summary>
+        /// Formats a time value that follows the hypertable's time-column type: plain numeric
+        /// strings target integer time columns and are emitted with an explicit <c>::bigint</c>
+        /// cast, all other values are emitted as an escaped <c>INTERVAL</c> literal.
+        /// </summary>
+        /// <param name="value">The raw interval string or numeric string.</param>
+        /// <returns>A SQL fragment: <c>{value}::bigint</c> or <c>INTERVAL '{value}'</c>.</returns>
+        public static string IntervalOrBigint(string value)
+            => long.TryParse(value, out _)
+                ? $"{value}::bigint"
+                : $"INTERVAL '{EscapeStringLiteral(value)}'";
+
+        /// <summary>
         /// Formats a <see cref="DateTime"/> as an ISO 8601 UTC string for use in PostgreSQL
         /// timestamp literals, converting to UTC first to avoid ambiguity.
         /// </summary>

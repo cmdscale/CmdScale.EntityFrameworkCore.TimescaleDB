@@ -290,7 +290,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("add_dimension('public.\"integer_ranged\"', by_range('sensor_id', 10000))", result);
+            Assert.Contains("add_dimension('public.\"integer_ranged\"', by_range('sensor_id', 10000::bigint))", result);
             Assert.DoesNotContain("INTERVAL", result);
         }
 
@@ -333,7 +333,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             string expected = @"
                 SELECT create_hypertable('analytics.""integer_partitions""', 'timestamp');
-                SELECT add_dimension('analytics.""integer_partitions""', by_range('partition_key', 5000));
+                SELECT add_dimension('analytics.""integer_partitions""', by_range('partition_key', 5000::bigint));
             ";
 
             // Act
@@ -794,7 +794,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("add_dimension('public.\"events\"', by_range('event_id', 1000))", result);
+            Assert.Contains("add_dimension('public.\"events\"', by_range('event_id', 1000::bigint))", result);
             Assert.DoesNotContain("INTERVAL", result);
         }
 
@@ -836,7 +836,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT add_dimension('analytics.""metrics""', by_range('metric_id', 50000));
+                SELECT add_dimension('analytics.""metrics""', by_range('metric_id', 50000::bigint));
             ";
 
             // Act
