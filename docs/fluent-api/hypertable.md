@@ -59,6 +59,8 @@ Time-series data can be compressed to reduce the amount of storage required, and
 
 [See also: TimescaleDB Compression](https://docs.tigerdata.com/use-timescale/latest/compression/)
 
+> :information_source: Generated migrations use the TimescaleDB 2.18+ columnstore option names (`timescaledb.enable_columnstore`, `timescaledb.columnstore_segmentby`, ...) by default. On servers older than 2.18, opt into the legacy names via `UseTimescaleDb(o => o.UseLegacyCompressionSql())`.
+
 ### Enabling Compression
 
 Use the `.EnableCompression()` method to enable compression on a hypertable:
@@ -255,6 +257,130 @@ public class WeatherDataConfiguration : IEntityTypeConfiguration<WeatherData>
     }
 }
 ```
+
+## Sparse Indexes
+
+Sparse indexes are columnstore metadata structures that allow TimescaleDB to skip chunks whose data cannot satisfy a query predicate. Two index types are supported: `bloom` (probabilistic, supports composite columns) and `minmax` (range-based, single column only).
+
+> :warning: **Note:** Sparse indexes require `compress_orderby` to be configured. The convention validates this at model finalization and raises an `InvalidOperationException` if `compress_orderby` is absent.
+
+[See also: Columnstore indexes](https://docs.tigerdata.com/api/latest/compression/compress_chunk/)
+
+### Using Typed Selectors
+
+The `SparseIndexSelector<TEntity>` provides type-safe lambda expressions for building index entries:
+
+```csharp
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+public class SensorMeasurementConfiguration : IEntityTypeConfiguration<SensorMeasurement>
+{
+    public void Configure(EntityTypeBuilder<SensorMeasurement> builder)
+    {
+        builder.HasKey(x => new { x.Id, x.Time });
+
+        builder.IsHypertable(x => x.Time)
+               .WithChunkTimeInterval("1 day")
+               .WithCompressionSegmentBy(x => x.DeviceId)
+               .WithCompressionOrderBy(
+                   OrderByBuilder.For<SensorMeasurement>(x => x.Time).Descending())
+               .WithSparseIndex(
+                   s => s.Bloom(x => x.SensorType),
+                   s => s.MinMax(x => x.Value));
+    }
+}
+```
+
+### Using Explicit SparseIndex Objects
+
+```csharp
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+
+builder.IsHypertable(x => x.Time)
+       .WithCompressionOrderBy(OrderByBuilder.For<SensorMeasurement>(x => x.Time).Descending())
+       .WithSparseIndex(
+           new SparseIndex(ESparseIndexType.Bloom, ["SensorType", "Region"]),
+           new SparseIndex(ESparseIndexType.MinMax, ["Value"]));
+```
+
+### Using a Raw String
+
+A comma-separated string of `bloom(col)` and `minmax(col)` entries is also accepted:
+
+```csharp
+builder.WithSparseIndex("bloom(sensor_type,region), minmax(value)");
+```
+
+> :warning: **Note:** When using the raw string overload, column names must match the database column names, not the property names.
+
+### Composite Bloom Indexes
+
+`bloom` supports multiple columns in a single entry. Use this for compound predicate filtering:
+
+```csharp
+builder.WithSparseIndex(s => s.Bloom(x => x.SensorType, x => x.Region));
+```
+
+### Disabling Auto Sparse Indexes
+
+TimescaleDB automatically creates sparse indexes on `compress_orderby` columns. To suppress this behaviour:
+
+```csharp
+builder.WithoutAutoSparseIndexes();
+```
+
+This sets `timescaledb.sparse_index = ''` on the table.
+
+### Validation Rules
+
+The `SparseIndexValidationConvention` enforces these rules at model finalization:
+
+- `compress_orderby` must be configured before any sparse index entry is processed.
+- `bloom` and `minmax` entries cannot include `compress_segmentby` columns — segmentby columns are not compressed and cannot have a sparse index.
+- A single-column `bloom(col)` entry is rejected when `col` is already a `compress_orderby` column, because `compress_orderby` columns receive an implicit sparse index automatically. Use a composite `bloom(col, other)` if additional coverage is needed.
+- `minmax` accepts exactly one column. Specifying multiple columns raises an error.
+- Two single-column entries targeting the same column are rejected as duplicates.
+
+## Compress Chunk Time Interval
+
+The `WithCompressChunkTimeInterval` method sets the minimum time interval for merging chunks during compression. When this is set, TimescaleDB can combine adjacent chunks into a single larger compressed chunk during the compression job.
+
+The value must be a string interval and must be a multiple of the hypertable's `chunk_time_interval`.
+
+> :warning: **Warning:** Chunk merges are irreversible. Decreasing `compress_chunk_time_interval` later cannot un-merge already merged chunks.
+
+```csharp
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+public class DeviceReadingConfiguration : IEntityTypeConfiguration<DeviceReading>
+{
+    public void Configure(EntityTypeBuilder<DeviceReading> builder)
+    {
+        builder.HasKey(x => new { x.Id, x.Time });
+
+        builder.IsHypertable(x => x.Time)
+               .WithChunkTimeInterval("1 day")
+               .WithCompressionSegmentBy(x => x.DeviceId)
+               .WithCompressChunkTimeInterval("7 days");
+    }
+}
+```
+
+### Removal Quirk
+
+PostgreSQL rejects `RESET` for the `timescaledb.compress_chunk_time_interval` storage option (`"only columnstore options segmentby and orderby can be reset"`). When the value is removed from the model, the migration instead emits:
+
+```sql
+ALTER TABLE "device_readings" SET (timescaledb.compress_chunk_time_interval = '0');
+```
+
+Setting the interval to `'0'` clears the merge behaviour without using `RESET`.
 
 ## Migrating Existing Data
 
