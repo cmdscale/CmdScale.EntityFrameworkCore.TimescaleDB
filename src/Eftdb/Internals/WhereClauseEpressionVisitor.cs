@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -108,8 +109,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
             }
             else if (value is string str)
             {
-                // Simple string quoting; for production, you might need more robust escaping
-                sqlBuilder.Append($"'{str.Replace("'", "''")}'");
+                sqlBuilder.Append($"'{SqlBuilderHelper.EscapeStringLiteral(str)}'");
             }
             else if (value is bool b)
             {

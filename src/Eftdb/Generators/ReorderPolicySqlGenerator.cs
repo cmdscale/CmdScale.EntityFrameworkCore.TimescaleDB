@@ -1,5 +1,4 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
-using System.Globalization;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
@@ -75,16 +74,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(tableName, schema);
 
-            string baseSql = $"SELECT add_reorder_policy({qualifiedTableName}, '{indexName}'";
+            string baseSql = $"SELECT add_reorder_policy({qualifiedTableName}, '{SqlBuilderHelper.EscapeStringLiteral(indexName)}'";
 
             List<string> optionalArgs = [];
 
             // Add optional arguments if they are provided
             if (initialStart.HasValue)
             {
-                // Use ISO 8601 format for timestamps to avoid ambiguity
-                string timestamp = initialStart.Value.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
-                optionalArgs.Add($"initial_start => '{timestamp}'");
+                optionalArgs.Add($"initial_start => '{SqlBuilderHelper.FormatTimestamp(initialStart.Value)}'");
             }
 
             if (optionalArgs.Count > 0)

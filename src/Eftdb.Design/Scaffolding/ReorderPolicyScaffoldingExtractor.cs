@@ -1,4 +1,3 @@
-using System.Data;
 using System.Data.Common;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
@@ -18,14 +17,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
         );
 
         public Dictionary<(string Schema, string TableName), object> Extract(DbConnection connection)
-        {
-            bool wasOpen = connection.State == ConnectionState.Open;
-            if (!wasOpen)
-            {
-                connection.Open();
-            }
-
-            try
+            => ScaffoldingExtractorHelper.UsingConnection(connection, () =>
             {
                 Dictionary<(string, string), ReorderPolicyInfo> reorderPolicies = [];
                 using (DbCommand command = connection.CreateCommand())
@@ -50,7 +42,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                         string name = reader.GetString(1);
                         string indexName = reader.GetString(2);
                         DateTime? initialStart = reader.IsDBNull(3) ? null : reader.GetDateTime(3);
-
                         string? scheduleInterval = reader.IsDBNull(4) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(4));
                         string? maxRuntime = reader.IsDBNull(5) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(5));
                         int? maxRetries = reader.IsDBNull(6) ? null : reader.GetInt32(6);
@@ -75,14 +66,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     kvp => kvp.Key,
                     kvp => (object)kvp.Value
                 );
-            }
-            finally
-            {
-                if (!wasOpen)
-                {
-                    connection.Close();
-                }
-            }
-        }
+            });
     }
 }

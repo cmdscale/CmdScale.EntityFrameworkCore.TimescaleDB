@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using System.Reflection;
 
+using static CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ConventionValidationHelper;
+
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
 {
     /// <summary>
@@ -26,17 +28,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
                 bool hasDropAfter = !string.IsNullOrWhiteSpace(attribute.DropAfter);
                 bool hasDropCreatedBefore = !string.IsNullOrWhiteSpace(attribute.DropCreatedBefore);
 
-                if (hasDropAfter && hasDropCreatedBefore)
-                {
-                    throw new InvalidOperationException(
-                        $"[RetentionPolicy] on '{entityType.ClrType?.Name}': 'DropAfter' and 'DropCreatedBefore' are mutually exclusive. Specify exactly one.");
-                }
-
-                if (!hasDropAfter && !hasDropCreatedBefore)
-                {
-                    throw new InvalidOperationException(
-                        $"[RetentionPolicy] on '{entityType.ClrType?.Name}': Exactly one of 'DropAfter' or 'DropCreatedBefore' must be specified.");
-                }
+                ValidateExclusiveFields(
+                    entityType.ClrType?.Name,
+                    "[RetentionPolicy]",
+                    "DropAfter", hasDropAfter,
+                    "DropCreatedBefore", hasDropCreatedBefore);
 
                 entityTypeBuilder.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
 
@@ -46,16 +42,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
                 if (hasDropCreatedBefore)
                     entityTypeBuilder.HasAnnotation(RetentionPolicyAnnotations.DropCreatedBefore, attribute.DropCreatedBefore!);
 
-                if (!string.IsNullOrWhiteSpace(attribute.InitialStart))
+                DateTime? parsedInitialStart = ParseInitialStart(attribute.InitialStart, entityType.ClrType?.Name, "[RetentionPolicy]");
+                if (parsedInitialStart.HasValue)
                 {
-                    if (DateTime.TryParse(attribute.InitialStart, out DateTime parsedDateTimeOffset))
-                    {
-                        entityTypeBuilder.HasAnnotation(RetentionPolicyAnnotations.InitialStart, parsedDateTimeOffset);
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"InitialStart '{attribute.InitialStart}' is not a valid DateTime format. Please use a valid DateTime string.");
-                    }
+                    entityTypeBuilder.HasAnnotation(RetentionPolicyAnnotations.InitialStart, parsedInitialStart.Value);
                 }
 
                 if (!string.IsNullOrWhiteSpace(attribute.ScheduleInterval))

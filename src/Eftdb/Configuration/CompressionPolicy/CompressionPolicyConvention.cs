@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using System.Reflection;
 
+using static CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ConventionValidationHelper;
+
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPolicy
 {
     /// <summary>
@@ -31,17 +33,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
             bool hasAfter = !string.IsNullOrWhiteSpace(attribute.After);
             bool hasCreatedBefore = !string.IsNullOrWhiteSpace(attribute.CreatedBefore);
 
-            if (hasAfter && hasCreatedBefore)
-            {
-                throw new InvalidOperationException(
-                    $"[CompressionPolicy] on '{entityType.ClrType?.Name}': 'After' and 'CreatedBefore' are mutually exclusive. Specify exactly one.");
-            }
-
-            if (!hasAfter && !hasCreatedBefore)
-            {
-                throw new InvalidOperationException(
-                    $"[CompressionPolicy] on '{entityType.ClrType?.Name}': Exactly one of 'After' or 'CreatedBefore' must be specified.");
-            }
+            ValidateExclusiveFields(
+                entityType.ClrType?.Name,
+                "[CompressionPolicy]",
+                "After", hasAfter,
+                "CreatedBefore", hasCreatedBefore);
 
             entityTypeBuilder.HasAnnotation(CompressionPolicyAnnotations.HasCompressionPolicy, true);
 
@@ -54,17 +50,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
             if (!string.IsNullOrWhiteSpace(attribute.ScheduleInterval))
                 entityTypeBuilder.HasAnnotation(CompressionPolicyAnnotations.ScheduleInterval, attribute.ScheduleInterval);
 
-            if (!string.IsNullOrWhiteSpace(attribute.InitialStart))
+            DateTime? parsedInitialStart = ParseInitialStart(attribute.InitialStart, entityType.ClrType?.Name, "[CompressionPolicy]");
+            if (parsedInitialStart.HasValue)
             {
-                if (DateTime.TryParse(attribute.InitialStart, out DateTime parsedInitialStart))
-                {
-                    entityTypeBuilder.HasAnnotation(CompressionPolicyAnnotations.InitialStart, parsedInitialStart);
-                }
-                else
-                {
-                    throw new InvalidOperationException(
-                        $"[CompressionPolicy] on '{entityType.ClrType?.Name}': InitialStart '{attribute.InitialStart}' is not a valid DateTime format. Use an ISO 8601 string.");
-                }
+                entityTypeBuilder.HasAnnotation(CompressionPolicyAnnotations.InitialStart, parsedInitialStart.Value);
             }
 
             if (!string.IsNullOrWhiteSpace(attribute.Timezone))

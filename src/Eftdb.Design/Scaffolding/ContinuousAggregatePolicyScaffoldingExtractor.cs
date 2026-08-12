@@ -1,4 +1,3 @@
-using System.Data;
 using System.Data.Common;
 using System.Text.Json;
 
@@ -21,14 +20,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
         );
 
         public Dictionary<(string Schema, string TableName), object> Extract(DbConnection connection)
-        {
-            bool wasOpen = connection.State == ConnectionState.Open;
-            if (!wasOpen)
-            {
-                connection.Open();
-            }
-
-            try
+            => ScaffoldingExtractorHelper.UsingConnection(connection, () =>
             {
                 Dictionary<(string, string), ContinuousAggregatePolicyInfo> policies = [];
 
@@ -128,14 +120,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     kvp => kvp.Key,
                     kvp => (object)kvp.Value
                 );
-            }
-            finally
-            {
-                if (!wasOpen)
-                {
-                    connection.Close();
-                }
-            }
-        }
+            });
     }
 }

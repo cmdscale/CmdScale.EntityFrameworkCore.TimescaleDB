@@ -1,3 +1,5 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
+
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
     /// <summary>
@@ -82,13 +84,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (hasSegmentBy)
             {
                 string segmentList = string.Join(", ", compressionSegmentBy!.Select(SqlBuilderHelper.QuoteIdentifier));
-                compressionSettings.Add($"{SegmentByOptionName(useLegacy)} = '{segmentList}'");
+                compressionSettings.Add($"{SegmentByOptionName(useLegacy)} = '{SqlBuilderHelper.EscapeStringLiteral(segmentList)}'");
             }
 
             if (hasOrderBy)
             {
                 string orderList = QuoteOrderByList(compressionOrderBy!);
-                compressionSettings.Add($"{OrderByOptionName(useLegacy)} = '{orderList}'");
+                compressionSettings.Add($"{OrderByOptionName(useLegacy)} = '{SqlBuilderHelper.EscapeStringLiteral(orderList)}'");
             }
 
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(relationName, schema);
@@ -121,26 +123,23 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             bool newCompressionState = IsCompressionEnabled(newEnable, newSegmentBy, newOrderBy);
             bool oldCompressionState = IsCompressionEnabled(oldEnable, oldSegmentBy, oldOrderBy);
 
-            static bool ListsChanged(IReadOnlyList<string>? a, IReadOnlyList<string>? b)
-                => !(a ?? []).SequenceEqual(b ?? []);
-
             if (newCompressionState != oldCompressionState)
             {
                 settings.Add($"{CompressOptionName(useLegacy)} = {newCompressionState.ToString().ToLower()}");
             }
 
-            if (ListsChanged(oldSegmentBy, newSegmentBy))
+            if (!CompressionDiffHelper.AreStringListsEqual(oldSegmentBy, newSegmentBy))
             {
                 string val = (newSegmentBy?.Count > 0)
-                    ? $"'{string.Join(", ", newSegmentBy.Select(SqlBuilderHelper.QuoteIdentifier))}'"
+                    ? $"'{SqlBuilderHelper.EscapeStringLiteral(string.Join(", ", newSegmentBy.Select(SqlBuilderHelper.QuoteIdentifier)))}'"
                     : "''";
                 settings.Add($"{SegmentByOptionName(useLegacy)} = {val}");
             }
 
-            if (ListsChanged(oldOrderBy, newOrderBy))
+            if (!CompressionDiffHelper.AreStringListsEqual(oldOrderBy, newOrderBy))
             {
                 string val = (newOrderBy?.Count > 0)
-                    ? $"'{QuoteOrderByList(newOrderBy)}'"
+                    ? $"'{SqlBuilderHelper.EscapeStringLiteral(QuoteOrderByList(newOrderBy))}'"
                     : "''";
                 settings.Add($"{OrderByOptionName(useLegacy)} = {val}");
             }

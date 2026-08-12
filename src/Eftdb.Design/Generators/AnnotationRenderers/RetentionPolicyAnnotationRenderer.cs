@@ -67,10 +67,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
 
             string? dropAfter = GetString(annotations, RetentionPolicyAnnotations.DropAfter);
             string? dropCreatedBefore = GetString(annotations, RetentionPolicyAnnotations.DropCreatedBefore);
-            object?[] positionalArgs = dropAfter is not null
-                ? [dropAfter]
-                : [null, dropCreatedBefore];
             Dictionary<string, object?> namedArgs = [];
+
+            if (!string.IsNullOrWhiteSpace(dropAfter))
+            {
+                namedArgs[nameof(RetentionPolicyAttribute.DropAfter)] = dropAfter;
+            }
+
+            if (!string.IsNullOrWhiteSpace(dropCreatedBefore))
+            {
+                namedArgs[nameof(RetentionPolicyAttribute.DropCreatedBefore)] = dropCreatedBefore;
+            }
 
             string? scheduleInterval = GetString(annotations, RetentionPolicyAnnotations.ScheduleInterval);
             if (!string.IsNullOrWhiteSpace(scheduleInterval))
@@ -102,7 +109,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             }
 
             ConsumeAllRetentionAnnotations(annotations);
-            return [new AttributeCodeFragment(typeof(RetentionPolicyAttribute), positionalArgs, namedArgs)];
+            return [new AttributeCodeFragment(typeof(RetentionPolicyAttribute), [], namedArgs)];
         }
 
         public void ConsumeFeatureAnnotations(IEntityType entityType, IDictionary<string, IAnnotation> annotations)

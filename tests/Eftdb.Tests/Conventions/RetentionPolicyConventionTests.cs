@@ -676,7 +676,7 @@ public class RetentionPolicyConventionTests
             IModel model = GetModel(context);
         });
 
-        Assert.Contains("RetentionPolicy: Exactly one of 'DropAfter' or 'DropCreatedBefore' must be specified.", exception.Message);
+        Assert.Contains("Exactly one of 'DropAfter' or 'DropCreatedBefore' must be specified", exception.Message);
     }
 
     #endregion

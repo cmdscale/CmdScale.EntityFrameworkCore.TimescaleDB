@@ -227,7 +227,7 @@ public class ContinuousAggregateCompressionConventionTests
 
     [ContinuousAggregate(MaterializedViewName = "no_comp_cagg_policy", ParentName = "Metrics",
         TimeBucketWidth = "1 hour", TimeBucketSourceColumn = "Timestamp")]
-    [CompressionPolicy(After = "7 days")]
+    [CompressionPolicy("7 days")]
     private class NoCompCAggPolicy5
     {
         public DateTime TimeBucket { get; set; }
@@ -275,7 +275,7 @@ public class ContinuousAggregateCompressionConventionTests
     [ContinuousAggregate(MaterializedViewName = "comp_cagg_policy_ok", ParentName = "Metrics",
         TimeBucketWidth = "1 hour", TimeBucketSourceColumn = "Timestamp",
         EnableCompression = true)]
-    [CompressionPolicy(After = "7 days")]
+    [CompressionPolicy("7 days")]
     private class CompCAggPolicyOk6
     {
         public DateTime TimeBucket { get; set; }
@@ -321,7 +321,7 @@ public class ContinuousAggregateCompressionConventionTests
     #region Hypertable_With_CompressionPolicy_And_No_Compression_Does_Not_Throw
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "14 days")]
+    [CompressionPolicy("14 days")]
     private class HtNoCompEntity7
     {
         public DateTime Timestamp { get; set; }

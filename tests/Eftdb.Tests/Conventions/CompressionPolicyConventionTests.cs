@@ -16,7 +16,7 @@ public class CompressionPolicyConventionTests
     #region Should_Process_Minimal_After_Attribute
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "7 days")]
+    [CompressionPolicy("7 days")]
     private class MinimalAfterEntity
     {
         public DateTime Timestamp { get; set; }
@@ -63,7 +63,7 @@ public class CompressionPolicyConventionTests
     #region Should_Process_CreatedBefore_Attribute
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(CreatedBefore = "30 days")]
+    [CompressionPolicy(createdBefore: "30 days")]
     private class CreatedBeforeEntity
     {
         public DateTime Timestamp { get; set; }
@@ -109,7 +109,7 @@ public class CompressionPolicyConventionTests
     #region Should_Process_ScheduleInterval_From_Attribute
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "7 days", ScheduleInterval = "12 hours")]
+    [CompressionPolicy("7 days", ScheduleInterval = "12 hours")]
     private class ScheduleIntervalEntity
     {
         public DateTime Timestamp { get; set; }
@@ -154,7 +154,7 @@ public class CompressionPolicyConventionTests
     #region Should_Process_InitialStart_From_Attribute
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "7 days", InitialStart = "2025-10-01T03:00:00Z")]
+    [CompressionPolicy("7 days", InitialStart = "2025-10-01T03:00:00Z")]
     private class InitialStartEntity
     {
         public DateTime Timestamp { get; set; }
@@ -206,7 +206,7 @@ public class CompressionPolicyConventionTests
     #region Should_Throw_When_InitialStart_Has_Invalid_Format
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "7 days", InitialStart = "not-a-date")]
+    [CompressionPolicy("7 days", InitialStart = "not-a-date")]
     private class InvalidInitialStartEntity
     {
         public DateTime Timestamp { get; set; }
@@ -251,7 +251,7 @@ public class CompressionPolicyConventionTests
     #region Should_Process_Timezone_From_Attribute
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "7 days", Timezone = "Europe/Berlin")]
+    [CompressionPolicy("7 days", Timezone = "Europe/Berlin")]
     private class TimezoneEntity
     {
         public DateTime Timestamp { get; set; }
@@ -295,7 +295,7 @@ public class CompressionPolicyConventionTests
     #region Should_Process_IfNotExists_From_Attribute
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "7 days", IfNotExists = true)]
+    [CompressionPolicy("7 days", IfNotExists = true)]
     private class IfNotExistsEntity
     {
         public DateTime Timestamp { get; set; }
@@ -339,7 +339,7 @@ public class CompressionPolicyConventionTests
     #region Should_Not_Annotate_IfNotExists_When_False
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "7 days")]
+    [CompressionPolicy("7 days")]
     private class IfNotExistsFalseEntity
     {
         public DateTime Timestamp { get; set; }
@@ -383,7 +383,7 @@ public class CompressionPolicyConventionTests
     #region Should_Throw_When_Both_After_And_CreatedBefore_Specified
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "7 days", CreatedBefore = "30 days")]
+    [CompressionPolicy("7 days", CreatedBefore = "30 days")]
     private class BothSpecifiedEntity
     {
         public DateTime Timestamp { get; set; }
@@ -516,7 +516,7 @@ public class CompressionPolicyConventionTests
     #region Attribute_Should_Produce_Same_Annotations_As_FluentAPI
 
     [Hypertable("Timestamp")]
-    [CompressionPolicy(After = "7 days", ScheduleInterval = "12 hours", Timezone = "UTC")]
+    [CompressionPolicy("7 days", ScheduleInterval = "12 hours", Timezone = "UTC")]
     private class EquivalenceAttributeEntity
     {
         public DateTime Timestamp { get; set; }

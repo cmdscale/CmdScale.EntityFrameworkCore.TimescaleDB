@@ -72,94 +72,106 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
                     continue;
                 }
 
-                int parenOpen = entry.IndexOf('(');
-                int parenClose = entry.LastIndexOf(')');
+                ValidateSparseIndexEntry(entry, displayName, entityType, storeIdentifier, segmentByColumns, orderByColumns, singleColumnEntries);
+            }
+        }
 
-                if (parenOpen < 0 || parenClose < 0 || parenClose < parenOpen)
+        private static void ValidateSparseIndexEntry(
+            string entry,
+            string displayName,
+            IEntityType entityType,
+            StoreObjectIdentifier storeIdentifier,
+            HashSet<string> segmentByColumns,
+            HashSet<string> orderByColumns,
+            Dictionary<string, string> singleColumnEntries)
+        {
+            int parenOpen = entry.IndexOf('(');
+            int parenClose = entry.LastIndexOf(')');
+
+            if (parenOpen < 0 || parenClose < 0 || parenClose < parenOpen)
+            {
+                throw new InvalidOperationException(
+                    $"Sparse index on '{displayName}': entry '{entry}' is malformed — missing or unbalanced parentheses.");
+            }
+
+            string funcName = entry[..parenOpen].Trim();
+            if (!string.Equals(funcName, "bloom", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(funcName, "minmax", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Sparse index on '{displayName}': entry '{entry}' uses unknown function '{funcName}' — only 'bloom' and 'minmax' are supported.");
+            }
+
+            string argsPart = entry[(parenOpen + 1)..parenClose];
+            List<string> columns = [];
+            foreach (string col in argsPart.Split(',', StringSplitOptions.TrimEntries))
+            {
+                if (col.Length > 0)
                 {
-                    throw new InvalidOperationException(
-                        $"Sparse index on '{displayName}': entry '{entry}' is malformed — missing or unbalanced parentheses.");
+                    columns.Add(CompressionAnnotationExtractor.ResolveColumnName(entityType, storeIdentifier, col));
                 }
+            }
 
-                string funcName = entry[..parenOpen].Trim();
-                if (!string.Equals(funcName, "bloom", StringComparison.OrdinalIgnoreCase) &&
-                    !string.Equals(funcName, "minmax", StringComparison.OrdinalIgnoreCase))
+            if (columns.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Sparse index on '{displayName}': entry '{entry}' has an empty argument list — at least one column must be specified.");
+            }
+
+            bool isComposite = columns.Count > 1;
+
+            if (string.Equals(funcName, "bloom", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (string col in columns)
                 {
-                    throw new InvalidOperationException(
-                        $"Sparse index on '{displayName}': entry '{entry}' uses unknown function '{funcName}' — only 'bloom' and 'minmax' are supported.");
-                }
-
-                string argsPart = entry[(parenOpen + 1)..parenClose];
-                List<string> columns = [];
-                foreach (string col in argsPart.Split(',', StringSplitOptions.TrimEntries))
-                {
-                    if (col.Length > 0)
-                    {
-                        columns.Add(CompressionAnnotationExtractor.ResolveColumnName(entityType, storeIdentifier, col));
-                    }
-                }
-
-                if (columns.Count == 0)
-                {
-                    throw new InvalidOperationException(
-                        $"Sparse index on '{displayName}': entry '{entry}' has an empty argument list — at least one column must be specified.");
-                }
-
-                bool isComposite = columns.Count > 1;
-
-                if (string.Equals(funcName, "bloom", StringComparison.OrdinalIgnoreCase))
-                {
-                    foreach (string col in columns)
-                    {
-                        if (segmentByColumns.Contains(col))
-                        {
-                            throw new InvalidOperationException(
-                                $"Sparse index on '{displayName}': entry '{entry}' includes compress_segmentby column '{col}'. " +
-                                "Segmentby columns are not compressed and cannot have a sparse index.");
-                        }
-                    }
-
-                    if (!isComposite && orderByColumns.Contains(columns[0]))
-                    {
-                        throw new InvalidOperationException(
-                            $"Sparse index on '{displayName}': entry '{entry}' — bloom({columns[0]}) is redundant because " +
-                            $"'{columns[0]}' is a compress_orderby column that already receives an implicit sparse index. " +
-                            "Remove the explicit entry or use a composite bloom if additional columns are needed.");
-                    }
-                }
-                else
-                {
-                    if (columns.Count > 1)
+                    if (segmentByColumns.Contains(col))
                     {
                         throw new InvalidOperationException(
-                            $"Sparse index on '{displayName}': entry '{entry}' — minmax supports a single column only. " +
-                            "Use bloom(...) for composite entries.");
-                    }
-
-                    foreach (string col in columns)
-                    {
-                        if (segmentByColumns.Contains(col))
-                        {
-                            throw new InvalidOperationException(
-                                $"Sparse index on '{displayName}': entry '{entry}' includes compress_segmentby column '{col}'. " +
-                                "Segmentby columns are not compressed and cannot have a sparse index.");
-                        }
+                            $"Sparse index on '{displayName}': entry '{entry}' includes compress_segmentby column '{col}'. " +
+                            "Segmentby columns are not compressed and cannot have a sparse index.");
                     }
                 }
 
-                if (!isComposite)
+                if (!isComposite && orderByColumns.Contains(columns[0]))
                 {
-                    string singleCol = columns[0];
-                    if (singleColumnEntries.TryGetValue(singleCol, out string? existingEntry))
+                    throw new InvalidOperationException(
+                        $"Sparse index on '{displayName}': entry '{entry}' — bloom({columns[0]}) is redundant because " +
+                        $"'{columns[0]}' is a compress_orderby column that already receives an implicit sparse index. " +
+                        "Remove the explicit entry or use a composite bloom if additional columns are needed.");
+                }
+            }
+            else
+            {
+                if (columns.Count > 1)
+                {
+                    throw new InvalidOperationException(
+                        $"Sparse index on '{displayName}': entry '{entry}' — minmax supports a single column only. " +
+                        "Use bloom(...) for composite entries.");
+                }
+
+                foreach (string col in columns)
+                {
+                    if (segmentByColumns.Contains(col))
                     {
                         throw new InvalidOperationException(
-                            $"Sparse index on '{displayName}': duplicate single-column sparse index entries " +
-                            $"'{existingEntry}' and '{entry}' both target column '{singleCol}'. " +
-                            "Remove one of them.");
+                            $"Sparse index on '{displayName}': entry '{entry}' includes compress_segmentby column '{col}'. " +
+                            "Segmentby columns are not compressed and cannot have a sparse index.");
                     }
-
-                    singleColumnEntries[singleCol] = entry;
                 }
+            }
+
+            if (!isComposite)
+            {
+                string singleCol = columns[0];
+                if (singleColumnEntries.TryGetValue(singleCol, out string? existingEntry))
+                {
+                    throw new InvalidOperationException(
+                        $"Sparse index on '{displayName}': duplicate single-column sparse index entries " +
+                        $"'{existingEntry}' and '{entry}' both target column '{singleCol}'. " +
+                        "Remove one of them.");
+                }
+
+                singleColumnEntries[singleCol] = entry;
             }
         }
 

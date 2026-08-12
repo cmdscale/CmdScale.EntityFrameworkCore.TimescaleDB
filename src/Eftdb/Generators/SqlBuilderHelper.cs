@@ -89,7 +89,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
         public static string Regclass(string tableName, string schema = DefaultValues.DefaultSchema)
         {
-            return $"'{schema}.{quoteString}{tableName}{quoteString}'";
+            return $"'{EscapeStringLiteral(schema)}.{quoteString}{EscapeStringLiteral(tableName)}{quoteString}'";
         }
 
         public static string QualifiedIdentifier(string tableName, string schema = DefaultValues.DefaultSchema)
@@ -102,6 +102,23 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// to quote column references in compression segment/order-by lists, group-by clauses, etc.
         /// </summary>
         public static string QuoteIdentifier(string identifier) => $"\"{identifier}\"";
+
+        /// <summary>
+        /// Escapes a value for safe embedding inside a PostgreSQL single-quoted string literal
+        /// by doubling any single-quote characters it contains.
+        /// </summary>
+        /// <param name="value">The raw value to escape.</param>
+        /// <returns>The value with every <c>'</c> replaced by <c>''</c>.</returns>
+        public static string EscapeStringLiteral(string value) => value.Replace("'", "''");
+
+        /// <summary>
+        /// Formats a <see cref="DateTime"/> as an ISO 8601 UTC string for use in PostgreSQL
+        /// timestamp literals, converting to UTC first to avoid ambiguity.
+        /// </summary>
+        /// <param name="value">The timestamp to format.</param>
+        /// <returns>An ISO 8601 string in UTC, suitable for embedding in a PostgreSQL string literal.</returns>
+        public static string FormatTimestamp(DateTime value)
+            => value.ToUniversalTime().ToString("o", System.Globalization.CultureInfo.InvariantCulture);
 
         /// <summary>
         /// Wraps SQL statements in a Community Edition license-guard DO block. Statements execute
@@ -123,12 +140,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             foreach (string sql in sqlStatements)
             {
-                string cleanSql = sql.TrimEnd(';').Replace("'", "''");
+                string cleanSql = EscapeStringLiteral(sql.TrimEnd(';'));
                 sb.AppendLine($"        EXECUTE '{cleanSql}';");
             }
 
             sb.AppendLine("    ELSE");
-            sb.AppendLine($"        RAISE WARNING '{warningText}';");
+            sb.AppendLine($"        RAISE WARNING '{EscapeStringLiteral(warningText)}';");
             sb.AppendLine("    END IF;");
             sb.AppendLine("END $$;");
 

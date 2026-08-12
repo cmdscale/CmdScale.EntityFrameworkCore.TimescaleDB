@@ -1,5 +1,4 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
-using System.Globalization;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
@@ -85,30 +84,28 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (useLegacy)
             {
                 if (!string.IsNullOrWhiteSpace(after))
-                    args.Add($"compress_after => INTERVAL '{after}'");
+                    args.Add($"compress_after => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(after)}'");
                 else if (!string.IsNullOrWhiteSpace(createdBefore))
-                    args.Add($"compress_created_before => INTERVAL '{createdBefore}'");
+                    args.Add($"compress_created_before => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(createdBefore)}'");
             }
             else
             {
                 if (!string.IsNullOrWhiteSpace(after))
-                    args.Add($"after => INTERVAL '{after}'");
+                    args.Add($"after => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(after)}'");
                 else if (!string.IsNullOrWhiteSpace(createdBefore))
-                    args.Add($"created_before => INTERVAL '{createdBefore}'");
+                    args.Add($"created_before => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(createdBefore)}'");
             }
 
             if (!string.IsNullOrWhiteSpace(scheduleInterval))
-                args.Add($"schedule_interval => INTERVAL '{scheduleInterval}'");
+                args.Add($"schedule_interval => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(scheduleInterval)}'");
 
             if (initialStart.HasValue)
             {
-                // Use ISO 8601 format for timestamps to avoid ambiguity.
-                string timestamp = initialStart.Value.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
-                args.Add($"initial_start => '{timestamp}'");
+                args.Add($"initial_start => '{SqlBuilderHelper.FormatTimestamp(initialStart.Value)}'");
             }
 
             if (!string.IsNullOrWhiteSpace(timezone))
-                args.Add($"timezone => '{timezone}'");
+                args.Add($"timezone => '{SqlBuilderHelper.EscapeStringLiteral(timezone)}'");
 
             if (ifNotExists == true)
                 args.Add("if_not_exists => true");

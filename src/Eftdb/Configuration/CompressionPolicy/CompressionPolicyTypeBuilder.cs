@@ -165,17 +165,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
             bool hasAfter = !string.IsNullOrWhiteSpace(after);
             bool hasCreatedBefore = !string.IsNullOrWhiteSpace(createdBefore);
 
-            if (hasAfter && hasCreatedBefore)
-            {
-                throw new InvalidOperationException(
-                    "WithCompressionPolicy: 'after' and 'createdBefore' are mutually exclusive. Specify exactly one.");
-            }
-
-            if (!hasAfter && !hasCreatedBefore)
-            {
-                throw new InvalidOperationException(
-                    "WithCompressionPolicy: Exactly one of 'after' or 'createdBefore' must be specified.");
-            }
+            ConventionValidationHelper.ValidateExclusiveFields("WithCompressionPolicy", "after", hasAfter, "createdBefore", hasCreatedBefore);
 
             entityTypeBuilder.HasAnnotation(CompressionPolicyAnnotations.HasCompressionPolicy, true);
 
