@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using System.Reflection;
 
+using static CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ConventionValidationHelper;
+
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy
 {
     /// <summary>
@@ -27,16 +29,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy
                 entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.HasReorderPolicy, true);
                 entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.IndexName, attribute.IndexName);
 
-                if (!string.IsNullOrWhiteSpace(attribute.InitialStart))
+                DateTime? parsedInitialStart = ParseInitialStart(attribute.InitialStart, entityType.ClrType?.Name, "[ReorderPolicy]");
+                if (parsedInitialStart.HasValue)
                 {
-                    if (DateTime.TryParse(attribute.InitialStart, out DateTime parsedDateTimeOffset))
-                    {
-                        entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.InitialStart, parsedDateTimeOffset);
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"InitialStart '{attribute.InitialStart}' is not a valid DateTime format. Please use a valid DateTime string.");
-                    }
+                    entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.InitialStart, parsedInitialStart.Value);
                 }
 
                 if (!string.IsNullOrWhiteSpace(attribute.ScheduleInterval))

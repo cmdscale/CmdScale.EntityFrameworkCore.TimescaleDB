@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using System.Reflection;
 
+using static CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ConventionValidationHelper;
+
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy
 {
     /// <summary>
@@ -44,17 +46,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
                 entityTypeBuilder.HasAnnotation(ContinuousAggregatePolicyAnnotations.ScheduleInterval, attribute.ScheduleInterval);
 
             // Apply initial start if provided
-            if (!string.IsNullOrWhiteSpace(attribute.InitialStart))
-            {
-                if (DateTime.TryParse(attribute.InitialStart, out DateTime parsedDateTime))
-                {
-                    entityTypeBuilder.HasAnnotation(ContinuousAggregatePolicyAnnotations.InitialStart, parsedDateTime);
-                }
-                else
-                {
-                    throw new InvalidOperationException($"InitialStart '{attribute.InitialStart}' is not a valid DateTime format. Please use a valid DateTime string in ISO 8601 format (e.g., '2025-12-15T03:00:00Z').");
-                }
-            }
+            DateTime? parsedInitialStart = ParseInitialStart(attribute.InitialStart, entityType.ClrType?.Name, "[ContinuousAggregatePolicy]");
+            if (parsedInitialStart.HasValue)
+                entityTypeBuilder.HasAnnotation(ContinuousAggregatePolicyAnnotations.InitialStart, parsedInitialStart.Value);
 
             // Apply if_not_exists flag
             if (attribute.IfNotExists)

@@ -1,5 +1,4 @@
 ﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -98,6 +97,30 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             mockBuilder.Verify(b => b.Append(It.IsAny<string>()), Times.Never);
             mockBuilder.Verify(b => b.EndCommand(It.IsAny<bool>()), Times.Never);
         }
+        #region EscapeStringLiteral
+
+        [Fact]
+        public void EscapeStringLiteral_DoublesSingleQuotes()
+        {
+            // Act
+            string result = SqlBuilderHelper.EscapeStringLiteral("it's a 'test'");
+
+            // Assert
+            Assert.Equal("it''s a ''test''", result);
+        }
+
+        [Fact]
+        public void EscapeStringLiteral_ReturnsUnchangedWithoutQuotes()
+        {
+            // Act
+            string result = SqlBuilderHelper.EscapeStringLiteral("plain_value");
+
+            // Assert
+            Assert.Equal("plain_value", result);
+        }
+
+        #endregion
+
         #region ReplaceSelectWithPerform_NonSelect_Returns_Unchanged
 
         [Fact]

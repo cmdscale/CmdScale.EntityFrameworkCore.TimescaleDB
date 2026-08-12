@@ -56,6 +56,37 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 call = call.Chain(WithChunkTimeIntervalMethod, interval);
             }
 
+            call = AppendCompressionSettingsFluent(entityType, annotations, call);
+            call = AppendChunkSkippingFluent(entityType, annotations, call);
+
+            if (Find(annotations, HypertableAnnotations.MigrateData)?.Value is true)
+            {
+                call = call.Chain(WithMigrateDataMethod);
+            }
+
+            call = AppendDimensionsFluent(entityType, annotations, call);
+
+            Consume(annotations,
+                HypertableAnnotations.IsHypertable,
+                HypertableAnnotations.HypertableTimeColumn,
+                HypertableAnnotations.ChunkTimeInterval,
+                HypertableAnnotations.EnableCompression,
+                HypertableAnnotations.CompressionSegmentBy,
+                HypertableAnnotations.ChunkSkipColumns,
+                HypertableAnnotations.MigrateData,
+                HypertableAnnotations.CompressionSparseIndex,
+                HypertableAnnotations.CompressChunkTimeInterval);
+
+            return [call];
+        }
+
+        /// <summary>
+        /// Chains compression-related calls onto <paramref name="call"/>: segmentby, orderby,
+        /// sparse index, compress-chunk-time-interval, and the bare EnableCompression fallback.
+        /// </summary>
+        private static MethodCallCodeFragment AppendCompressionSettingsFluent(
+            IEntityType entityType, IDictionary<string, IAnnotation> annotations, MethodCallCodeFragment call)
+        {
             // WithCompressionSegmentBy, WithCompressionOrderBy, WithSparseIndex, and
             // WithCompressChunkTimeInterval all implicitly enable compression. A separate
             // EnableCompression call is only emitted when none of them is rendered.
@@ -97,43 +128,47 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 call = call.Chain(EnableCompressionMethod);
             }
 
+            return call;
+        }
+
+        /// <summary>
+        /// Chains <c>WithChunkSkipping</c> onto <paramref name="call"/> when the annotation is present.
+        /// </summary>
+        private static MethodCallCodeFragment AppendChunkSkippingFluent(
+            IEntityType entityType, IDictionary<string, IAnnotation> annotations, MethodCallCodeFragment call)
+        {
             string[] chunkSkip = ResolveColumns(entityType, GetString(annotations, HypertableAnnotations.ChunkSkipColumns));
             if (chunkSkip.Length > 0)
             {
                 call = call.Chain(WithChunkSkippingMethod, [.. chunkSkip.Select(PropertyAccessor)]);
             }
 
-            if (Find(annotations, HypertableAnnotations.MigrateData)?.Value is true)
-            {
-                call = call.Chain(WithMigrateDataMethod);
-            }
+            return call;
+        }
 
+        /// <summary>
+        /// Chains <c>HasRangeDimension</c>/<c>HasHashDimension</c> calls onto <paramref name="call"/>
+        /// for each additional dimension, then consumes the annotation.
+        /// </summary>
+        private static MethodCallCodeFragment AppendDimensionsFluent(
+            IEntityType entityType, IDictionary<string, IAnnotation> annotations, MethodCallCodeFragment call)
+        {
             List<Dimension>? dimensions = TryReadDimensions(GetString(annotations, HypertableAnnotations.AdditionalDimensions));
-            if (dimensions is { Count: > 0 })
+            if (dimensions is not { Count: > 0 })
             {
-                foreach (Dimension dimension in dimensions)
-                {
-                    PropertyAccessorCodeFragment column = PropertyAccessor(ResolvePropertyName(entityType, dimension.ColumnName));
-                    call = dimension.Type == EDimensionType.Hash
-                        ? call.Chain(HasHashDimensionMethod, [column, dimension.NumberOfPartitions ?? 0])
-                        : call.Chain(HasRangeDimensionMethod, [column, dimension.Interval ?? string.Empty]);
-                }
-
-                Consume(annotations, HypertableAnnotations.AdditionalDimensions);
+                return call;
             }
 
-            Consume(annotations,
-                HypertableAnnotations.IsHypertable,
-                HypertableAnnotations.HypertableTimeColumn,
-                HypertableAnnotations.ChunkTimeInterval,
-                HypertableAnnotations.EnableCompression,
-                HypertableAnnotations.CompressionSegmentBy,
-                HypertableAnnotations.ChunkSkipColumns,
-                HypertableAnnotations.MigrateData,
-                HypertableAnnotations.CompressionSparseIndex,
-                HypertableAnnotations.CompressChunkTimeInterval);
+            foreach (Dimension dimension in dimensions)
+            {
+                PropertyAccessorCodeFragment column = PropertyAccessor(ResolvePropertyName(entityType, dimension.ColumnName));
+                call = dimension.Type == EDimensionType.Hash
+                    ? call.Chain(HasHashDimensionMethod, [column, dimension.NumberOfPartitions ?? 0])
+                    : call.Chain(HasRangeDimensionMethod, [column, dimension.Interval ?? string.Empty]);
+            }
 
-            return [call];
+            Consume(annotations, HypertableAnnotations.AdditionalDimensions);
+            return call;
         }
 
         public IReadOnlyList<AttributeCodeFragment> GenerateDataAnnotationAttributes(
@@ -180,11 +215,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
 
             Dictionary<string, object?> named = [];
 
-            if (Find(annotations, HypertableAnnotations.EnableCompression)?.Value is true)
-            {
-                named[nameof(HypertableAttribute.EnableCompression)] = true;
-            }
-
             if (GetString(annotations, HypertableAnnotations.ChunkTimeInterval) is string interval
                 && !string.IsNullOrWhiteSpace(interval)
                 && interval != DefaultValues.ChunkTimeInterval)
@@ -195,6 +225,36 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             if (Find(annotations, HypertableAnnotations.MigrateData)?.Value is true)
             {
                 named[nameof(HypertableAttribute.MigrateData)] = true;
+            }
+
+            AddCompressionAttributeArgs(entityType, annotations, named);
+            AddChunkSkipAttributeArgs(entityType, annotations, named);
+
+            Consume(annotations,
+                HypertableAnnotations.IsHypertable,
+                HypertableAnnotations.HypertableTimeColumn,
+                HypertableAnnotations.ChunkTimeInterval,
+                HypertableAnnotations.EnableCompression,
+                HypertableAnnotations.CompressionSegmentBy,
+                HypertableAnnotations.CompressionOrderBy,
+                HypertableAnnotations.ChunkSkipColumns,
+                HypertableAnnotations.MigrateData,
+                HypertableAnnotations.CompressChunkTimeInterval);
+
+            return new AttributeCodeFragment(typeof(HypertableAttribute), [ColumnReference(entityType, timeColumn)], named);
+        }
+
+        /// <summary>
+        /// Adds compression-related entries to <paramref name="named"/>: EnableCompression, segmentby,
+        /// orderby, DisableAutoSparseIndexes, and CompressChunkTimeInterval.
+        /// Consumes the sparse-index annotation when its value is the empty string (disable marker).
+        /// </summary>
+        private static void AddCompressionAttributeArgs(
+            IEntityType entityType, IDictionary<string, IAnnotation> annotations, Dictionary<string, object?> named)
+        {
+            if (Find(annotations, HypertableAnnotations.EnableCompression)?.Value is true)
+            {
+                named[nameof(HypertableAttribute.EnableCompression)] = true;
             }
 
             object[] segmentBy = [.. SplitColumns(GetString(annotations, HypertableAnnotations.CompressionSegmentBy)).Select(column => ColumnReference(entityType, column))];
@@ -209,16 +269,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 named[nameof(HypertableAttribute.CompressionOrderBy)] = ToArgumentArray(orderBy);
             }
 
-            object[] chunkSkip = [.. SplitColumns(GetString(annotations, HypertableAnnotations.ChunkSkipColumns)).Select(column => ColumnReference(entityType, column))];
-            if (chunkSkip.Length > 0)
-            {
-                named[nameof(HypertableAttribute.ChunkSkipColumns)] = ToArgumentArray(chunkSkip);
-            }
-
             IAnnotation? sparseIndexAnnotation = Find(annotations, HypertableAnnotations.CompressionSparseIndex);
             if (sparseIndexAnnotation?.Value is string sparseIndex && sparseIndex.Length == 0)
             {
                 named[nameof(HypertableAttribute.DisableAutoSparseIndexes)] = true;
+                Consume(annotations, HypertableAnnotations.CompressionSparseIndex);
             }
 
             if (GetString(annotations, HypertableAnnotations.CompressChunkTimeInterval) is string compressInterval
@@ -226,24 +281,19 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             {
                 named[nameof(HypertableAttribute.CompressChunkTimeInterval)] = compressInterval;
             }
+        }
 
-            Consume(annotations,
-                HypertableAnnotations.IsHypertable,
-                HypertableAnnotations.HypertableTimeColumn,
-                HypertableAnnotations.ChunkTimeInterval,
-                HypertableAnnotations.EnableCompression,
-                HypertableAnnotations.CompressionSegmentBy,
-                HypertableAnnotations.CompressionOrderBy,
-                HypertableAnnotations.ChunkSkipColumns,
-                HypertableAnnotations.MigrateData,
-                HypertableAnnotations.CompressChunkTimeInterval);
-
-            if (sparseIndexAnnotation?.Value is string sparseVal && sparseVal.Length == 0)
+        /// <summary>
+        /// Adds the ChunkSkipColumns entry to <paramref name="named"/> when the annotation is present.
+        /// </summary>
+        private static void AddChunkSkipAttributeArgs(
+            IEntityType entityType, IDictionary<string, IAnnotation> annotations, Dictionary<string, object?> named)
+        {
+            object[] chunkSkip = [.. SplitColumns(GetString(annotations, HypertableAnnotations.ChunkSkipColumns)).Select(column => ColumnReference(entityType, column))];
+            if (chunkSkip.Length > 0)
             {
-                Consume(annotations, HypertableAnnotations.CompressionSparseIndex);
+                named[nameof(HypertableAttribute.ChunkSkipColumns)] = ToArgumentArray(chunkSkip);
             }
-
-            return new AttributeCodeFragment(typeof(HypertableAttribute), [ColumnReference(entityType, timeColumn)], named);
         }
 
         /// <summary>

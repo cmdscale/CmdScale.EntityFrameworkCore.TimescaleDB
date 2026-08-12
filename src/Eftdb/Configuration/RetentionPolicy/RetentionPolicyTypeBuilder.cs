@@ -52,15 +52,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
             bool hasDropAfter = !string.IsNullOrWhiteSpace(dropAfter);
             bool hasDropCreatedBefore = !string.IsNullOrWhiteSpace(dropCreatedBefore);
 
-            if (hasDropAfter && hasDropCreatedBefore)
-            {
-                throw new InvalidOperationException("WithRetentionPolicy: 'dropAfter' and 'dropCreatedBefore' are mutually exclusive. Specify exactly one.");
-            }
-
-            if (!hasDropAfter && !hasDropCreatedBefore)
-            {
-                throw new InvalidOperationException("WithRetentionPolicy: Exactly one of 'dropAfter' or 'dropCreatedBefore' must be specified.");
-            }
+            ConventionValidationHelper.ValidateExclusiveFields("WithRetentionPolicy", "dropAfter", hasDropAfter, "dropCreatedBefore", hasDropCreatedBefore);
 
             entityTypeBuilder.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
 
@@ -180,15 +172,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
             bool hasDropAfter = !string.IsNullOrWhiteSpace(dropAfter);
             bool hasDropCreatedBefore = !string.IsNullOrWhiteSpace(dropCreatedBefore);
 
-            if (hasDropAfter && hasDropCreatedBefore)
-            {
-                throw new InvalidOperationException("WithRetentionPolicy: 'dropAfter' and 'dropCreatedBefore' are mutually exclusive. Specify exactly one.");
-            }
-
-            if (!hasDropAfter && !hasDropCreatedBefore)
-            {
-                throw new InvalidOperationException("WithRetentionPolicy: Exactly one of 'dropAfter' or 'dropCreatedBefore' must be specified.");
-            }
+            ConventionValidationHelper.ValidateExclusiveFields("WithRetentionPolicy", "dropAfter", hasDropAfter, "dropCreatedBefore", hasDropCreatedBefore);
 
             entityTypeBuilder.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
 

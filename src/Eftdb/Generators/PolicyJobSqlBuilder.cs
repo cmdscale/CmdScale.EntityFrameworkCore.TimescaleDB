@@ -15,16 +15,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             List<string> clauses = [];
 
             if (!string.IsNullOrWhiteSpace(scheduleInterval))
-                clauses.Add($"schedule_interval => INTERVAL '{scheduleInterval}'");
+                clauses.Add($"schedule_interval => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(scheduleInterval)}'");
 
             if (!string.IsNullOrWhiteSpace(maxRuntime))
-                clauses.Add($"max_runtime => INTERVAL '{maxRuntime}'");
+                clauses.Add($"max_runtime => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(maxRuntime)}'");
 
             if (maxRetries != null)
                 clauses.Add($"max_retries => {maxRetries}");
 
             if (!string.IsNullOrWhiteSpace(retryPeriod))
-                clauses.Add($"retry_period => INTERVAL '{retryPeriod}'");
+                clauses.Add($"retry_period => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(retryPeriod)}'");
 
             return clauses;
         }
@@ -42,16 +42,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             List<string> clauses = [];
 
             if (!string.IsNullOrWhiteSpace(scheduleInterval) && scheduleInterval != oldScheduleInterval)
-                clauses.Add($"schedule_interval => INTERVAL '{scheduleInterval}'");
+                clauses.Add($"schedule_interval => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(scheduleInterval)}'");
 
             if (!string.IsNullOrWhiteSpace(maxRuntime) && maxRuntime != oldMaxRuntime)
-                clauses.Add($"max_runtime => INTERVAL '{maxRuntime}'");
+                clauses.Add($"max_runtime => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(maxRuntime)}'");
 
             if (maxRetries != null && maxRetries != oldMaxRetries)
                 clauses.Add($"max_retries => {maxRetries}");
 
             if (!string.IsNullOrWhiteSpace(retryPeriod) && retryPeriod != oldRetryPeriod)
-                clauses.Add($"retry_period => INTERVAL '{retryPeriod}'");
+                clauses.Add($"retry_period => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(retryPeriod)}'");
 
             return clauses;
         }
@@ -62,10 +62,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// </summary>
         public static string BuildAlterJobSql(string tableName, string schema, string procName, IEnumerable<string> clauses)
         {
+            string escapedProcName = SqlBuilderHelper.EscapeStringLiteral(procName);
+            string escapedSchema = SqlBuilderHelper.EscapeStringLiteral(schema);
+            string escapedTableName = SqlBuilderHelper.EscapeStringLiteral(tableName);
+
             return $@"
                 SELECT alter_job(job_id, {string.Join(", ", clauses)})
                 FROM timescaledb_information.jobs
-                WHERE proc_name = '{procName}' AND hypertable_schema = '{schema}' AND hypertable_name = '{tableName}';".Trim();
+                WHERE proc_name = '{escapedProcName}' AND hypertable_schema = '{escapedSchema}' AND hypertable_name = '{escapedTableName}';".Trim();
         }
     }
 }

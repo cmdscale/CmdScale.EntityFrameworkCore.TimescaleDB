@@ -100,6 +100,32 @@ public class RetentionPolicyAttributeTests
 
     #endregion
 
+    #region Property Initializer Style Tests
+
+    [Fact]
+    public void PropertyInitializer_With_DropAfter_SetsDropAfterWithoutThrowing()
+    {
+        // Arrange & Act
+        RetentionPolicyAttribute attr = new() { DropAfter = "7 days" };
+
+        // Assert
+        Assert.Equal("7 days", attr.DropAfter);
+        Assert.Null(attr.DropCreatedBefore);
+    }
+
+    [Fact]
+    public void PropertyInitializer_With_DropCreatedBefore_SetsDropCreatedBeforeWithoutThrowing()
+    {
+        // Arrange & Act
+        RetentionPolicyAttribute attr = new() { DropCreatedBefore = "30 days" };
+
+        // Assert
+        Assert.Null(attr.DropAfter);
+        Assert.Equal("30 days", attr.DropCreatedBefore);
+    }
+
+    #endregion
+
     #region Default Values Tests
 
     [Fact]

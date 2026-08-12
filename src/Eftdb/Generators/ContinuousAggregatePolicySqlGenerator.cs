@@ -1,5 +1,4 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
-using System.Globalization;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
@@ -35,7 +34,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             else
             {
                 // Interval string
-                arguments.Add($"start_offset => INTERVAL '{operation.StartOffset}'");
+                arguments.Add($"start_offset => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(operation.StartOffset)}'");
             }
 
             // end_offset - NULL means latest data
@@ -51,13 +50,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             else
             {
                 // Interval string
-                arguments.Add($"end_offset => INTERVAL '{operation.EndOffset}'");
+                arguments.Add($"end_offset => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(operation.EndOffset)}'");
             }
 
             // Optional parameters - only add if they differ from defaults
             if (!string.IsNullOrWhiteSpace(operation.ScheduleInterval))
             {
-                arguments.Add($"schedule_interval => INTERVAL '{operation.ScheduleInterval}'");
+                arguments.Add($"schedule_interval => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(operation.ScheduleInterval)}'");
             }
 
             if (operation.IfNotExists)
@@ -87,9 +86,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (operation.InitialStart.HasValue)
             {
-                // Use ISO 8601 format for timestamps to avoid ambiguity
-                string timestamp = operation.InitialStart.Value.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
-                arguments.Add($"initial_start => '{timestamp}'");
+                arguments.Add($"initial_start => '{SqlBuilderHelper.FormatTimestamp(operation.InitialStart.Value)}'");
             }
 
             string sql = $"SELECT add_continuous_aggregate_policy({string.Join(", ", arguments)});";

@@ -11,7 +11,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         public static List<string> Generate(CreateContinuousAggregateOperation operation, bool useLegacyCompressionNames = false)
         {
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
-            string parentQualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.ParentName, operation.Schema);
 
             List<string> statements = [];
 
@@ -26,52 +25,74 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             // Add optional chunk_interval if specified
             if (!string.IsNullOrEmpty(operation.ChunkInterval))
             {
-                withOptions.Add($"timescaledb.chunk_interval = '{operation.ChunkInterval}'");
+                withOptions.Add($"timescaledb.chunk_interval = '{SqlBuilderHelper.EscapeStringLiteral(operation.ChunkInterval)}'");
             }
 
             // Raw-SQL path required for scaffolding round-trips
             if (!string.IsNullOrWhiteSpace(operation.ViewDefinition))
             {
-                StringBuilder rawSqlBuilder = new();
-                rawSqlBuilder.Append($"CREATE MATERIALIZED VIEW {qualifiedIdentifier}");
-                rawSqlBuilder.AppendLine();
-                rawSqlBuilder.Append($"WITH ({string.Join(", ", withOptions)}) AS");
-                rawSqlBuilder.AppendLine();
-                rawSqlBuilder.Append(operation.ViewDefinition!.Trim().TrimEnd(';'));
-                if (operation.WithNoData)
-                {
-                    rawSqlBuilder.AppendLine();
-                    rawSqlBuilder.Append("WITH NO DATA");
-                }
-                rawSqlBuilder.Append(';');
-                statements.Add(rawSqlBuilder.ToString());
-
-                CompressionSettingsSqlHelper.AppendCreateCompressionStatements(
-                    statements,
-                    operation.MaterializedViewName,
-                    operation.Schema,
-                    operation.EnableCompression,
-                    operation.CompressionSegmentBy,
-                    operation.CompressionOrderBy,
-                    AlterDdl,
-                    CommunityWarning,
-                    useLegacyCompressionNames);
-
-                return statements;
+                return GenerateFromRawViewDefinition(operation, qualifiedIdentifier, withOptions, useLegacyCompressionNames);
             }
+
+            return GenerateFromStructuredQuery(operation, qualifiedIdentifier, withOptions, useLegacyCompressionNames);
+        }
+
+        private static List<string> GenerateFromRawViewDefinition(
+            CreateContinuousAggregateOperation operation,
+            string qualifiedIdentifier,
+            List<string> withOptions,
+            bool useLegacyCompressionNames)
+        {
+            List<string> statements = [];
+
+            StringBuilder rawSqlBuilder = new();
+            rawSqlBuilder.Append($"CREATE MATERIALIZED VIEW {qualifiedIdentifier}");
+            rawSqlBuilder.AppendLine();
+            rawSqlBuilder.Append($"WITH ({string.Join(", ", withOptions)}) AS");
+            rawSqlBuilder.AppendLine();
+            rawSqlBuilder.Append(operation.ViewDefinition!.Trim().TrimEnd(';'));
+            if (operation.WithNoData)
+            {
+                rawSqlBuilder.AppendLine();
+                rawSqlBuilder.Append("WITH NO DATA");
+            }
+            rawSqlBuilder.Append(';');
+            statements.Add(rawSqlBuilder.ToString());
+
+            CompressionSettingsSqlHelper.AppendCreateCompressionStatements(
+                statements,
+                operation.MaterializedViewName,
+                operation.Schema,
+                operation.EnableCompression,
+                operation.CompressionSegmentBy,
+                operation.CompressionOrderBy,
+                AlterDdl,
+                CommunityWarning,
+                useLegacyCompressionNames);
+
+            return statements;
+        }
+
+        private static List<string> GenerateFromStructuredQuery(
+            CreateContinuousAggregateOperation operation,
+            string qualifiedIdentifier,
+            List<string> withOptions,
+            bool useLegacyCompressionNames)
+        {
+            List<string> statements = [];
+            string parentQualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.ParentName, operation.Schema);
 
             // Build the SELECT list
             List<string> selectList = [];
 
             // Add time_bucket column
             string timeBucketColumn = $"{SqlBuilderHelper.QuoteIdentifier(operation.TimeBucketSourceColumn)}";
-            string timeBucketWidthSql = $"'{operation.TimeBucketWidth}'";
+            string timeBucketWidthSql = $"'{SqlBuilderHelper.EscapeStringLiteral(operation.TimeBucketWidth)}'";
             selectList.Add($"time_bucket({timeBucketWidthSql}, {timeBucketColumn}) AS time_bucket");
 
             // Add GROUP BY columns to SELECT (only actual columns, not SQL expressions)
             foreach (string groupByColumn in operation.GroupByColumns)
             {
-                // Check if it's a raw SQL expression or a column name
                 bool isRawSqlExpression = groupByColumn.Contains(',') || groupByColumn.Contains('(') || groupByColumn.Contains(' ');
                 if (!isRawSqlExpression)
                 {
@@ -85,7 +106,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 string[] parts = aggInfo.Split(':');
                 if (parts.Length != 3)
                 {
-                    // Skip malformed string
                     continue;
                 }
 
@@ -120,17 +140,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 groupByList.Add("time_bucket");
             }
 
-            // Add group by columns
             foreach (string groupByColumn in operation.GroupByColumns)
             {
                 if (groupByColumn.Contains(',') || groupByColumn.Contains('(') || groupByColumn.Contains(' '))
                 {
-                    // It's a raw SQL expression, use as-is
                     groupByList.Add(groupByColumn);
                 }
                 else
                 {
-                    // It's a column name, quote it
                     groupByList.Add($"{SqlBuilderHelper.QuoteIdentifier(groupByColumn)}");
                 }
             }
@@ -145,22 +162,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             sqlBuilder.AppendLine();
             sqlBuilder.Append($"FROM {parentQualifiedIdentifier}");
 
-            // Add WHERE clause if specified
             if (!string.IsNullOrWhiteSpace(operation.WhereClause))
             {
-                string whereClause = operation.WhereClause;
                 sqlBuilder.AppendLine();
-                sqlBuilder.Append($"WHERE {whereClause}");
+                sqlBuilder.Append($"WHERE {operation.WhereClause}");
             }
 
-            // Add GROUP BY clause
             if (groupByList.Count > 0)
             {
                 sqlBuilder.AppendLine();
                 sqlBuilder.Append($"GROUP BY {string.Join(", ", groupByList)}");
             }
 
-            // Add WITH [NO] DATA
             if (operation.WithNoData)
             {
                 sqlBuilder.AppendLine();
@@ -197,14 +210,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 // We cannot RESET chunk_interval as TimescaleDB doesn't support it
                 if (!string.IsNullOrEmpty(operation.ChunkInterval))
                 {
-                    string chunkIntervalSql = $"'{operation.ChunkInterval}'";
+                    string chunkIntervalSql = $"'{SqlBuilderHelper.EscapeStringLiteral(operation.ChunkInterval)}'";
                     statements.Add($"ALTER MATERIALIZED VIEW {qualifiedIdentifier} SET (timescaledb.chunk_interval = {chunkIntervalSql});");
                 }
                 else if (!string.IsNullOrEmpty(operation.OldChunkInterval))
                 {
                     // Special case: If new value is null/empty but old value exists,
                     // restore the old value instead of trying to RESET (which is unsupported)
-                    string chunkIntervalSql = $"'{operation.OldChunkInterval}'";
+                    string chunkIntervalSql = $"'{SqlBuilderHelper.EscapeStringLiteral(operation.OldChunkInterval)}'";
                     statements.Add($"ALTER MATERIALIZED VIEW {qualifiedIdentifier} SET (timescaledb.chunk_interval = {chunkIntervalSql});");
                 }
             }

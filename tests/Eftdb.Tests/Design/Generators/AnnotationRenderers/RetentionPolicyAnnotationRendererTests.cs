@@ -710,10 +710,10 @@ public class RetentionPolicyAnnotationRendererTests
 
     // ── Data-annotation attribute generation tests ────────────────────────────
 
-    #region GenerateDataAnnotationAttributes_DropAfter_As_Positional_Arg_0
+    #region GenerateDataAnnotationAttributes_DropAfter_As_Named_Arg
 
     [Fact]
-    public void GenerateDataAnnotationAttributes_DropAfter_As_Positional_Arg_0()
+    public void GenerateDataAnnotationAttributes_DropAfter_As_Named_Arg()
     {
         // Arrange
         using RetentionRendererContext context = new();
@@ -729,16 +729,16 @@ public class RetentionPolicyAnnotationRendererTests
         // Assert
         AttributeCodeFragment? attr = result.FirstOrDefault(a => a.Type == typeof(RetentionPolicyAttribute));
         Assert.NotNull(attr);
-        object? positionalArg = Assert.Single(attr.Arguments);
-        Assert.Equal("7 days", positionalArg);
+        Assert.Equal("7 days", attr.NamedArguments[nameof(RetentionPolicyAttribute.DropAfter)]);
+        Assert.Empty(attr.Arguments);
     }
 
     #endregion
 
-    #region GenerateDataAnnotationAttributes_DropCreatedBefore_Only_Has_Two_Positional_Args
+    #region GenerateDataAnnotationAttributes_DropCreatedBefore_As_Named_Arg
 
     [Fact]
-    public void GenerateDataAnnotationAttributes_DropCreatedBefore_Only_Has_Two_Positional_Args()
+    public void GenerateDataAnnotationAttributes_DropCreatedBefore_As_Named_Arg()
     {
         // Arrange
         using RetentionRendererContext context = new();
@@ -754,9 +754,9 @@ public class RetentionPolicyAnnotationRendererTests
         // Assert
         AttributeCodeFragment? attr = result.FirstOrDefault(a => a.Type == typeof(RetentionPolicyAttribute));
         Assert.NotNull(attr);
-        Assert.Equal(2, attr.Arguments.Count);
-        Assert.Null(attr.Arguments[0]);
-        Assert.Equal("30 days", attr.Arguments[1]);
+        Assert.Equal("30 days", attr.NamedArguments[nameof(RetentionPolicyAttribute.DropCreatedBefore)]);
+        Assert.False(attr.NamedArguments.ContainsKey(nameof(RetentionPolicyAttribute.DropAfter)));
+        Assert.Empty(attr.Arguments);
     }
 
     #endregion
@@ -940,7 +940,8 @@ public class RetentionPolicyAnnotationRendererTests
         // Assert
         AttributeCodeFragment? attr = result.FirstOrDefault(a => a.Type == typeof(RetentionPolicyAttribute));
         Assert.NotNull(attr);
-        Assert.Empty(attr.NamedArguments);
+        string namedArg = Assert.Single(attr.NamedArguments).Key;
+        Assert.Equal(nameof(RetentionPolicyAttribute.DropAfter), namedArg);
     }
 
     #endregion

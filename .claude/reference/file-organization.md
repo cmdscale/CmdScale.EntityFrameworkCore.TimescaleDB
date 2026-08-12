@@ -148,8 +148,9 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Internals/TimescaleMigrationsModelDiffer.cs` | Differ orchestration, context building, operation prioritization |
 | `Internals/Features/IFeatureDiffer.cs` | Differ interface |
 | `Internals/Features/FeatureDiffContext.cs` | Cross-cutting diff state (renames, recreated aggregates) |
-| `Generators/SqlBuilderHelper.cs` | Identifier quoting, regclass, command grouping, SELECT→PERFORM |
+| `Generators/SqlBuilderHelper.cs` | Identifier quoting, regclass, command grouping, SELECT→PERFORM, `EscapeStringLiteral`, `FormatTimestamp` |
 | `Generators/PolicyJobSqlBuilder.cs` | Shared `alter_job` clause builder for policies |
+| `Configuration/ConventionValidationHelper.cs` | Shared validation helpers for conventions: `ValidateExclusiveFields` (XOR guard) and `ParseInitialStart` (DateTime parse with error context) |
 | `Configuration/TimeColumnStoreTypeValidationConvention.cs` | Model-finalized validation of hypertable & continuous-aggregate time-column store types |
 | `Internals/TimeColumnStoreTypeValidator.cs` | Allowed PostgreSQL store types for a TimescaleDB time dimension |
 | `Internals/ExpressionHelper.cs` | Shared helper consolidating CLR property-name extraction from lambda expressions |
@@ -216,6 +217,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Scaffolding/CompressionPolicyScaffoldingExtractor.cs` | Query compression policies from `timescaledb_information.jobs` joined with `_timescaledb_config.bgw_job` for timezone |
 | `Scaffolding/CompressionPolicyAnnotationApplier.cs` | Apply compression policy annotations; suppresses default schedule intervals to avoid phantom migrations |
 | `Scaffolding/CompressionSettingsScaffoldingHelper.cs` | Shared helper that reads `timescaledb_information.hypertable_columnstore_settings` (2.18+) with fallback to `compression_settings` (pre-2.18); used by both the hypertable and continuous-aggregate scaffolding extractors |
+| `Scaffolding/ScaffoldingExtractorHelper.cs` | Shared infrastructure for extractors: `UsingConnection` (execute-around connection-state management), `ViewExists` (parameterized view lookup), and `TimescaleInternalSchemaExclusion` constant |
 | `Scaffolding/IntervalParsingHelper.cs` | Parses and normalizes PostgreSQL interval strings (e.g. `"01:00:00"` → `"1 hour"`) and integer offsets |
 | `Scaffolding/ViewDefinitionParser.cs` | Parses continuous aggregate view SQL to extract structured configuration for code generation |
 | `build/CmdScale.EntityFrameworkCore.TimescaleDB.Design.targets` | MSBuild integration |

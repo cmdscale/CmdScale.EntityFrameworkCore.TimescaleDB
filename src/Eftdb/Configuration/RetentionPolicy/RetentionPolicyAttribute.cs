@@ -70,6 +70,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
         public string? RetryPeriod { get; set; }
 
         /// <summary>
+        /// Supports property-initializer usage, e.g. <c>[RetentionPolicy(DropAfter = "7 days")]</c>.
+        /// </summary>
+        public RetentionPolicyAttribute()
+        {
+        }
+
+        /// <summary>
         /// Configures a retention policy using <c>drop_after</c>.
         /// </summary>
         /// <param name="dropAfter">The interval after which chunks are dropped (e.g., "7 days").</param>
@@ -91,15 +98,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
             bool hasDropAfter = !string.IsNullOrWhiteSpace(dropAfter);
             bool hasDropCreatedBefore = !string.IsNullOrWhiteSpace(dropCreatedBefore);
 
-            if (hasDropAfter && hasDropCreatedBefore)
-            {
-                throw new InvalidOperationException("RetentionPolicy: 'DropAfter' and 'DropCreatedBefore' are mutually exclusive. Specify exactly one.");
-            }
-
-            if (!hasDropAfter && !hasDropCreatedBefore)
-            {
-                throw new InvalidOperationException("RetentionPolicy: Exactly one of 'DropAfter' or 'DropCreatedBefore' must be specified.");
-            }
+            ConventionValidationHelper.ValidateExclusiveFields("RetentionPolicy", "DropAfter", hasDropAfter, "DropCreatedBefore", hasDropCreatedBefore);
 
             DropAfter = dropAfter;
             DropCreatedBefore = dropCreatedBefore;

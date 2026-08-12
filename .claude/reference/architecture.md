@@ -61,7 +61,7 @@ This document provides detailed architectural information for the CmdScale.Entit
 - `ReorderPolicyStringBuilder.cs` - String-based builder used by scaffolded `OnModelCreating` code; exposes `WithInitialStart(DateTime)` as a chained method (DateTime cannot be rendered as a positional literal via `MethodCallCodeFragment`)
 
 #### RetentionPolicy/ (5 files)
-- `RetentionPolicyAttribute.cs` - Data annotation: `[RetentionPolicy(DropAfter = "30 days")]`
+- `RetentionPolicyAttribute.cs` - Data annotation: `[RetentionPolicy("30 days")]`; exactly one of `DropAfter`/`DropCreatedBefore` is required — constructor args validate fail-fast, property-initializer style (`DropAfter = "..."`) remains supported and is validated by the convention
 - `RetentionPolicyConvention.cs` - IEntityTypeAddedConvention implementation
 - `RetentionPolicyAnnotations.cs` - Annotation constants
 - `RetentionPolicyTypeBuilder.cs` - Fluent API: `WithRetentionPolicy()`; includes a scaffold-targeting overload that takes 6 positional string parameters and returns `RetentionPolicyStringBuilder<TEntity>`
@@ -100,6 +100,7 @@ This document provides detailed architectural information for the CmdScale.Entit
 - `PolicyJobBuilderCore.cs` - Shared base class providing annotation helpers for policy-job fields common to all three policy builder cores (ScheduleInterval, MaxRuntime, MaxRetries, RetryPeriod, InitialStart)
 
 #### Cross-cutting
+- `ConventionValidationHelper.cs` - Internal static helper used by multiple convention and type-builder classes: `ValidateExclusiveFields` enforces XOR constraints (e.g. `After`/`CreatedBefore`, `DropAfter`/`DropCreatedBefore`) with entity-context error messages; `ParseInitialStart` centralizes `DateTime.TryParse` with a consistent error format
 - `TimeColumnStoreTypeValidationConvention.cs` - IModelFinalizedConvention validating that hypertable and continuous-aggregate time columns resolve to a PostgreSQL time-dimension store type (timestamp/timestamptz/date/integer); backed by `Internals/TimeColumnStoreTypeValidator.cs`
 
 ### Abstractions/ - Domain Objects
@@ -281,6 +282,7 @@ Registered renderers: `HypertableAnnotationRenderer`, `ContinuousAggregateAnnota
 `TimescaleCSharpModelGenerator` wraps EF Core's standard model generator and post-processes the generated files to inject missing `using` directives for TimescaleDB attribute namespaces. `TimescaleModelCodeGeneratorSelector` ensures this custom generator is selected.
 
 **Additional Design-Time Utilities:**
+- `Scaffolding/ScaffoldingExtractorHelper.cs` - Shared infrastructure for all scaffolding extractors: `UsingConnection<T>` execute-around helper (opens/closes the `DbConnection` only when needed, eliminating 12–15 boilerplate lines per extractor), `ViewExists` (parameterized `information_schema.views` lookup), and `TimescaleInternalSchemaExclusion` constant (the four `_timescaledb_*` schema names embedded in SQL `NOT IN` clauses)
 - `Scaffolding/ViewDefinitionParser.cs` - Parses a continuous aggregate's stored view definition SQL (best-effort, cached) to extract `TimeBucketWidth`, `TimeBucketSourceColumn`, aggregate functions, GROUP BY columns, and WHERE clause; used by `ContinuousAggregateAnnotationRenderer`
 
 **Scaffolding/ Interfaces:**

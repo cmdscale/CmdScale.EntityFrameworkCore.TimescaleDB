@@ -1,4 +1,5 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using System.Text;
 
@@ -17,7 +18,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             List<string> communityStatements = [];
 
             StringBuilder createHypertableCall = new();
-            createHypertableCall.Append($"SELECT create_hypertable({qualifiedTableName}, '{operation.TimeColumnName}'");
+            createHypertableCall.Append($"SELECT create_hypertable({qualifiedTableName}, '{SqlBuilderHelper.EscapeStringLiteral(operation.TimeColumnName)}'");
             createHypertableCall.Append(operation.MigrateData ? ", migrate_data => true" : "");
 
             if (!string.IsNullOrEmpty(operation.ChunkTimeInterval))
@@ -28,7 +29,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
                 else
                 {
-                    createHypertableCall.Append($", chunk_time_interval => INTERVAL '{operation.ChunkTimeInterval}'");
+                    createHypertableCall.Append($", chunk_time_interval => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(operation.ChunkTimeInterval)}'");
                 }
             }
 
@@ -51,23 +52,23 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (hasSegmentBy)
             {
                 string segmentList = string.Join(", ", operation.CompressionSegmentBy!.Select(SqlBuilderHelper.QuoteIdentifier));
-                compressionSettings.Add($"{CompressionSettingsSqlHelper.SegmentByOptionName(useLegacyCompressionNames)} = '{segmentList}'");
+                compressionSettings.Add($"{CompressionSettingsSqlHelper.SegmentByOptionName(useLegacyCompressionNames)} = '{SqlBuilderHelper.EscapeStringLiteral(segmentList)}'");
             }
 
             if (hasOrderBy)
             {
                 string orderList = CompressionSettingsSqlHelper.QuoteOrderByList(operation.CompressionOrderBy!);
-                compressionSettings.Add($"{CompressionSettingsSqlHelper.OrderByOptionName(useLegacyCompressionNames)} = '{orderList}'");
+                compressionSettings.Add($"{CompressionSettingsSqlHelper.OrderByOptionName(useLegacyCompressionNames)} = '{SqlBuilderHelper.EscapeStringLiteral(orderList)}'");
             }
 
             if (operation.CompressionSparseIndex != null)
             {
-                compressionSettings.Add($"timescaledb.sparse_index = '{operation.CompressionSparseIndex}'");
+                compressionSettings.Add($"timescaledb.sparse_index = '{SqlBuilderHelper.EscapeStringLiteral(operation.CompressionSparseIndex)}'");
             }
 
             if (!string.IsNullOrEmpty(operation.CompressChunkTimeInterval))
             {
-                compressionSettings.Add($"timescaledb.compress_chunk_time_interval = '{operation.CompressChunkTimeInterval}'");
+                compressionSettings.Add($"timescaledb.compress_chunk_time_interval = '{SqlBuilderHelper.EscapeStringLiteral(operation.CompressChunkTimeInterval)}'");
             }
 
             if (compressionSettings.Count > 0)
@@ -81,7 +82,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
                 foreach (string column in operation.ChunkSkipColumns)
                 {
-                    communityStatements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{column}');");
+                    communityStatements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{SqlBuilderHelper.EscapeStringLiteral(column)}');");
                 }
             }
 
@@ -94,13 +95,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                         bool isIntegerRange = long.TryParse(dimension.Interval, out _);
                         string intervalExpression = isIntegerRange
                             ? dimension.Interval!
-                            : $"INTERVAL '{dimension.Interval}'";
+                            : $"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(dimension.Interval)}'";
 
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{dimension.ColumnName}', {intervalExpression}));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(dimension.ColumnName)}', {intervalExpression}));");
                     }
                     else if (dimension.Type == EDimensionType.Hash)
                     {
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{dimension.ColumnName}', {dimension.NumberOfPartitions}));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{SqlBuilderHelper.EscapeStringLiteral(dimension.ColumnName)}', {dimension.NumberOfPartitions}));");
                     }
                 }
             }
@@ -131,19 +132,31 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
                 else
                 {
-                    setChunkTimeInterval.Append($"INTERVAL '{operation.ChunkTimeInterval}'");
+                    setChunkTimeInterval.Append($"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(operation.ChunkTimeInterval)}'");
                 }
 
                 setChunkTimeInterval.Append(");");
                 statements.Add(setChunkTimeInterval.ToString());
             }
 
-            List<string> compressionSettings = [];
+            ApplyCompressionChanges(operation, qualifiedIdentifier, communityStatements, useLegacyCompressionNames);
+            ApplyChunkSkippingChanges(operation, qualifiedTableName, communityStatements);
+            ApplyDimensionChanges(operation, qualifiedTableName, statements);
 
-            static bool ListsChanged(IReadOnlyList<string>? oldList, IReadOnlyList<string>? newList)
+            if (communityStatements.Count > 0)
             {
-                return !(oldList ?? []).SequenceEqual(newList ?? []);
+                statements.Add(SqlBuilderHelper.WrapCommunityFeatures(communityStatements, CommunityWarning));
             }
+            return statements;
+        }
+
+        private static void ApplyCompressionChanges(
+            AlterHypertableOperation operation,
+            string qualifiedIdentifier,
+            List<string> communityStatements,
+            bool useLegacyCompressionNames)
+        {
+            List<string> compressionSettings = [];
 
             bool newCompressionState = CompressionSettingsSqlHelper.IsCompressionEnabled(
                 operation.EnableCompression, operation.CompressionSegmentBy, operation.CompressionOrderBy, operation.ChunkSkipColumns);
@@ -156,18 +169,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 compressionSettings.Add($"{CompressionSettingsSqlHelper.CompressOptionName(useLegacyCompressionNames)} = {newCompressionState.ToString().ToLower()}");
             }
 
-            if (ListsChanged(operation.OldCompressionSegmentBy, operation.CompressionSegmentBy))
+            if (!CompressionDiffHelper.AreStringListsEqual(operation.OldCompressionSegmentBy, operation.CompressionSegmentBy))
             {
                 string val = (operation.CompressionSegmentBy?.Count > 0)
-                    ? $"'{string.Join(", ", operation.CompressionSegmentBy.Select(SqlBuilderHelper.QuoteIdentifier))}'"
+                    ? $"'{SqlBuilderHelper.EscapeStringLiteral(string.Join(", ", operation.CompressionSegmentBy.Select(SqlBuilderHelper.QuoteIdentifier)))}'"
                     : "''";
                 compressionSettings.Add($"{CompressionSettingsSqlHelper.SegmentByOptionName(useLegacyCompressionNames)} = {val}");
             }
 
-            if (ListsChanged(operation.OldCompressionOrderBy, operation.CompressionOrderBy))
+            if (!CompressionDiffHelper.AreStringListsEqual(operation.OldCompressionOrderBy, operation.CompressionOrderBy))
             {
                 string val = (operation.CompressionOrderBy?.Count > 0)
-                    ? $"'{CompressionSettingsSqlHelper.QuoteOrderByList(operation.CompressionOrderBy)}'"
+                    ? $"'{SqlBuilderHelper.EscapeStringLiteral(CompressionSettingsSqlHelper.QuoteOrderByList(operation.CompressionOrderBy))}'"
                     : "''";
                 compressionSettings.Add($"{CompressionSettingsSqlHelper.OrderByOptionName(useLegacyCompressionNames)} = {val}");
             }
@@ -176,7 +189,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             {
                 if (operation.CompressionSparseIndex != null)
                 {
-                    compressionSettings.Add($"timescaledb.sparse_index = '{operation.CompressionSparseIndex}'");
+                    compressionSettings.Add($"timescaledb.sparse_index = '{SqlBuilderHelper.EscapeStringLiteral(operation.CompressionSparseIndex)}'");
                 }
                 else
                 {
@@ -188,7 +201,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             {
                 if (operation.CompressChunkTimeInterval != null)
                 {
-                    compressionSettings.Add($"timescaledb.compress_chunk_time_interval = '{operation.CompressChunkTimeInterval}'");
+                    compressionSettings.Add($"timescaledb.compress_chunk_time_interval = '{SqlBuilderHelper.EscapeStringLiteral(operation.CompressChunkTimeInterval)}'");
                 }
                 else
                 {
@@ -202,7 +215,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             {
                 communityStatements.Add($"ALTER TABLE {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});");
             }
+        }
 
+        private static void ApplyChunkSkippingChanges(
+            AlterHypertableOperation operation,
+            string qualifiedTableName,
+            List<string> communityStatements)
+        {
             IReadOnlyList<string> newColumns = operation.ChunkSkipColumns ?? [];
             IReadOnlyList<string> oldColumns = operation.OldChunkSkipColumns ?? [];
             List<string> addedColumns = [.. newColumns.Except(oldColumns)];
@@ -213,7 +232,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
                 foreach (string column in addedColumns)
                 {
-                    communityStatements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{column}');");
+                    communityStatements.Add($"SELECT enable_chunk_skipping({qualifiedTableName}, '{SqlBuilderHelper.EscapeStringLiteral(column)}');");
                 }
             }
 
@@ -222,10 +241,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             {
                 foreach (string column in removedColumns)
                 {
-                    communityStatements.Add($"SELECT disable_chunk_skipping({qualifiedTableName}, '{column}');");
+                    communityStatements.Add($"SELECT disable_chunk_skipping({qualifiedTableName}, '{SqlBuilderHelper.EscapeStringLiteral(column)}');");
                 }
             }
+        }
 
+        private static void ApplyDimensionChanges(
+            AlterHypertableOperation operation,
+            string qualifiedTableName,
+            List<string> statements)
+        {
             // TimescaleDB does NOT support removing dimensions from hypertables.
             // Once added, a dimension cannot be removed, so only additions are generated.
             IReadOnlyList<Dimension> newDimensions = operation.AdditionalDimensions ?? [];
@@ -246,13 +271,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                         bool isIntegerRange = long.TryParse(newDim.Interval, out _);
                         string intervalExpression = isIntegerRange
                             ? newDim.Interval!
-                            : $"INTERVAL '{newDim.Interval}'";
+                            : $"INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(newDim.Interval)}'";
 
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{newDim.ColumnName}', {intervalExpression}));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}', {intervalExpression}));");
                     }
                     else if (newDim.Type == EDimensionType.Hash)
                     {
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{newDim.ColumnName}', {newDim.NumberOfPartitions}));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}', {newDim.NumberOfPartitions}));");
                     }
                 }
             }
@@ -264,15 +289,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             if (removedDimensions.Count > 0)
             {
-                string dimensionList = string.Join(", ", removedDimensions.Select(d => $"'{d.ColumnName}'"));
+                string dimensionList = string.Join(", ", removedDimensions.Select(d => $"'{SqlBuilderHelper.EscapeStringLiteral(d.ColumnName)}'"));
                 statements.Add($"-- WARNING: TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: {dimensionList}");
             }
-
-            if (communityStatements.Count > 0)
-            {
-                statements.Add(SqlBuilderHelper.WrapCommunityFeatures(communityStatements, CommunityWarning));
-            }
-            return statements;
         }
     }
 }

@@ -98,6 +98,27 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region BuildAlterJobSql_QuoteInIdentifiers_EscapesStringLiterals
+
+        [Fact]
+        public void BuildAlterJobSql_QuoteInIdentifiers_EscapesStringLiterals()
+        {
+            // Arrange
+            string tableName = "user's_table";
+            string schema = "app's_schema";
+            string procName = "policy_retention";
+
+            // Act
+            string sql = PolicyJobSqlBuilder.BuildAlterJobSql(tableName, schema, procName, ["schedule_interval => INTERVAL '1 day'"]);
+
+            // Assert
+            Assert.Contains("hypertable_name = 'user''s_table'", sql);
+            Assert.Contains("hypertable_schema = 'app''s_schema'", sql);
+            Assert.DoesNotContain("'user's_table'", sql);
+        }
+
+        #endregion
+
         #region BuildChangedJobClauses_OnlyDifferingValuesProduceClauses
 
         [Fact]

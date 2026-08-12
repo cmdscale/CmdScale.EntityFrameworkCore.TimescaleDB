@@ -1,5 +1,4 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
-using System.Data;
 using System.Data.Common;
 using System.Text.Json;
 
@@ -23,14 +22,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
         );
 
         public Dictionary<(string Schema, string TableName), object> Extract(DbConnection connection)
-        {
-            bool wasOpen = connection.State == ConnectionState.Open;
-            if (!wasOpen)
-            {
-                connection.Open();
-            }
-
-            try
+            => ScaffoldingExtractorHelper.UsingConnection(connection, () =>
             {
                 Dictionary<(string, string), HypertableInfo> hypertables = [];
                 Dictionary<(string, string), bool> compressionSettings = GetCompressionSettings(connection);
@@ -49,29 +41,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     kvp => kvp.Key,
                     kvp => (object)kvp.Value
                 );
-            }
-            finally
-            {
-                if (!wasOpen)
-                {
-                    connection.Close();
-                }
-            }
-        }
+            });
 
         private static Dictionary<(string, string), bool> GetCompressionSettings(DbConnection connection)
         {
             Dictionary<(string, string), bool> compressionSettings = [];
             using DbCommand command = connection.CreateCommand();
-            command.CommandText = @"
+            command.CommandText = $@"
                 SELECT hypertable_schema, hypertable_name, compression_enabled
                 FROM timescaledb_information.hypertables
-                WHERE hypertable_schema NOT IN (
-                    '_timescaledb_internal',
-                    '_timescaledb_catalog',
-                    '_timescaledb_config',
-                    '_timescaledb_cache'
-                );";
+                WHERE hypertable_schema NOT IN ({ScaffoldingExtractorHelper.TimescaleInternalSchemaExclusion});";
             using DbDataReader reader = command.ExecuteReader();
             while (reader.Read())
             {
@@ -86,7 +65,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             Dictionary<(string, string), bool> compressionSettings)
         {
             using DbCommand command = connection.CreateCommand();
-            command.CommandText = @"
+            command.CommandText = $@"
                 SELECT
                     hypertable_schema,
                     hypertable_name,
@@ -96,12 +75,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     time_interval::text AS time_interval_text,
                     integer_interval
                 FROM timescaledb_information.dimensions
-                WHERE hypertable_schema NOT IN (
-                    '_timescaledb_internal',
-                    '_timescaledb_catalog',
-                    '_timescaledb_config',
-                    '_timescaledb_cache'
-                )
+                WHERE hypertable_schema NOT IN ({ScaffoldingExtractorHelper.TimescaleInternalSchemaExclusion})
                 ORDER BY hypertable_schema, hypertable_name, dimension_number;";
 
             using DbDataReader reader = command.ExecuteReader();
@@ -209,26 +183,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
         /// </summary>
         private static bool GetColumnstoreSettings(DbConnection connection, Dictionary<(string, string), HypertableInfo> hypertables)
         {
-            using (DbCommand checkCommand = connection.CreateCommand())
+            if (!ScaffoldingExtractorHelper.ViewExists(connection, "timescaledb_information", "hypertable_columnstore_settings"))
             {
-                checkCommand.CommandText = @"
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM information_schema.views
-                        WHERE table_schema = 'timescaledb_information'
-                          AND table_name = 'hypertable_columnstore_settings'
-                    );";
-
-                object? exists = checkCommand.ExecuteScalar();
-                if (exists is not true)
-                {
-                    return false;
-                }
+                return false;
             }
 
             using DbCommand command = connection.CreateCommand();
 
-            command.CommandText = @"
+            command.CommandText = $@"
                 SELECT
                     ht.schema_name,
                     ht.table_name,
@@ -239,12 +201,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 FROM timescaledb_information.hypertable_columnstore_settings AS hcs
                 JOIN _timescaledb_catalog.hypertable AS ht
                     ON format('%I.%I', ht.schema_name, ht.table_name)::regclass = hcs.hypertable
-                WHERE ht.schema_name NOT IN (
-                    '_timescaledb_internal',
-                    '_timescaledb_catalog',
-                    '_timescaledb_config',
-                    '_timescaledb_cache'
-                );";
+                WHERE ht.schema_name NOT IN ({ScaffoldingExtractorHelper.TimescaleInternalSchemaExclusion});";
 
             using DbDataReader reader = command.ExecuteReader();
             while (reader.Read())
@@ -258,9 +215,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 }
 
                 List<string> segmentBy = [];
-                if (!reader.IsDBNull(2))
+                string? segmentByText = reader.IsDBNull(2) ? null : reader.GetString(2);
+                if (segmentByText is not null)
                 {
-                    string segmentByText = reader.GetString(2);
                     foreach (string col in segmentByText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         segmentBy.Add(col);
@@ -268,26 +225,19 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                 }
 
                 List<string> orderBy = [];
-                if (!reader.IsDBNull(3))
+                string? orderByText = reader.IsDBNull(3) ? null : reader.GetString(3);
+                if (orderByText is not null)
                 {
-                    string orderByText = reader.GetString(3);
                     foreach (string token in orderByText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         orderBy.Add(CompressionSettingsScaffoldingHelper.ParseColumnstoreOrderByToken(token));
                     }
                 }
 
-                string? sparseIndex = null;
-                if (!reader.IsDBNull(4))
-                {
-                    sparseIndex = ParseSparseIndexJson(reader.GetString(4));
-                }
+                string? sparseIndexRaw = reader.IsDBNull(4) ? null : reader.GetString(4);
+                string? sparseIndex = sparseIndexRaw is not null ? ParseSparseIndexJson(sparseIndexRaw) : null;
 
-                string? compressChunkTimeInterval = null;
-                if (!reader.IsDBNull(5))
-                {
-                    compressChunkTimeInterval = IntervalParsingHelper.NormalizeInterval(reader.GetString(5));
-                }
+                string? compressChunkTimeInterval = reader.IsDBNull(5) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(5));
 
                 bool updated = segmentBy.Count > 0 || orderBy.Count > 0
                     || sparseIndex != null || compressChunkTimeInterval != null;

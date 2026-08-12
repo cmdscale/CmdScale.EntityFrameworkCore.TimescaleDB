@@ -90,21 +90,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             Action<(string, string), string> applySegmentBy,
             Action<(string, string), string> applyOrderBy)
         {
-            using (DbCommand checkCommand = connection.CreateCommand())
+            if (!ScaffoldingExtractorHelper.ViewExists(connection, "timescaledb_information", "hypertable_columnstore_settings"))
             {
-                checkCommand.CommandText = @"
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM information_schema.views
-                        WHERE table_schema = 'timescaledb_information'
-                          AND table_name = 'hypertable_columnstore_settings'
-                    );";
-
-                object? exists = checkCommand.ExecuteScalar();
-                if (exists is not true)
-                {
-                    return false;
-                }
+                return false;
             }
 
             using DbCommand command = connection.CreateCommand();
@@ -131,18 +119,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
                     continue;
                 }
 
-                if (!reader.IsDBNull(2))
+                string? segmentByText = reader.IsDBNull(2) ? null : reader.GetString(2);
+                if (segmentByText is not null)
                 {
-                    string segmentByText = reader.GetString(2);
                     foreach (string col in segmentByText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         applySegmentBy(resolvedKey, col);
                     }
                 }
 
-                if (!reader.IsDBNull(3))
+                string? orderByText = reader.IsDBNull(3) ? null : reader.GetString(3);
+                if (orderByText is not null)
                 {
-                    string orderByText = reader.GetString(3);
                     foreach (string token in orderByText.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
                     {
                         applyOrderBy(resolvedKey, ParseColumnstoreOrderByToken(token));

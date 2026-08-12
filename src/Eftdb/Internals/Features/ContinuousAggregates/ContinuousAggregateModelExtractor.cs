@@ -81,70 +81,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 bool materializedOnly = entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedOnly)?.Value as bool? ?? false;
                 string? whereClause = entityType.FindAnnotation(ContinuousAggregateAnnotations.WhereClause)?.Value as string;
 
-                // Process aggregate functions - convert model property names to database column names
-                List<string> aggregateFunctions = [];
-                IAnnotation? aggregateFunctionsAnnotation = entityType.FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions);
-                if (aggregateFunctionsAnnotation?.Value is List<string> modelAggregateFunctions)
-                {
-                    foreach (string aggInfo in modelAggregateFunctions)
-                    {
-                        string[] parts = aggInfo.Split(':');
-                        if (parts.Length != 3)
-                        {
-                            // Skip malformed string
-                            continue;
-                        }
-
-                        string aliasModelName = parts[0];
-                        string functionEnumString = parts[1];
-                        string sourceColumnModelName = parts[2];
-
-                        // Resolve source column name from parent entity. "*" is not a column
-                        // but the COUNT(*) wildcard, so it bypasses resolution.
-                        string? sourceColumnDbName = sourceColumnModelName == "*"
-                            ? "*"
-                            : ColumnNameResolver.Resolve(parentEntityType, sourceColumnModelName, parentStoreIdentifier);
-                        if (string.IsNullOrWhiteSpace(sourceColumnDbName))
-                        {
-                            // Skip if source column not found
-                            continue;
-                        }
-
-                        // Resolve alias column name from aggregate entity to respect naming conventions
-                        string? aliasDbName = entityType.FindProperty(aliasModelName)?.GetColumnName(aggregateStoreIdentifier);
-                        if (string.IsNullOrWhiteSpace(aliasDbName))
-                        {
-                            // Fallback to model name if property not found in aggregate entity
-                            aliasDbName = aliasModelName;
-                        }
-
-                        aggregateFunctions.Add($"{aliasDbName}:{functionEnumString}:{sourceColumnDbName}");
-                    }
-                }
-
-                // Process group by columns - convert model property names to database column names
-                // Note: Some group by columns might be raw SQL expressions (e.g., "1, 2"), not property names
-                List<string> groupByColumns = [];
-                IAnnotation? groupByColumnsAnnotation = entityType.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns);
-                if (groupByColumnsAnnotation?.Value is List<string> modelGroupByColumns)
-                {
-                    foreach (string modelColumn in modelGroupByColumns)
-                    {
-                        // Try to resolve as a property name from the parent entity
-                        string? dbColumnName = parentEntityType.FindProperty(modelColumn)?.GetColumnName(parentStoreIdentifier);
-
-                        if (!string.IsNullOrWhiteSpace(dbColumnName))
-                        {
-                            // It's a property name, use the resolved database column name
-                            groupByColumns.Add(dbColumnName);
-                        }
-                        else
-                        {
-                            // It's not a property, assume it's a raw SQL expression and use as-is
-                            groupByColumns.Add(modelColumn);
-                        }
-                    }
-                }
+                List<string> aggregateFunctions = ResolveAggregateFunctions(entityType, parentEntityType, parentStoreIdentifier, aggregateStoreIdentifier);
+                List<string> groupByColumns = ResolveGroupByColumns(entityType, parentEntityType, parentStoreIdentifier);
 
                 // Schema resolution: prefer the CA's own view schema (set by .ToView(...)
                 // or by the scaffolder), fall back to the parent's schema, finally default.
@@ -178,6 +116,76 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     CompressionOrderBy = compressionOrderBy,
                 };
             }
+        }
+
+        private static List<string> ResolveAggregateFunctions(
+            IEntityType entityType,
+            IEntityType parentEntityType,
+            StoreObjectIdentifier parentStoreIdentifier,
+            StoreObjectIdentifier aggregateStoreIdentifier)
+        {
+            List<string> aggregateFunctions = [];
+            IAnnotation? aggregateFunctionsAnnotation = entityType.FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions);
+            if (aggregateFunctionsAnnotation?.Value is not List<string> modelAggregateFunctions)
+            {
+                return aggregateFunctions;
+            }
+
+            foreach (string aggInfo in modelAggregateFunctions)
+            {
+                string[] parts = aggInfo.Split(':');
+                if (parts.Length != 3)
+                {
+                    continue;
+                }
+
+                string aliasModelName = parts[0];
+                string functionEnumString = parts[1];
+                string sourceColumnModelName = parts[2];
+
+                // Resolve source column name from parent entity. "*" is not a column
+                // but the COUNT(*) wildcard, so it bypasses resolution.
+                string? sourceColumnDbName = sourceColumnModelName == "*"
+                    ? "*"
+                    : ColumnNameResolver.Resolve(parentEntityType, sourceColumnModelName, parentStoreIdentifier);
+                if (string.IsNullOrWhiteSpace(sourceColumnDbName))
+                {
+                    continue;
+                }
+
+                // Resolve alias column name from aggregate entity to respect naming conventions
+                string? aliasDbName = entityType.FindProperty(aliasModelName)?.GetColumnName(aggregateStoreIdentifier);
+                if (string.IsNullOrWhiteSpace(aliasDbName))
+                {
+                    aliasDbName = aliasModelName;
+                }
+
+                aggregateFunctions.Add($"{aliasDbName}:{functionEnumString}:{sourceColumnDbName}");
+            }
+
+            return aggregateFunctions;
+        }
+
+        private static List<string> ResolveGroupByColumns(
+            IEntityType entityType,
+            IEntityType parentEntityType,
+            StoreObjectIdentifier parentStoreIdentifier)
+        {
+            List<string> groupByColumns = [];
+            IAnnotation? groupByColumnsAnnotation = entityType.FindAnnotation(ContinuousAggregateAnnotations.GroupByColumns);
+            if (groupByColumnsAnnotation?.Value is not List<string> modelGroupByColumns)
+            {
+                return groupByColumns;
+            }
+
+            foreach (string modelColumn in modelGroupByColumns)
+            {
+                // Try to resolve as a property name from the parent entity
+                string? dbColumnName = parentEntityType.FindProperty(modelColumn)?.GetColumnName(parentStoreIdentifier);
+                groupByColumns.Add(!string.IsNullOrWhiteSpace(dbColumnName) ? dbColumnName : modelColumn);
+            }
+
+            return groupByColumns;
         }
     }
 }

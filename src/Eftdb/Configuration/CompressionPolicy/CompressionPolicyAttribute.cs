@@ -14,7 +14,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
     /// <example>
     /// <code>
     /// [Hypertable("Time", EnableCompression = true)]
-    /// [CompressionPolicy(After = "7 days")]
+    /// [CompressionPolicy("7 days")]
     /// public class Reading { ... }
     /// </code>
     /// </example>
@@ -63,5 +63,40 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
         /// Defaults to <see langword="false"/>.
         /// </summary>
         public bool IfNotExists { get; set; }
+
+        /// <summary>
+        /// Supports property-initializer usage, e.g. <c>[CompressionPolicy(After = "7 days")]</c>.
+        /// </summary>
+        public CompressionPolicyAttribute()
+        {
+        }
+
+        /// <summary>
+        /// Configures a compression policy using <c>compress_after</c>.
+        /// </summary>
+        /// <param name="after">The interval after which chunks are compressed (e.g., "7 days").</param>
+        public CompressionPolicyAttribute(string after)
+        {
+            if (string.IsNullOrWhiteSpace(after))
+            {
+                throw new ArgumentException("After must be provided.", nameof(after));
+            }
+
+            After = after;
+        }
+
+        /// <summary>
+        /// Configures a compression policy. Exactly one of <paramref name="after"/> or <paramref name="createdBefore"/> must be non-null.
+        /// </summary>
+        public CompressionPolicyAttribute(string? after = null, string? createdBefore = null)
+        {
+            bool hasAfter = !string.IsNullOrWhiteSpace(after);
+            bool hasCreatedBefore = !string.IsNullOrWhiteSpace(createdBefore);
+
+            ConventionValidationHelper.ValidateExclusiveFields("CompressionPolicy", "After", hasAfter, "CreatedBefore", hasCreatedBefore);
+
+            After = after;
+            CreatedBefore = createdBefore;
+        }
     }
 }

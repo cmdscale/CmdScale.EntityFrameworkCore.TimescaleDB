@@ -1,5 +1,4 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
-using System.Globalization;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
@@ -81,14 +80,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             List<string> args = [];
 
             if (!string.IsNullOrWhiteSpace(dropAfter))
-                args.Add($"drop_after => INTERVAL '{dropAfter}'");
+                args.Add($"drop_after => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(dropAfter)}'");
             else if (!string.IsNullOrWhiteSpace(dropCreatedBefore))
-                args.Add($"drop_created_before => INTERVAL '{dropCreatedBefore}'");
+                args.Add($"drop_created_before => INTERVAL '{SqlBuilderHelper.EscapeStringLiteral(dropCreatedBefore)}'");
 
             if (initialStart.HasValue)
             {
-                string timestamp = initialStart.Value.ToUniversalTime().ToString("o", CultureInfo.InvariantCulture);
-                args.Add($"initial_start => '{timestamp}'");
+                args.Add($"initial_start => '{SqlBuilderHelper.FormatTimestamp(initialStart.Value)}'");
             }
 
             return $"SELECT add_retention_policy({qualifiedTableName}, {string.Join(", ", args)});";
