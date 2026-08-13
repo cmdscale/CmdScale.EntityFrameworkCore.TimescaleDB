@@ -1191,4 +1191,61 @@ public class ContinuousAggregatePolicyConventionTests
     }
 
     #endregion
+
+    #region Should_Set_RefreshNewestFirst_Annotation_When_Set_To_False
+
+    private class MetricEntity17
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_metrics17", ParentName = "Metrics17")]
+    [ContinuousAggregatePolicy(StartOffset = "1 month", RefreshNewestFirst = false)]
+    private class AggregateEntity17
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class RefreshNewestFirstFalseContext17 : DbContext
+    {
+        public DbSet<MetricEntity17> Metrics => Set<MetricEntity17>();
+        public DbSet<AggregateEntity17> Aggregates => Set<AggregateEntity17>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity17>(entity =>
+            {
+                entity.ToTable("Metrics17");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<AggregateEntity17>(entity =>
+            {
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Set_RefreshNewestFirst_Annotation_When_Set_To_False()
+    {
+        // Arrange
+        using RefreshNewestFirstFalseContext17 context = new();
+
+        // Act
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(AggregateEntity17))!;
+
+        // Assert
+        Assert.Equal(false, entityType.FindAnnotation(ContinuousAggregatePolicyAnnotations.RefreshNewestFirst)?.Value);
+    }
+
+    #endregion
 }

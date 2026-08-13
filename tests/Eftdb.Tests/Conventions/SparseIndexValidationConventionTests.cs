@@ -973,4 +973,46 @@ public class SparseIndexValidationConventionTests
     }
 
     #endregion
+
+    // ── Empty/whitespace entries in the raw value are silently skipped ────────
+
+    #region Should_Skip_Whitespace_Only_Entry_Between_Valid_Entries
+
+    private class WhitespaceEntryEntity
+    {
+        public DateTime Ts { get; set; }
+        public int DeviceId { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class WhitespaceEntryContext : DbContext
+    {
+        public DbSet<WhitespaceEntryEntity> Metrics => Set<WhitespaceEntryEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<WhitespaceEntryEntity>(e =>
+            {
+                e.ToTable("val_whitespace_entry");
+                e.HasNoKey();
+                e.IsHypertable(x => x.Ts)
+                    .WithCompressionOrderBy(s => [s.ByDescending(x => x.Ts)])
+                    .HasAnnotation(HypertableAnnotations.CompressionSparseIndex,
+                        "bloom(DeviceId),   ,minmax(Value)");
+            });
+    }
+
+    [Fact]
+    public void Should_Skip_Whitespace_Only_Entry_Between_Valid_Entries()
+    {
+        // Arrange / Act
+        using WhitespaceEntryContext context = new();
+        IModel model = GetModel(context);
+
+        // Assert
+        IEntityType entity = model.FindEntityType(typeof(WhitespaceEntryEntity))!;
+        Assert.NotNull(entity.FindAnnotation(HypertableAnnotations.CompressionSparseIndex));
+    }
+
+    #endregion
 }

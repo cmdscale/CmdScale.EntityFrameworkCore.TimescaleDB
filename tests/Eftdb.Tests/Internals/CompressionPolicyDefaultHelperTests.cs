@@ -241,4 +241,371 @@ public class CompressionPolicyDefaultHelperTests
     }
 
     #endregion
+
+    // ── Sub-day chunk intervals: minute-level half-interval ──────────────────
+
+    #region Should_Return_1_Minute_When_Chunk_Is_2_Minutes
+
+    [Fact]
+    public void Should_Return_1_Minute_When_Chunk_Is_2_Minutes()
+    {
+        // Arrange
+        string chunkTimeInterval = "2 minutes";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Equal("1 minute", result);
+    }
+
+    #endregion
+
+    #region Should_Return_Minutes_When_Chunk_Is_4_Minutes
+
+    [Fact]
+    public void Should_Return_Minutes_When_Chunk_Is_4_Minutes()
+    {
+        // Arrange
+        string chunkTimeInterval = "4 minutes";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Equal("2 minutes", result);
+    }
+
+    #endregion
+
+    #region Should_Return_1_Second_When_Chunk_Is_2_Seconds
+
+    [Fact]
+    public void Should_Return_1_Second_When_Chunk_Is_2_Seconds()
+    {
+        // Arrange
+        string chunkTimeInterval = "2 seconds";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Equal("1 second", result);
+    }
+
+    #endregion
+
+    #region Should_Return_Seconds_When_Chunk_Is_4_Seconds
+
+    [Fact]
+    public void Should_Return_Seconds_When_Chunk_Is_4_Seconds()
+    {
+        // Arrange
+        string chunkTimeInterval = "4 seconds";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Equal("2 seconds", result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_When_Half_Interval_Is_Not_Representable
+
+    [Fact]
+    public void Should_Return_Null_When_Half_Interval_Is_Not_Representable()
+    {
+        // Arrange
+        string chunkTimeInterval = "1 us";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_When_Half_Interval_Is_Sub_Second_Non_Zero
+
+    [Fact]
+    public void Should_Return_Null_When_Half_Interval_Is_Sub_Second_Non_Zero()
+    {
+        // Arrange
+        string chunkTimeInterval = "1 second";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_When_Half_Interval_Is_500ms
+
+    [Fact]
+    public void Should_Return_Null_When_Half_Interval_Is_500ms()
+    {
+        // Arrange
+        string chunkTimeInterval = "500 ms";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    // ── Sub-day unit aliases ──────────────────────────────────────────────────
+
+    #region Should_Parse_Millisecond_Unit_Aliases
+
+    [Fact]
+    public void Should_Parse_Millisecond_Unit_Aliases()
+    {
+        // Arrange
+        string chunkTimeInterval = "2000 ms";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Equal("1 second", result);
+    }
+
+    #endregion
+
+    #region Should_Parse_Microsecond_Unit_Aliases
+
+    [Fact]
+    public void Should_Parse_Microsecond_Unit_Aliases()
+    {
+        // Arrange
+        string chunkTimeInterval = "2000000 us";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Equal("1 second", result);
+    }
+
+    #endregion
+
+    // ── HH:MM:SS with fractional seconds ─────────────────────────────────────
+
+    #region Should_Parse_HH_MM_SS_With_Fractional_Seconds
+
+    [Fact]
+    public void Should_Parse_HH_MM_SS_With_Fractional_Seconds()
+    {
+        // Arrange
+        string chunkTimeInterval = "00:00:02.000000";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Equal("1 second", result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_For_HH_MM_SS_With_Invalid_Fraction
+
+    [Fact]
+    public void Should_Return_Null_For_HH_MM_SS_With_Invalid_Fraction()
+    {
+        // Arrange
+        string chunkTimeInterval = "00:00:02.abc";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_For_HH_MM_SS_With_Empty_Fraction
+
+    [Fact]
+    public void Should_Return_Null_For_HH_MM_SS_With_Empty_Fraction()
+    {
+        // Arrange
+        string chunkTimeInterval = "00:00:02.";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    // ── HH:MM:SS form with D.HH prefix ───────────────────────────────────────
+
+    #region Should_Parse_Day_Dot_HH_MM_SS_Form
+
+    [Fact]
+    public void Should_Parse_Day_Dot_HH_MM_SS_Form()
+    {
+        // Arrange
+        string chunkTimeInterval = "1.00:00:00";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Equal("12 hours", result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_For_HH_MM_SS_With_Negative_Days
+
+    [Fact]
+    public void Should_Return_Null_For_HH_MM_SS_With_Negative_Days()
+    {
+        // Arrange
+        string chunkTimeInterval = "-1.00:00:00";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_For_HH_MM_SS_With_Hours_Out_Of_Range
+
+    [Fact]
+    public void Should_Return_Null_For_HH_MM_SS_With_Hours_Out_Of_Range()
+    {
+        // Arrange
+        string chunkTimeInterval = "1.24:00:00";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_For_HH_MM_SS_With_Minutes_Out_Of_Range
+
+    [Fact]
+    public void Should_Return_Null_For_HH_MM_SS_With_Minutes_Out_Of_Range()
+    {
+        // Arrange
+        string chunkTimeInterval = "00:60:00";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_For_HH_MM_SS_With_Seconds_Out_Of_Range
+
+    [Fact]
+    public void Should_Return_Null_For_HH_MM_SS_With_Seconds_Out_Of_Range()
+    {
+        // Arrange
+        string chunkTimeInterval = "00:00:60";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_For_HH_MM_SS_With_Wrong_Part_Count
+
+    [Fact]
+    public void Should_Return_Null_For_HH_MM_SS_With_Wrong_Part_Count()
+    {
+        // Arrange
+        string chunkTimeInterval = "04:00";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    // ── TryGetTotalMicroseconds: parse failures ───────────────────────────────
+
+    #region Should_Return_Null_For_Non_Numeric_Amount
+
+    [Fact]
+    public void Should_Return_Null_For_Non_Numeric_Amount()
+    {
+        // Arrange
+        string chunkTimeInterval = "abc days";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_For_Unknown_Unit
+
+    [Fact]
+    public void Should_Return_Null_For_Unknown_Unit()
+    {
+        // Arrange
+        string chunkTimeInterval = "2 fortnights";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region Should_Return_Null_For_Missing_Space_In_Interval
+
+    [Fact]
+    public void Should_Return_Null_For_Missing_Space_In_Interval()
+    {
+        // Arrange
+        string chunkTimeInterval = "7days";
+
+        // Act
+        string? result = CompressionPolicyDefaultHelper.ComputeDefaultScheduleInterval(chunkTimeInterval);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
 }

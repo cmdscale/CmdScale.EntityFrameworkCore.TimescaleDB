@@ -304,4 +304,127 @@ public class TimescaleDbContextOptionsBuilderExtensionsTests
     }
 
     #endregion
+
+    // ── Generic overload with Action<TimescaleDbOptions> ─────────────────────
+
+    #region Should_Return_Typed_Builder_From_Generic_UseTimescaleDb_With_Configure
+
+    private class GenericConfigureEntity
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class GenericConfigureContext : DbContext
+    {
+        public DbSet<GenericConfigureEntity> Items => Set<GenericConfigureEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
+    }
+
+    [Fact]
+    public void Should_Return_Typed_Builder_From_Generic_UseTimescaleDb_With_Configure()
+    {
+        // Arrange
+        DbContextOptionsBuilder<GenericConfigureContext> typedBuilder = new();
+        typedBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test");
+
+        // Act
+        DbContextOptionsBuilder<GenericConfigureContext> returned =
+            typedBuilder.UseTimescaleDb<GenericConfigureContext>(o => o.UseLegacyCompressionSql());
+
+        // Assert
+        Assert.Same(typedBuilder, returned);
+    }
+
+    #endregion
+
+    #region Should_Apply_Configure_Action_Via_Generic_UseTimescaleDb_With_Configure
+
+    private class GenericConfigureApplyEntity
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class GenericConfigureApplyContext : DbContext
+    {
+        public DbSet<GenericConfigureApplyEntity> Items => Set<GenericConfigureApplyEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) { }
+    }
+
+    [Fact]
+    public void Should_Apply_Configure_Action_Via_Generic_UseTimescaleDb_With_Configure()
+    {
+        // Arrange
+        DbContextOptionsBuilder<GenericConfigureApplyContext> typedBuilder = new();
+        typedBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test");
+
+        // Act
+        typedBuilder.UseTimescaleDb<GenericConfigureApplyContext>(o => o.UseLegacyCompressionSql());
+
+        // Assert
+        using ServiceProvider sp = typedBuilder.Options.Extensions
+            .OfType<IDbContextOptionsExtension>()
+            .Aggregate(new ServiceCollection(), (sc, ext) =>
+            {
+                ext.ApplyServices(sc);
+                return sc;
+            })
+            .BuildServiceProvider();
+
+        TimescaleDbOptions registeredOptions = sp.GetRequiredService<TimescaleDbOptions>();
+        Assert.True(registeredOptions.UseLegacyCompressionNames);
+    }
+
+    #endregion
+
+    // ── ExtensionInfo.LogFragment and GetServiceProviderHashCode ─────────────
+
+    #region Should_Return_LogFragment_Using_TimescaleDB_Extensions
+
+    [Fact]
+    public void Should_Return_LogFragment_Using_TimescaleDB_Extensions()
+    {
+        // Arrange
+        DbContextOptionsBuilder builder = new();
+        builder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test");
+        builder.UseTimescaleDb();
+
+        // Act
+        string? logFragment = builder.Options.Extensions
+            .Select(ext => ext.Info.LogFragment)
+            .FirstOrDefault(f => f.Contains("TimescaleDB"));
+
+        // Assert
+        Assert.Equal("using TimescaleDB extensions", logFragment);
+    }
+
+    #endregion
+
+    #region Should_Return_Consistent_GetServiceProviderHashCode
+
+    [Fact]
+    public void Should_Return_Consistent_GetServiceProviderHashCode()
+    {
+        // Arrange
+        DbContextOptionsBuilder builder1 = new();
+        builder1.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test");
+        builder1.UseTimescaleDb();
+
+        DbContextOptionsBuilder builder2 = new();
+        builder2.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test");
+        builder2.UseTimescaleDb();
+
+        // Act
+        int hash1 = builder1.Options.Extensions
+            .Select(ext => ext.Info.GetServiceProviderHashCode())
+            .Last();
+
+        int hash2 = builder2.Options.Extensions
+            .Select(ext => ext.Info.GetServiceProviderHashCode())
+            .Last();
+
+        // Assert
+        Assert.Equal(hash1, hash2);
+    }
+
+    #endregion
 }
