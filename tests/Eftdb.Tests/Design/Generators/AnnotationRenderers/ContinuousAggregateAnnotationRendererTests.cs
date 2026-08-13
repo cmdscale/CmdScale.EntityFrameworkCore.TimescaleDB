@@ -1,6 +1,7 @@
 #pragma warning disable EF1001 // IOperationReporter and AnnotationCodeGeneratorDependencies are design-time internals.
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using Microsoft.EntityFrameworkCore;
@@ -2796,6 +2797,120 @@ public class ContinuousAggregateAnnotationRendererTests
 
         // Assert
         Assert.Contains(result, a => a.Type == typeof(ContinuousAggregateAttribute));
+    }
+
+    #endregion
+
+    // ── EnableCompression bare fallback (no segmentBy/orderBy) ─────────────────
+
+    #region GenerateFluentApiCalls_EnableCompression_WithNoSegmentByOrOrderBy_ChainsWithCompression
+
+    private class EnableCompressionFallbackCaEntity19
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgVal { get; set; }
+    }
+
+    private class EnableCompressionFallbackContext19 : DbContext
+    {
+        public DbSet<EnableCompressionFallbackCaEntity19> Stats => Set<EnableCompressionFallbackCaEntity19>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EnableCompressionFallbackCaEntity19>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("enable_comp_fallback19");
+                e.Property(x => x.AvgVal).HasColumnName("avg_val");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_EnableCompression_WithNoSegmentByOrOrderBy_ChainsWithCompression()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket, avg(s.avg_val) AS avg_val" +
+            " FROM enable_comp_src19 s GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using EnableCompressionFallbackContext19 context = new();
+        IEntityType entityType = GetEntityType<EnableCompressionFallbackCaEntity19>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "enable_comp_fallback19"),
+            (ContinuousAggregateAnnotations.ParentName, "enable_comp_src19"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (HypertableAnnotations.EnableCompression, true));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        List<string> chain = CollectMethodChain(root);
+        Assert.Contains("WithCompression", chain);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_EnableCompression_WithNoSegmentByOrOrderBy_SetsEnabledNamedArg
+
+    private class EnableCompressionDaFallbackCaEntity20
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgVal { get; set; }
+    }
+
+    private class EnableCompressionDaFallbackContext20 : DbContext
+    {
+        public DbSet<EnableCompressionDaFallbackCaEntity20> Stats => Set<EnableCompressionDaFallbackCaEntity20>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EnableCompressionDaFallbackCaEntity20>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("enable_comp_da_fallback20");
+                e.Property(x => x.AvgVal).HasColumnName("avg_val");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_EnableCompression_WithNoSegmentByOrOrderBy_SetsEnabledNamedArg()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket, avg(s.avg_val) AS avg_val" +
+            " FROM enable_comp_da_src20 s GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        TimescaleDbAnnotationCodeGenerator generator = (TimescaleDbAnnotationCodeGenerator)CreateAnnotationCodeGenerator();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        using EnableCompressionDaFallbackContext20 context = new();
+        IEntityType entityType = GetEntityType<EnableCompressionDaFallbackCaEntity20>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "enable_comp_da_fallback20"),
+            (ContinuousAggregateAnnotations.ParentName, "enable_comp_da_src20"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (HypertableAnnotations.EnableCompression, true));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = generator
+            .GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment? caAttr = result.FirstOrDefault(a => a.Type == typeof(ContinuousAggregateAttribute));
+        Assert.NotNull(caAttr);
+        Assert.True(caAttr.NamedArguments.ContainsKey(nameof(ContinuousAggregateAttribute.EnableCompression)));
+        Assert.Equal(true, caAttr.NamedArguments[nameof(ContinuousAggregateAttribute.EnableCompression)]);
     }
 
     #endregion

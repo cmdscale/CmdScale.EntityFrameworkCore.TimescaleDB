@@ -408,6 +408,31 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         #endregion
+
+        #region BuildQueryString_Flushes_Trailing_Group_When_No_Terminating_Semicolon
+
+        [Fact]
+        public void BuildQueryString_Flushes_Trailing_Group_When_No_Terminating_Semicolon()
+        {
+            // Arrange
+            List<string> statements =
+            [
+                "ALTER TABLE \"public\".\"events\" SET (timescaledb.compress = true)",
+                "ALTER TABLE \"public\".\"events\" SET (timescaledb.compress_orderby = 'ts DESC')"
+            ];
+            Mock<MigrationCommandListBuilder> mockBuilder = CreateMockBuilder();
+
+            // Act
+            SqlBuilderHelper.BuildQueryString(statements, mockBuilder.Object);
+
+            // Assert
+            mockBuilder.Verify(b => b.EndCommand(It.IsAny<bool>()), Times.Once);
+            mockBuilder.Verify(
+                b => b.Append(It.Is<string>(s => s.Contains("timescaledb.compress = true") && s.Contains("timescaledb.compress_orderby"))),
+                Times.Once);
+        }
+
+        #endregion
     }
 #pragma warning restore EF1001 // Internal EF Core API usage.
 }

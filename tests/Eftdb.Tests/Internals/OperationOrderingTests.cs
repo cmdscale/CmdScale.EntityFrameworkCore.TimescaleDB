@@ -1,4 +1,5 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
@@ -539,6 +540,251 @@ public class OperationOrderingTests
         Assert.True(createTableIndex < createHypertableIndex,
             $"CreateTable (priority 0) should precede CreateHypertable (priority 10), " +
             $"but found indices {createTableIndex} and {createHypertableIndex}.");
+    }
+
+    #endregion
+
+    #region Should_Order_DropCompressionPolicy_Before_DropContinuousAggregate
+
+    private class OrderMetricDropCp
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderAggDropCp
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class DropCpSourceContext : DbContext
+    {
+        public DbSet<OrderMetricDropCp> Metrics => Set<OrderMetricDropCp>();
+        public DbSet<OrderAggDropCp> Aggregates => Set<OrderAggDropCp>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderMetricDropCp>(entity =>
+            {
+                entity.ToTable("order_metric_drop_cp");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp).EnableCompression();
+            });
+
+            modelBuilder.Entity<OrderAggDropCp>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<OrderAggDropCp, OrderMetricDropCp>(
+                        "order_agg_drop_cp",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .WithCompression();
+                entity.WithCompressionPolicy(after: "7 days");
+            });
+        }
+    }
+
+    private class DropCpTargetContext : DbContext
+    {
+        public DbSet<OrderMetricDropCp> Metrics => Set<OrderMetricDropCp>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderMetricDropCp>(entity =>
+            {
+                entity.ToTable("order_metric_drop_cp");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp).EnableCompression();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Order_DropCompressionPolicy_Before_DropContinuousAggregate()
+    {
+        // Arrange
+        using DropCpSourceContext sourceContext = new();
+        using DropCpTargetContext targetContext = new();
+
+        // Act
+        List<MigrationOperation> operations = [.. GenerateMigrationOperations(sourceContext, targetContext)];
+
+        // Assert
+        int dropCpIndex = operations.FindIndex(op => op is DropCompressionPolicyOperation);
+        int dropAggIndex = operations.FindIndex(op => op is DropContinuousAggregateOperation);
+
+        Assert.NotEqual(-1, dropCpIndex);
+        Assert.NotEqual(-1, dropAggIndex);
+        Assert.True(dropCpIndex < dropAggIndex,
+            $"DropCompressionPolicy (priority -45) should precede DropContinuousAggregate (priority -40), " +
+            $"but found indices {dropCpIndex} and {dropAggIndex}.");
+    }
+
+    #endregion
+
+    #region Should_Order_DropReorderPolicy_Before_DropTable
+
+    private class OrderMetricDropRp
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class DropRpSourceContext : DbContext
+    {
+        public DbSet<OrderMetricDropRp> Metrics => Set<OrderMetricDropRp>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderMetricDropRp>(entity =>
+            {
+                entity.ToTable("order_metric_drop_rp");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithReorderPolicy("order_metric_drop_rp_idx");
+            });
+        }
+    }
+
+    private class DropRpTargetContext : DbContext
+    {
+        public DbSet<OrderMetricDropRp> Metrics => Set<OrderMetricDropRp>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderMetricDropRp>(entity =>
+            {
+                entity.ToTable("order_metric_drop_rp");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Order_DropReorderPolicy_Before_DropTable()
+    {
+        // Arrange
+        using DropRpSourceContext sourceContext = new();
+        using DropRpTargetContext targetContext = new();
+
+        // Act
+        List<MigrationOperation> operations = [.. GenerateMigrationOperations(sourceContext, targetContext)];
+
+        // Assert
+        int dropRpIndex = operations.FindIndex(op => op is DropReorderPolicyOperation);
+        Assert.NotEqual(-1, dropRpIndex);
+    }
+
+    #endregion
+
+    #region Should_Order_AlterContinuousAggregate_After_CreateContinuousAggregate
+
+    private class OrderMetricAlterCagg
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderAggAlterCaggSource
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class OrderAggAlterCaggSourceContext : DbContext
+    {
+        public DbSet<OrderMetricAlterCagg> Metrics => Set<OrderMetricAlterCagg>();
+        public DbSet<OrderAggAlterCaggSource> Aggregates => Set<OrderAggAlterCaggSource>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderMetricAlterCagg>(entity =>
+            {
+                entity.ToTable("order_metric_alter_cagg");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<OrderAggAlterCaggSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<OrderAggAlterCaggSource, OrderMetricAlterCagg>(
+                        "order_agg_alter_cagg",
+                        "1 hour",
+                        x => x.Timestamp,
+                        chunkInterval: "7 days")
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class OrderAggAlterCaggTargetContext : DbContext
+    {
+        public DbSet<OrderMetricAlterCagg> Metrics => Set<OrderMetricAlterCagg>();
+        public DbSet<OrderAggAlterCaggSource> Aggregates => Set<OrderAggAlterCaggSource>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<OrderMetricAlterCagg>(entity =>
+            {
+                entity.ToTable("order_metric_alter_cagg");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<OrderAggAlterCaggSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<OrderAggAlterCaggSource, OrderMetricAlterCagg>(
+                        "order_agg_alter_cagg",
+                        "1 hour",
+                        x => x.Timestamp,
+                        chunkInterval: "30 days")
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Order_AlterContinuousAggregate_After_CreateContinuousAggregate()
+    {
+        // Arrange
+        using OrderAggAlterCaggSourceContext sourceContext = new();
+        using OrderAggAlterCaggTargetContext targetContext = new();
+
+        // Act
+        List<MigrationOperation> operations = [.. GenerateMigrationOperations(sourceContext, targetContext)];
+
+        // Assert
+        int alterAggIndex = operations.FindIndex(op => op is AlterContinuousAggregateOperation);
+        Assert.NotEqual(-1, alterAggIndex);
     }
 
     #endregion

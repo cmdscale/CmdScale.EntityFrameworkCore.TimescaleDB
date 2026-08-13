@@ -206,4 +206,62 @@ public class SparseIndexTests
     }
 
     #endregion
+
+    #region ToSql_Unknown_Kind_Throws_InvalidOperationException
+
+    [Fact]
+    public void ToSql_Unknown_Kind_Throws_InvalidOperationException()
+    {
+        // Arrange
+        SparseIndex index = new((ESparseIndexType)99, ["col"]);
+
+        // Act & Assert
+        Assert.Throws<InvalidOperationException>(() => index.ToSql());
+    }
+
+    #endregion
+}
+
+// ── SparseIndexAttribute ──────────────────────────────────────────────────────
+
+public class SparseIndexAttributeTests
+{
+    #region Constructor_Throws_When_Columns_Is_Empty
+
+    [Fact]
+    public void Constructor_Throws_When_Columns_Is_Empty()
+    {
+        // Arrange / Act / Assert
+        Assert.Throws<ArgumentException>(
+            () => new SparseIndexAttribute(ESparseIndexType.Bloom));
+    }
+
+    #endregion
+
+    #region Constructor_Throws_When_Columns_Is_Null
+
+    [Fact]
+    public void Constructor_Throws_When_Columns_Is_Null()
+    {
+        // Arrange / Act / Assert
+        Assert.Throws<ArgumentException>(
+            () => new SparseIndexAttribute(ESparseIndexType.Bloom, null!));
+    }
+
+    #endregion
+
+    #region Constructor_Stores_Kind_And_Columns
+
+    [Fact]
+    public void Constructor_Stores_Kind_And_Columns()
+    {
+        // Arrange & Act
+        SparseIndexAttribute attr = new(ESparseIndexType.MinMax, "device_id");
+
+        // Assert
+        Assert.Equal(ESparseIndexType.MinMax, attr.Kind);
+        Assert.Equal(["device_id"], attr.Columns);
+    }
+
+    #endregion
 }
