@@ -1099,6 +1099,131 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region CompressionPolicyOperation Tests
+
+        [Fact]
+        public void Generate_AddCompressionPolicy_WithAfter_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddCompressionPolicyOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                After = "7 days"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AddCompressionPolicy(", result);
+            Assert.Contains("tableName:", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_AlterCompressionPolicy_WithAfterChange_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AlterCompressionPolicyOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                After = "14 days",
+                OldAfter = "7 days"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AlterCompressionPolicy(", result);
+            Assert.Contains("tableName:", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_DropCompressionPolicy_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            DropCompressionPolicyOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".DropCompressionPolicy(", result);
+            Assert.Contains("tableName:", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Should_GenerateAllThree_When_AddAlterDropCompressionPolicyPassedTogether()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AddCompressionPolicyOperation addOp = new()
+            {
+                TableName = "metrics_add",
+                Schema = "public",
+                After = "7 days"
+            };
+
+            AlterCompressionPolicyOperation alterOp = new()
+            {
+                TableName = "metrics_alter",
+                Schema = "public",
+                After = "14 days",
+                OldAfter = "7 days"
+            };
+
+            DropCompressionPolicyOperation dropOp = new()
+            {
+                TableName = "metrics_drop",
+                Schema = "public"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [addOp, alterOp, dropOp], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains(".AddCompressionPolicy(", result);
+            Assert.Contains(".AlterCompressionPolicy(", result);
+            Assert.Contains(".DropCompressionPolicy(", result);
+            Assert.DoesNotContain(".Sql(", result);
+        }
+
+        #endregion
+
         #region Helper Methods
 
         private static CSharpMigrationOperationGeneratorDependencies CreateDependencies()

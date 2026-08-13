@@ -1509,6 +1509,106 @@ public class HypertableAnnotationRendererTests
 
     #endregion
 
+    #region GenerateDataAnnotationAttributes_SparseIndex_EmptyStringEntry_IsSkipped
+
+    private class DaSparseIndexEmptyEntryEntity { public DateTime Ts { get; set; } public int DeviceId { get; set; } }
+
+    private class DaSparseIndexEmptyEntryContext : DbContext
+    {
+        public DbSet<DaSparseIndexEmptyEntryEntity> Items => Set<DaSparseIndexEmptyEntryEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaSparseIndexEmptyEntryEntity>(e => { e.HasNoKey(); e.ToTable("da_sparse_empty_entry"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_SparseIndex_EmptyStringEntry_IsSkipped()
+    {
+        // Arrange
+        using DaSparseIndexEmptyEntryContext context = new();
+        IEntityType entityType = GetEntityType<DaSparseIndexEmptyEntryEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionSparseIndex, "bloom(DeviceId),  ,minmax(Ts)"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        IEnumerable<AttributeCodeFragment> sparseIndexAttrs = result.Where(a => a.Type == typeof(SparseIndexAttribute));
+        Assert.Equal(2, sparseIndexAttrs.Count());
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_SparseIndex_MalformedEntry_NoParen_IsSkipped
+
+    private class DaSparseIndexNoParenEntity { public DateTime Ts { get; set; } }
+
+    private class DaSparseIndexNoParenContext : DbContext
+    {
+        public DbSet<DaSparseIndexNoParenEntity> Items => Set<DaSparseIndexNoParenEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaSparseIndexNoParenEntity>(e => { e.HasNoKey(); e.ToTable("da_sparse_no_paren"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_SparseIndex_MalformedEntry_NoParen_IsSkipped()
+    {
+        // Arrange
+        using DaSparseIndexNoParenContext context = new();
+        IEntityType entityType = GetEntityType<DaSparseIndexNoParenEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionSparseIndex, "not_a_function_call"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        Assert.DoesNotContain(result, a => a.Type == typeof(SparseIndexAttribute));
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_SparseIndex_EmptyColumns_IsSkipped
+
+    private class DaSparseIndexEmptyColsEntity { public DateTime Ts { get; set; } }
+
+    private class DaSparseIndexEmptyColsContext : DbContext
+    {
+        public DbSet<DaSparseIndexEmptyColsEntity> Items => Set<DaSparseIndexEmptyColsEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaSparseIndexEmptyColsEntity>(e => { e.HasNoKey(); e.ToTable("da_sparse_empty_cols"); });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_SparseIndex_EmptyColumns_IsSkipped()
+    {
+        // Arrange
+        using DaSparseIndexEmptyColsContext context = new();
+        IEntityType entityType = GetEntityType<DaSparseIndexEmptyColsEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionSparseIndex, "bloom()"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        Assert.DoesNotContain(result, a => a.Type == typeof(SparseIndexAttribute));
+    }
+
+    #endregion
+
     #region GenerateDataAnnotationAttributes_Dimension_Unmapped_Column_Returns_RawString_And_Range_With_Null_Interval
 
     private class DaDimUnmappedEntity { public DateTime Ts { get; set; } }

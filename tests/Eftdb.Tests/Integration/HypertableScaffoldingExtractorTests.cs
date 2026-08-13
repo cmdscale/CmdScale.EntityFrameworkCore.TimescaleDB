@@ -1222,4 +1222,173 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
     }
 
     #endregion
+
+    #region Should_Extract_Integer_ChunkTimeInterval_Via_Raw_SQL
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task Should_Extract_Integer_ChunkTimeInterval_Via_Raw_SQL()
+    {
+        // Arrange
+        await using NpgsqlConnection setupConn = new(_connectionString);
+        await setupConn.OpenAsync(TestContext.Current.CancellationToken);
+        await using (NpgsqlCommand cmd = new(@"
+            CREATE TABLE int_chunk_raw (ts BIGINT NOT NULL, val DOUBLE PRECISION);
+            SELECT create_hypertable('int_chunk_raw', 'ts', chunk_time_interval => 86400000000::BIGINT);", setupConn))
+        {
+            await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        // Act
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        Assert.True(result.ContainsKey(("public", "int_chunk_raw")));
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "int_chunk_raw")];
+
+        Assert.True(long.TryParse(info.ChunkTimeInterval, out long parsedInterval));
+        Assert.Equal(86400000000L, parsedInterval);
+    }
+
+    #endregion
+
+    #region Should_Extract_Integer_Range_Additional_Dimension_Via_Raw_SQL
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task Should_Extract_Integer_Range_Additional_Dimension_Via_Raw_SQL()
+    {
+        // Arrange
+        await using NpgsqlConnection setupConn = new(_connectionString);
+        await setupConn.OpenAsync(TestContext.Current.CancellationToken);
+        await using (NpgsqlCommand cmd = new(@"
+            CREATE TABLE int_range_dim_raw (ts TIMESTAMPTZ NOT NULL, sensor_id INT NOT NULL, val DOUBLE PRECISION);
+            SELECT create_hypertable('int_range_dim_raw', 'ts');
+            SELECT add_dimension('int_range_dim_raw', 'sensor_id', chunk_time_interval => 10000);", setupConn))
+        {
+            await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        // Act
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        Assert.True(result.ContainsKey(("public", "int_range_dim_raw")));
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "int_range_dim_raw")];
+
+        Dimension dimension = Assert.Single(info.AdditionalDimensions);
+        Assert.Equal("sensor_id", dimension.ColumnName);
+        Assert.Equal(EDimensionType.Range, dimension.Type);
+        Assert.True(long.TryParse(dimension.Interval, out _),
+            $"Expected an integer interval; got '{dimension.Interval}'");
+    }
+
+    #endregion
+
+    #region Should_Extract_Composite_SparseIndex_Via_HypertableScaffoldingExtractor
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task Should_Extract_Composite_SparseIndex_Via_HypertableScaffoldingExtractor()
+    {
+        // Arrange
+        await using NpgsqlConnection setupConn = new(_connectionString);
+        await setupConn.OpenAsync(TestContext.Current.CancellationToken);
+        await using (NpgsqlCommand cmd = new(@"
+            CREATE TABLE ht_composite_sparse (
+                ts TIMESTAMPTZ NOT NULL,
+                col_a TEXT,
+                col_b TEXT
+            );
+            SELECT create_hypertable('ht_composite_sparse', 'ts');
+            ALTER TABLE ht_composite_sparse SET (
+                timescaledb.compress = true,
+                timescaledb.compress_orderby = 'ts DESC',
+                timescaledb.sparse_index = 'bloom(col_a,col_b)'
+            );", setupConn))
+        {
+            await cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        // Act
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        Assert.True(result.ContainsKey(("public", "ht_composite_sparse")));
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "ht_composite_sparse")];
+
+        Assert.NotNull(info.CompressionSparseIndex);
+        Assert.Contains("bloom", info.CompressionSparseIndex, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("col_a", info.CompressionSparseIndex, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("col_b", info.CompressionSparseIndex, StringComparison.OrdinalIgnoreCase);
+    }
+
+    #endregion
+
+    #region Should_Extract_SparseIndex_Via_HypertableScaffoldingExtractor
+
+    private class SparseIndexScaffoldEntity
+    {
+        public DateTime Ts { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class SparseIndexScaffoldContext(string connectionString) : DbContext
+    {
+        public DbSet<SparseIndexScaffoldEntity> Metrics => Set<SparseIndexScaffoldEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SparseIndexScaffoldEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("ht_sparse_extractor");
+                entity.Property(x => x.Value).HasColumnName("value");
+                entity.IsHypertable(x => x.Ts)
+                      .WithCompressionOrderBy(s => [s.ByDescending(x => x.Ts)])
+                      .WithSparseIndex("bloom(value)");
+            });
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task Should_Extract_SparseIndex_Via_HypertableScaffoldingExtractor()
+    {
+        // Arrange
+        await using SparseIndexScaffoldContext context = new(_connectionString!);
+        await CreateDatabaseViaMigrationAsync(context);
+
+        HypertableScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(_connectionString);
+
+        // Act
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        // Assert
+        Assert.True(result.ContainsKey(("public", "ht_sparse_extractor")));
+        HypertableScaffoldingExtractor.HypertableInfo info =
+            (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "ht_sparse_extractor")];
+
+        Assert.NotNull(info.CompressionSparseIndex);
+        Assert.Contains("bloom", info.CompressionSparseIndex, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("value", info.CompressionSparseIndex, StringComparison.OrdinalIgnoreCase);
+    }
+
+    #endregion
 }
