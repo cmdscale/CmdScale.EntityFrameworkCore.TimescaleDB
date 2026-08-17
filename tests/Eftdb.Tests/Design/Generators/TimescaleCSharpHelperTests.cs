@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationRenderers;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 using Microsoft.EntityFrameworkCore.Design;
@@ -104,6 +105,48 @@ public class TimescaleCSharpHelperTests
         Assert.StartsWith("new[] {", result);
         Assert.Contains("nameof(PropA)", result);
         Assert.Contains("nameof(PropB)", result);
+    }
+
+    #endregion
+
+    #region UnknownLiteral_SparseIndexSelectorCodeFragment_Bloom_RendersAsSelectorLambda
+
+    [Fact]
+    public void UnknownLiteral_SparseIndexSelectorCodeFragment_Bloom_RendersAsSelectorLambda()
+    {
+        SparseIndexSelectorCodeFragment fragment = new(ESparseIndexType.Bloom, ["Station"]);
+
+        string result = _code.UnknownLiteral(fragment);
+
+        Assert.Equal("s => s.Bloom(x => x.Station)", result);
+    }
+
+    #endregion
+
+    #region UnknownLiteral_SparseIndexSelectorCodeFragment_CompositeBloom_RendersAllProperties
+
+    [Fact]
+    public void UnknownLiteral_SparseIndexSelectorCodeFragment_CompositeBloom_RendersAllProperties()
+    {
+        SparseIndexSelectorCodeFragment fragment = new(ESparseIndexType.Bloom, ["Site", "Value"]);
+
+        string result = _code.UnknownLiteral(fragment);
+
+        Assert.Equal("s => s.Bloom(x => x.Site, x => x.Value)", result);
+    }
+
+    #endregion
+
+    #region UnknownLiteral_SparseIndexSelectorCodeFragment_MinMax_RendersAsSelectorLambda
+
+    [Fact]
+    public void UnknownLiteral_SparseIndexSelectorCodeFragment_MinMax_RendersAsSelectorLambda()
+    {
+        SparseIndexSelectorCodeFragment fragment = new(ESparseIndexType.MinMax, ["Pressure"]);
+
+        string result = _code.UnknownLiteral(fragment);
+
+        Assert.Equal("s => s.MinMax(x => x.Pressure)", result);
     }
 
     #endregion

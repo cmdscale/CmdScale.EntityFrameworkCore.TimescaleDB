@@ -159,11 +159,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
                 case AlterContinuousAggregateOperation:
                     return 40;
 
-                case AddCompressionPolicyOperation:
-                case AlterCompressionPolicyOperation:
+                case AddContinuousAggregatePolicyOperation:
                     return 45;
 
-                case AddContinuousAggregatePolicyOperation:
+                case AddCompressionPolicyOperation:
+                case AlterCompressionPolicyOperation:
                     return 50;
 
                 case AddRetentionPolicyOperation:

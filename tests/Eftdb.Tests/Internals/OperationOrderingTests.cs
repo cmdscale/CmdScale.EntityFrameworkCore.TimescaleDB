@@ -788,4 +788,73 @@ public class OperationOrderingTests
     }
 
     #endregion
+
+    #region Should_Order_RefreshPolicy_Before_CompressionPolicy_On_ContinuousAggregate
+
+    private class RefreshOrderMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class RefreshOrderAggregate
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class RefreshOrderContext : DbContext
+    {
+        public DbSet<RefreshOrderMetric> Metrics => Set<RefreshOrderMetric>();
+        public DbSet<RefreshOrderAggregate> Aggregates => Set<RefreshOrderAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RefreshOrderMetric>(entity =>
+            {
+                entity.ToTable("refresh_order_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<RefreshOrderAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<RefreshOrderAggregate, RefreshOrderMetric>(
+                        "refresh_order_view",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .WithCompression()
+                    .WithRefreshPolicy(startOffset: "2 days", endOffset: "1 hour", scheduleInterval: "1 hour");
+                entity.WithCompressionPolicy(after: "30 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Order_RefreshPolicy_Before_CompressionPolicy_On_ContinuousAggregate()
+    {
+        // Arrange
+        using RefreshOrderContext targetContext = new();
+
+        // Act
+        List<MigrationOperation> operations = [.. GenerateMigrationOperations(null, targetContext)];
+
+        // Assert
+        int refreshPolicyIndex = operations.FindIndex(op => op is AddContinuousAggregatePolicyOperation);
+        int compressionPolicyIndex = operations.FindIndex(op => op is AddCompressionPolicyOperation);
+
+        Assert.NotEqual(-1, refreshPolicyIndex);
+        Assert.NotEqual(-1, compressionPolicyIndex);
+
+        Assert.True(refreshPolicyIndex < compressionPolicyIndex,
+            $"AddContinuousAggregatePolicy ({refreshPolicyIndex}) should precede AddCompressionPolicy ({compressionPolicyIndex})");
+    }
+
+    #endregion
 }

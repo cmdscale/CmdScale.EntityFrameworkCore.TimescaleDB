@@ -45,6 +45,22 @@ public class HypertableAnnotationRendererTests
         return methods;
     }
 
+    private static MethodCallCodeFragment? FindChainedCall(IEnumerable<MethodCallCodeFragment> fragments, string method)
+    {
+        foreach (MethodCallCodeFragment fragment in fragments)
+        {
+            for (MethodCallCodeFragment? current = fragment; current != null; current = current.ChainedCall)
+            {
+                if (current.Method == method)
+                {
+                    return current;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static string DimensionsJson(params Dimension[] dimensions)
         => JsonSerializer.Serialize(dimensions.ToList());
 
@@ -1539,6 +1555,127 @@ public class HypertableAnnotationRendererTests
         // Assert
         IEnumerable<AttributeCodeFragment> sparseIndexAttrs = result.Where(a => a.Type == typeof(SparseIndexAttribute));
         Assert.Equal(2, sparseIndexAttrs.Count());
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_SparseIndex_Columns_Render_As_NameOf
+
+    private class DaSparseIndexNameOfEntity
+    {
+        public DateTime Ts { get; set; }
+        public string Site { get; set; } = string.Empty;
+        public double Value { get; set; }
+    }
+
+    private class DaSparseIndexNameOfContext : DbContext
+    {
+        public DbSet<DaSparseIndexNameOfEntity> Items => Set<DaSparseIndexNameOfEntity>();
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DaSparseIndexNameOfEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("da_sparse_nameof");
+                e.Property(x => x.Site).HasColumnName("site");
+                e.Property(x => x.Value).HasColumnName("value");
+            });
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_SparseIndex_Columns_Render_As_NameOf()
+    {
+        // Arrange
+        using DaSparseIndexNameOfContext context = new();
+        IEntityType entityType = GetEntityType<DaSparseIndexNameOfEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionSparseIndex, "bloom(site), minmax(value)"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        List<AttributeCodeFragment> sparseIndexAttrs = [.. result.Where(a => a.Type == typeof(SparseIndexAttribute))];
+        Assert.Equal(2, sparseIndexAttrs.Count);
+        NameOfCodeFragment bloomColumn = Assert.IsType<NameOfCodeFragment>(sparseIndexAttrs[0].Arguments[1]);
+        Assert.Equal(nameof(DaSparseIndexNameOfEntity.Site), bloomColumn.PropertyName);
+        NameOfCodeFragment minMaxColumn = Assert.IsType<NameOfCodeFragment>(sparseIndexAttrs[1].Arguments[1]);
+        Assert.Equal(nameof(DaSparseIndexNameOfEntity.Value), minMaxColumn.PropertyName);
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_SparseIndex_Unmapped_Column_Falls_Back_To_String()
+    {
+        // Arrange
+        using DaSparseIndexNameOfContext context = new();
+        IEntityType entityType = GetEntityType<DaSparseIndexNameOfEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionSparseIndex, "bloom(not_a_column)"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator().GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment sparseIndexAttr = Assert.Single(result, a => a.Type == typeof(SparseIndexAttribute));
+        Assert.Equal("not_a_column", sparseIndexAttr.Arguments[1]);
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_SparseIndex_Renders_As_Selector_Lambdas
+
+    [Fact]
+    public void GenerateFluentApiCalls_SparseIndex_Renders_As_Selector_Lambdas()
+    {
+        // Arrange
+        using DaSparseIndexNameOfContext context = new();
+        IEntityType entityType = GetEntityType<DaSparseIndexNameOfEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionOrderBy, "Ts DESC"),
+            (HypertableAnnotations.CompressionSparseIndex, "bloom(site,value), minmax(value)"));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment? sparseCall = FindChainedCall(result, "WithSparseIndex");
+        Assert.NotNull(sparseCall);
+        Assert.Equal(2, sparseCall.Arguments.Count);
+        SparseIndexSelectorCodeFragment bloom = Assert.IsType<SparseIndexSelectorCodeFragment>(sparseCall.Arguments[0]);
+        Assert.Equal(ESparseIndexType.Bloom, bloom.Kind);
+        Assert.Equal(["Site", "Value"], bloom.PropertyNames);
+        SparseIndexSelectorCodeFragment minMax = Assert.IsType<SparseIndexSelectorCodeFragment>(sparseCall.Arguments[1]);
+        Assert.Equal(ESparseIndexType.MinMax, minMax.Kind);
+        Assert.Equal(["Value"], minMax.PropertyNames);
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_SparseIndex_Unmapped_Column_Falls_Back_To_Raw_String()
+    {
+        // Arrange
+        using DaSparseIndexNameOfContext context = new();
+        IEntityType entityType = GetEntityType<DaSparseIndexNameOfEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (HypertableAnnotations.IsHypertable, true),
+            (HypertableAnnotations.HypertableTimeColumn, "Ts"),
+            (HypertableAnnotations.CompressionOrderBy, "Ts DESC"),
+            (HypertableAnnotations.CompressionSparseIndex, "bloom(site), minmax(not_a_column)"));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment? sparseCall = FindChainedCall(result, "WithSparseIndex");
+        Assert.NotNull(sparseCall);
+        object? argument = Assert.Single(sparseCall.Arguments);
+        Assert.Equal("bloom(site), minmax(not_a_column)", argument);
     }
 
     #endregion

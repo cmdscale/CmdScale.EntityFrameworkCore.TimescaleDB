@@ -616,4 +616,26 @@ public class ContinuousAggregateCompressionIntegrationTests : MigrationTestBase,
     }
 
     #endregion
+
+    #region Should_Create_CAgg_With_RefreshPolicy_And_CompressionPolicy_In_Single_Migration
+
+    [Fact]
+    public async Task Should_Create_CAgg_With_RefreshPolicy_And_CompressionPolicy_In_Single_Migration()
+    {
+        // Arrange
+        string conn = await GetIsolatedConnectionStringAsync();
+        await using CaggWithCompressionPolicyContext5 context = new(conn);
+
+        // Act
+        await CreateDatabaseViaMigrationAsync(context);
+
+        // Assert
+        bool hasPolicy = await HasCompressionPolicyOnCaggAsync(conn, "cagg_comp5_hourly");
+        Assert.True(hasPolicy);
+        string? config = await GetCaggCompressionPolicyConfigAsync(conn, "cagg_comp5_hourly");
+        Assert.NotNull(config);
+        Assert.Contains("compress_after", config);
+    }
+
+    #endregion
 }
