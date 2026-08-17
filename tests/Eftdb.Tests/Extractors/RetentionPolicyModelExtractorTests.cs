@@ -56,8 +56,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddRetentionPolicyOperation operation = operations[0];
+        AddRetentionPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("Metrics", operation.TableName);
         Assert.Equal("public", operation.Schema);
         Assert.Equal("7 days", operation.DropAfter);
@@ -107,8 +106,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddRetentionPolicyOperation operation = operations[0];
+        AddRetentionPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("Metrics", operation.TableName);
         Assert.Equal("public", operation.Schema);
         Assert.Null(operation.DropAfter);
@@ -208,8 +206,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        DateTime? initialStart = operations[0].InitialStart;
+        DateTime? initialStart = Assert.Single(operations).InitialStart;
         Assert.NotNull(initialStart);
         DateTime expectedDate = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         Assert.Equal(expectedDate, initialStart.Value);
@@ -253,8 +250,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Null(operations[0].InitialStart);
+        Assert.Null(Assert.Single(operations).InitialStart);
     }
 
     #endregion
@@ -298,8 +294,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("12:00:00", operations[0].ScheduleInterval);
+        Assert.Equal("12:00:00", Assert.Single(operations).ScheduleInterval);
     }
 
     #endregion
@@ -340,8 +335,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(DefaultValues.RetentionPolicyScheduleInterval, operations[0].ScheduleInterval);
+        Assert.Equal(DefaultValues.RetentionPolicyScheduleInterval, Assert.Single(operations).ScheduleInterval);
     }
 
     #endregion
@@ -385,8 +379,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("01:00:00", operations[0].MaxRuntime);
+        Assert.Equal("01:00:00", Assert.Single(operations).MaxRuntime);
     }
 
     #endregion
@@ -427,8 +420,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(DefaultValues.RetentionPolicyMaxRuntime, operations[0].MaxRuntime);
+        Assert.Equal(DefaultValues.RetentionPolicyMaxRuntime, Assert.Single(operations).MaxRuntime);
     }
 
     #endregion
@@ -472,8 +464,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(5, operations[0].MaxRetries);
+        Assert.Equal(5, Assert.Single(operations).MaxRetries);
     }
 
     #endregion
@@ -514,8 +505,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(DefaultValues.RetentionPolicyMaxRetries, operations[0].MaxRetries);
+        Assert.Equal(DefaultValues.RetentionPolicyMaxRetries, Assert.Single(operations).MaxRetries);
     }
 
     #endregion
@@ -559,8 +549,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("00:10:00", operations[0].RetryPeriod);
+        Assert.Equal("00:10:00", Assert.Single(operations).RetryPeriod);
     }
 
     #endregion
@@ -601,8 +590,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(DefaultValues.RetentionPolicyScheduleInterval, operations[0].RetryPeriod);
+        Assert.Equal(DefaultValues.RetentionPolicyScheduleInterval, Assert.Single(operations).RetryPeriod);
     }
 
     #endregion
@@ -708,8 +696,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddRetentionPolicyOperation operation = operations[0];
+        AddRetentionPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("Metrics", operation.TableName);
         Assert.Equal("public", operation.Schema);
         Assert.Equal("30 days", operation.DropAfter);
@@ -761,8 +748,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddRetentionPolicyOperation operation = operations[0];
+        AddRetentionPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("Metrics", operation.TableName);
         Assert.Equal("7 days", operation.DropAfter);
     }
@@ -805,8 +791,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddRetentionPolicyOperation operation = operations[0];
+        AddRetentionPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("my_view", operation.TableName);
         Assert.Equal("7 days", operation.DropAfter);
     }
@@ -849,8 +834,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddRetentionPolicyOperation operation = operations[0];
+        AddRetentionPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("my_view", operation.TableName);
         Assert.Equal("analytics", operation.Schema);
     }
@@ -893,8 +877,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("public", operations[0].Schema);
+        Assert.Equal("public", Assert.Single(operations).Schema);
     }
 
     #endregion
@@ -935,8 +918,7 @@ public class RetentionPolicyModelExtractorTests
 
         List<AddRetentionPolicyOperation> operations = [.. RetentionPolicyModelExtractor.GetRetentionPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("custom_schema", operations[0].Schema);
+        Assert.Equal("custom_schema", Assert.Single(operations).Schema);
     }
 
     #endregion

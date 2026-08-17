@@ -73,8 +73,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        CreateContinuousAggregateOperation operation = operations[0];
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
         Assert.Equal("hourly_metrics", operation.MaterializedViewName);
         Assert.Equal("Metrics", operation.ParentName);
         Assert.Equal("public", operation.Schema);
@@ -195,8 +194,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("Metrics", operations[0].ParentName);
+        Assert.Equal("Metrics", Assert.Single(operations).ParentName);
     }
 
     #endregion
@@ -253,8 +251,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("timestamp_utc", operations[0].TimeBucketSourceColumn);
+        Assert.Equal("timestamp_utc", Assert.Single(operations).TimeBucketSourceColumn);
     }
 
     #endregion
@@ -311,8 +308,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("30 days", operations[0].ChunkInterval);
+        Assert.Equal("30 days", Assert.Single(operations).ChunkInterval);
     }
 
     #endregion
@@ -368,8 +364,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.True(operations[0].WithNoData);
+        Assert.True(Assert.Single(operations).WithNoData);
     }
 
     #endregion
@@ -425,8 +420,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.True(operations[0].CreateGroupIndexes);
+        Assert.True(Assert.Single(operations).CreateGroupIndexes);
     }
 
     #endregion
@@ -482,8 +476,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.True(operations[0].MaterializedOnly);
+        Assert.True(Assert.Single(operations).MaterializedOnly);
     }
 
     #endregion
@@ -540,8 +533,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.False(operations[0].TimeBucketGroupBy);
+        Assert.False(Assert.Single(operations).TimeBucketGroupBy);
     }
 
     #endregion
@@ -597,8 +589,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("Value > 0", operations[0].WhereClause);
+        Assert.Equal("Value > 0", Assert.Single(operations).WhereClause);
     }
 
     #endregion
@@ -659,9 +650,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("AvgValue:Avg:Value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("AvgValue:Avg:Value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -722,11 +713,11 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(3, operations[0].AggregateFunctions.Count);
-        Assert.Contains("AvgValue:Avg:Value", operations[0].AggregateFunctions);
-        Assert.Contains("MinValue:Min:Value", operations[0].AggregateFunctions);
-        Assert.Contains("MaxValue:Max:Value", operations[0].AggregateFunctions);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Equal(3, operation.AggregateFunctions.Count);
+        Assert.Contains("AvgValue:Avg:Value", operation.AggregateFunctions);
+        Assert.Contains("MinValue:Min:Value", operation.AggregateFunctions);
+        Assert.Contains("MaxValue:Max:Value", operation.AggregateFunctions);
     }
 
     #endregion
@@ -784,9 +775,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("avg_value:Avg:sensor_value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("avg_value:Avg:sensor_value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -844,9 +835,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].GroupByColumns);
-        Assert.Equal("DeviceId", operations[0].GroupByColumns[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.GroupByColumns);
+        Assert.Equal("DeviceId", operation.GroupByColumns[0]);
     }
 
     #endregion
@@ -907,10 +898,10 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(2, operations[0].GroupByColumns.Count);
-        Assert.Contains("DeviceId", operations[0].GroupByColumns);
-        Assert.Contains("Location", operations[0].GroupByColumns);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Equal(2, operation.GroupByColumns.Count);
+        Assert.Contains("DeviceId", operation.GroupByColumns);
+        Assert.Contains("Location", operation.GroupByColumns);
     }
 
     #endregion
@@ -966,9 +957,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].GroupByColumns);
-        Assert.Equal("1, 2", operations[0].GroupByColumns[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.GroupByColumns);
+        Assert.Equal("1, 2", operation.GroupByColumns[0]);
     }
 
     #endregion
@@ -1027,9 +1018,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].GroupByColumns);
-        Assert.Equal("device_id", operations[0].GroupByColumns[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.GroupByColumns);
+        Assert.Equal("device_id", operation.GroupByColumns[0]);
     }
 
     #endregion
@@ -1185,8 +1176,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        CreateContinuousAggregateOperation operation = operations[0];
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
         Assert.Equal("hourly_metrics", operation.MaterializedViewName);
         Assert.Equal("Metrics", operation.ParentName);
         Assert.Equal("public", operation.Schema);
@@ -1256,9 +1246,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("TotalValue:Sum:Value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("TotalValue:Sum:Value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -1315,9 +1305,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("RecordCount:Count:Value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("RecordCount:Count:Value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -1370,9 +1360,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("RecordCount:Count:*", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("RecordCount:Count:*", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -1429,9 +1419,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("FirstValue:First:Value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("FirstValue:First:Value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -1488,9 +1478,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("LastValue:Last:Value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("LastValue:Last:Value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -1546,8 +1536,7 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("custom_schema", operations[0].Schema);
+        Assert.Equal("custom_schema", Assert.Single(operations).Schema);
     }
 
     #endregion
@@ -1606,9 +1595,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].GroupByColumns);
-        Assert.Equal("device_identifier", operations[0].GroupByColumns[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.GroupByColumns);
+        Assert.Equal("device_identifier", operation.GroupByColumns[0]);
     }
 
     #endregion
@@ -1666,9 +1655,9 @@ public class ContinuousAggregateModelExtractorTests
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("AvgValue:Avg:sensor_value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("AvgValue:Avg:sensor_value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -2126,9 +2115,9 @@ public class ContinuousAggregateModelExtractorTests
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
         // Assert
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("GoodValue:Sum:Value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("GoodValue:Sum:Value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -2194,9 +2183,9 @@ public class ContinuousAggregateModelExtractorTests
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
         // Assert
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("MinValue:Min:Value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("MinValue:Min:Value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -2257,9 +2246,9 @@ public class ContinuousAggregateModelExtractorTests
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
         // Assert
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("AvgValue:Avg:Value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("AvgValue:Avg:Value", operation.AggregateFunctions[0]);
     }
 
     #endregion
@@ -2320,8 +2309,7 @@ public class ContinuousAggregateModelExtractorTests
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
         // Assert
-        Assert.Single(operations);
-        Assert.Equal("time", operations[0].TimeBucketSourceColumn);
+        Assert.Equal("time", Assert.Single(operations).TimeBucketSourceColumn);
     }
 
     #endregion
@@ -2386,9 +2374,9 @@ public class ContinuousAggregateModelExtractorTests
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
 
         // Assert
-        Assert.Single(operations);
-        Assert.Single(operations[0].AggregateFunctions);
-        Assert.Equal("avg_value:Avg:sensor_value", operations[0].AggregateFunctions[0]);
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("avg_value:Avg:sensor_value", operation.AggregateFunctions[0]);
     }
 
     #endregion

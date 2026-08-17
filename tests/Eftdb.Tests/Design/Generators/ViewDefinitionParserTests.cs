@@ -209,8 +209,7 @@ public class ViewDefinitionParserTests
 
         IReadOnlyList<string> result = ViewDefinitionParser.ParseGroupByColumns(viewDef);
 
-        Assert.Single(result);
-        Assert.Equal("region", result[0]);
+        Assert.Equal("region", Assert.Single(result));
     }
 
     #endregion

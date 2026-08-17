@@ -324,8 +324,7 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
         Assert.True(isHypertable);
 
         List<MinimalHypertableMetric> metrics = await context.Metrics.ToListAsync(TestContext.Current.CancellationToken);
-        Assert.Single(metrics);
-        Assert.Equal(100.5, metrics[0].Value);
+        Assert.Equal(100.5, Assert.Single(metrics).Value);
     }
 
     #endregion

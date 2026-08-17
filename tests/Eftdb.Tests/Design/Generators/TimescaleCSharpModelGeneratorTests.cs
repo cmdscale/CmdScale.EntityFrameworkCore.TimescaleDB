@@ -453,8 +453,7 @@ public class TimescaleCSharpModelGeneratorTests
         method.Invoke(null, [namespaces, typeof(EAggregateFunction)]);
 
         // Assert
-        Assert.Single(namespaces);
-        Assert.Equal(ns, namespaces[0]);
+        Assert.Equal(ns, Assert.Single(namespaces));
     }
 
     #endregion

@@ -63,8 +63,7 @@ public class SparseIndexValidationConventionTests
         List<string> entries = [.. CompressionAnnotationExtractor.SplitSparseIndexEntries(input)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.Equal("bloom(a,b,c)", entries[0]);
+        Assert.Equal("bloom(a,b,c)", Assert.Single(entries));
     }
 
     #endregion
@@ -81,8 +80,7 @@ public class SparseIndexValidationConventionTests
         List<string> entries = [.. CompressionAnnotationExtractor.SplitSparseIndexEntries(input)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.Equal("bloom(col)", entries[0]);
+        Assert.Equal("bloom(col)", Assert.Single(entries));
     }
 
     #endregion

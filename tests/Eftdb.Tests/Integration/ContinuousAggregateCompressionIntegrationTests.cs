@@ -264,12 +264,10 @@ public class ContinuousAggregateCompressionIntegrationTests : MigrationTestBase,
         Assert.True(enabled);
 
         List<string> segmentBy = await GetCompressionSegmentByAsync(conn, "cagg_comp2_hourly");
-        Assert.Single(segmentBy);
-        Assert.Equal("DeviceId", segmentBy[0]);
+        Assert.Equal("DeviceId", Assert.Single(segmentBy));
 
         List<string> orderBy = await GetCompressionOrderByAsync(conn, "cagg_comp2_hourly");
-        Assert.Single(orderBy);
-        Assert.Equal("time_bucket DESC", orderBy[0]);
+        Assert.Equal("time_bucket DESC", Assert.Single(orderBy));
     }
 
     #endregion
@@ -363,8 +361,7 @@ public class ContinuousAggregateCompressionIntegrationTests : MigrationTestBase,
         await CreateDatabaseViaMigrationAsync(initial);
 
         List<string> before = await GetCompressionOrderByAsync(conn, "cagg_alt_ord_hourly");
-        Assert.Single(before);
-        Assert.Contains("ASC", before[0]);
+        Assert.Contains("ASC", Assert.Single(before));
 
         // Act
         await using AltOrderByModifiedContext modified = new(conn);
@@ -372,8 +369,7 @@ public class ContinuousAggregateCompressionIntegrationTests : MigrationTestBase,
 
         // Assert
         List<string> after = await GetCompressionOrderByAsync(conn, "cagg_alt_ord_hourly");
-        Assert.Single(after);
-        Assert.Contains("DESC", after[0]);
+        Assert.Contains("DESC", Assert.Single(after));
     }
 
     #endregion

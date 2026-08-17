@@ -165,9 +165,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             List<string> statements = GetRuntimeSqlStatements(operation);
 
             // Assert
-            Assert.Single(statements);
-            Assert.Contains("SELECT add_reorder_policy('public.\"simple_table\"', 'simple_idx')", statements[0]);
-            Assert.DoesNotContain("alter_job", statements[0]);
+            string statement = Assert.Single(statements);
+            Assert.Contains("SELECT add_reorder_policy('public.\"simple_table\"', 'simple_idx')", statement);
+            Assert.DoesNotContain("alter_job", statement);
         }
 
         [Fact]
