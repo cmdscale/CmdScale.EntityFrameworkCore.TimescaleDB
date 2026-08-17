@@ -9,7 +9,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
         nameof(ObservedAt),
         ChunkTimeInterval = "1 day",
         EnableCompression = true,
-        CompressionSegmentBy = new[] { "Station" },
         CompressionOrderBy = new[] { "ObservedAt DESC" },
         CompressChunkTimeInterval = "7 days")]
     [SparseIndex(ESparseIndexType.Bloom, nameof(EnvironmentReading.Station))]

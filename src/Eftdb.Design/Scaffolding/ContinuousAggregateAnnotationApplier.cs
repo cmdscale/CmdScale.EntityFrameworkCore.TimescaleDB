@@ -44,12 +44,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
             if (hasSegmentBy)
             {
-                table[HypertableAnnotations.CompressionSegmentBy] = string.Join(",", info.CompressionSegmentBy!);
+                table[HypertableAnnotations.CompressionSegmentBy] = string.Join(", ", info.CompressionSegmentBy!);
             }
 
             if (hasOrderBy)
             {
-                table[HypertableAnnotations.CompressionOrderBy] = string.Join(",", info.CompressionOrderBy!);
+                table[HypertableAnnotations.CompressionOrderBy] = string.Join(", ", info.CompressionOrderBy!);
             }
         }
     }

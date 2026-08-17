@@ -112,7 +112,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             {
                 call = sparseIndex.Length == 0
                     ? call.Chain(WithoutAutoSparseIndexesMethod)
-                    : call.Chain(WithSparseIndexMethod, sparseIndex);
+                    : call.Chain(WithSparseIndexMethod, BuildSparseIndexArguments(entityType, sparseIndex));
                 compressionConfigured = true;
             }
 
@@ -177,7 +177,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             AttributeCodeFragment? hypertable = GenerateHypertableAttribute(entityType, annotations);
             return hypertable == null
                 ? []
-                : [hypertable, .. GenerateSparseIndexAttributes(annotations), .. GenerateDimensionAttributes(entityType, annotations)];
+                : [hypertable, .. GenerateSparseIndexAttributes(entityType, annotations), .. GenerateDimensionAttributes(entityType, annotations)];
         }
 
         public void ConsumeFeatureAnnotations(IEntityType entityType, IDictionary<string, IAnnotation> annotations)
@@ -319,12 +319,54 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 ? entries
                 : Array.ConvertAll(entries, entry => (string)entry);
 
-        /// <summary>
-        /// Renders non-empty <c>timescaledb.sparse_index</c> entries as one <c>[SparseIndex]</c>
-        /// attribute per entry. The empty-string case is handled as <c>DisableAutoSparseIndexes = true</c>
-        /// on the <c>[Hypertable]</c> attribute and does not produce any fragments here.
-        /// </summary>
-        private static List<AttributeCodeFragment> GenerateSparseIndexAttributes(IDictionary<string, IAnnotation> annotations)
+        private static object[] BuildSparseIndexArguments(IEntityType entityType, string raw)
+        {
+            List<object> selectors = [];
+            foreach (string entry in CompressionAnnotationExtractor.SplitSparseIndexEntries(raw))
+            {
+                string trimmed = entry.Trim();
+                if (trimmed.Length == 0)
+                {
+                    continue;
+                }
+
+                int parenOpen = trimmed.IndexOf('(');
+                int parenClose = trimmed.LastIndexOf(')');
+                if (parenOpen < 0 || parenClose < parenOpen)
+                {
+                    return [raw];
+                }
+
+                string funcName = trimmed[..parenOpen].Trim();
+                ESparseIndexType kind = string.Equals(funcName, "minmax", StringComparison.OrdinalIgnoreCase)
+                    ? ESparseIndexType.MinMax
+                    : ESparseIndexType.Bloom;
+
+                string argsPart = trimmed[(parenOpen + 1)..parenClose];
+                string[] columns = [.. argsPart.Split(',', StringSplitOptions.TrimEntries).Where(c => c.Length > 0)];
+                if (columns.Length == 0)
+                {
+                    return [raw];
+                }
+
+                List<string> properties = [];
+                foreach (string col in columns)
+                {
+                    if (!TryResolvePropertyName(entityType, col, out string property))
+                    {
+                        return [raw];
+                    }
+
+                    properties.Add(property);
+                }
+
+                selectors.Add(new SparseIndexSelectorCodeFragment(kind, properties));
+            }
+
+            return selectors.Count == 0 ? [raw] : [.. selectors];
+        }
+
+        private static List<AttributeCodeFragment> GenerateSparseIndexAttributes(IEntityType entityType, IDictionary<string, IAnnotation> annotations)
         {
             IAnnotation? sparseIndexAnnotation = Find(annotations, HypertableAnnotations.CompressionSparseIndex);
             if (sparseIndexAnnotation?.Value is not string raw || raw.Length == 0)
@@ -363,7 +405,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                 List<object> positional = [kind];
                 foreach (string col in columns)
                 {
-                    positional.Add(col);
+                    positional.Add(ColumnReference(entityType, col));
                 }
 
                 attributes.Add(new AttributeCodeFragment(typeof(SparseIndexAttribute), positional.ToArray(), new Dictionary<string, object?>()));
