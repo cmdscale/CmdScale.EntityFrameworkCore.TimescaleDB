@@ -162,8 +162,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.Single(statements);
-        Assert.DoesNotContain("compress", statements[0]);
+        Assert.DoesNotContain("compress", Assert.Single(statements));
     }
 
     #endregion
@@ -245,8 +244,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.Single(statements);
-        string stmt = statements[0];
+        string stmt = Assert.Single(statements);
         Assert.Contains("DO $$", stmt);
         Assert.Contains("timescaledb.enable_columnstore = true", stmt);
     }
@@ -271,8 +269,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("timescaledb.enable_columnstore = false", statements[0]);
+        Assert.Contains("timescaledb.enable_columnstore = false", Assert.Single(statements));
     }
 
     #endregion
@@ -297,8 +294,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.Single(statements);
-        string stmt = statements[0];
+        string stmt = Assert.Single(statements);
         Assert.Contains("segmentby = ''\"device_id\"''", stmt);
         Assert.DoesNotContain("\"region\"", stmt);
     }
@@ -325,8 +321,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("segmentby = ''", statements[0]);
+        Assert.Contains("segmentby = ''", Assert.Single(statements));
     }
 
     #endregion
@@ -351,8 +346,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("orderby = ''\"time\" DESC''", statements[0]);
+        Assert.Contains("orderby = ''\"time\" DESC''", Assert.Single(statements));
     }
 
     #endregion
@@ -429,8 +423,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.Single(statements);
-        string stmt = statements[0];
+        string stmt = Assert.Single(statements);
         Assert.Contains("DO $$", stmt);
         Assert.Contains("DECLARE", stmt);
         Assert.Contains("timescaledb.license", stmt);
@@ -460,8 +453,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("\"bucket_time\" DESC NULLS LAST", statements[0]);
+        Assert.Contains("\"bucket_time\" DESC NULLS LAST", Assert.Single(statements));
     }
 
     #endregion
@@ -519,9 +511,9 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = ContinuousAggregateSqlGenerator.Generate(op, useLegacyCompressionNames: true);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("timescaledb.compress = true", statements[0]);
-        Assert.DoesNotContain("enable_columnstore", statements[0]);
+        string statement = Assert.Single(statements);
+        Assert.Contains("timescaledb.compress = true", statement);
+        Assert.DoesNotContain("enable_columnstore", statement);
     }
 
     #endregion
@@ -544,9 +536,9 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = ContinuousAggregateSqlGenerator.Generate(op, useLegacyCompressionNames: true);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("timescaledb.compress = false", statements[0]);
-        Assert.DoesNotContain("enable_columnstore", statements[0]);
+        string statement = Assert.Single(statements);
+        Assert.Contains("timescaledb.compress = false", statement);
+        Assert.DoesNotContain("enable_columnstore", statement);
     }
 
     #endregion

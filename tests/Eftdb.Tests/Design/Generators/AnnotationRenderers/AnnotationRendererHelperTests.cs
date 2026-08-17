@@ -117,8 +117,7 @@ public class AnnotationRendererHelperTests
     {
         string[] result = AnnotationRendererHelper.SplitColumns("Timestamp");
 
-        Assert.Single(result);
-        Assert.Equal("Timestamp", result[0]);
+        Assert.Equal("Timestamp", Assert.Single(result));
     }
 
     #endregion

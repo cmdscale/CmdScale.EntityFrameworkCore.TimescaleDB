@@ -397,9 +397,8 @@ public class HypertableAnnotationApplierTests
 
         List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(json);
         Assert.NotNull(dimensions);
-        Assert.Single(dimensions);
 
-        Dimension dimension = dimensions[0];
+        Dimension dimension = Assert.Single(dimensions);
         Assert.Equal("DeviceId", dimension.ColumnName);
         Assert.Equal(EDimensionType.Hash, dimension.Type);
         Assert.Equal(4, dimension.NumberOfPartitions);
@@ -438,9 +437,8 @@ public class HypertableAnnotationApplierTests
 
         List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(json);
         Assert.NotNull(dimensions);
-        Assert.Single(dimensions);
 
-        Dimension dimension = dimensions[0];
+        Dimension dimension = Assert.Single(dimensions);
         Assert.Equal("Location", dimension.ColumnName);
         Assert.Equal(EDimensionType.Range, dimension.Type);
         Assert.Equal("1000", dimension.Interval);

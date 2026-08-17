@@ -56,8 +56,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddReorderPolicyOperation operation = operations[0];
+        AddReorderPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("Metrics", operation.TableName);
         Assert.Equal("public", operation.Schema);
         Assert.Equal("metrics_time_idx", operation.IndexName);
@@ -161,8 +160,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        DateTime? initialStart = operations[0].InitialStart;
+        DateTime? initialStart = Assert.Single(operations).InitialStart;
         Assert.NotNull(initialStart);
         DateTime expectedDate = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         Assert.Equal(expectedDate, initialStart.Value);
@@ -206,8 +204,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Null(operations[0].InitialStart);
+        Assert.Null(Assert.Single(operations).InitialStart);
     }
 
     #endregion
@@ -251,8 +248,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("12:00:00", operations[0].ScheduleInterval);
+        Assert.Equal("12:00:00", Assert.Single(operations).ScheduleInterval);
     }
 
     #endregion
@@ -293,8 +289,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(DefaultValues.ReorderPolicyScheduleInterval, operations[0].ScheduleInterval);
+        Assert.Equal(DefaultValues.ReorderPolicyScheduleInterval, Assert.Single(operations).ScheduleInterval);
     }
 
     #endregion
@@ -338,8 +333,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("01:00:00", operations[0].MaxRuntime);
+        Assert.Equal("01:00:00", Assert.Single(operations).MaxRuntime);
     }
 
     #endregion
@@ -380,8 +374,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(DefaultValues.ReorderPolicyMaxRuntime, operations[0].MaxRuntime);
+        Assert.Equal(DefaultValues.ReorderPolicyMaxRuntime, Assert.Single(operations).MaxRuntime);
     }
 
     #endregion
@@ -425,8 +418,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(5, operations[0].MaxRetries);
+        Assert.Equal(5, Assert.Single(operations).MaxRetries);
     }
 
     #endregion
@@ -467,8 +459,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(DefaultValues.ReorderPolicyMaxRetries, operations[0].MaxRetries);
+        Assert.Equal(DefaultValues.ReorderPolicyMaxRetries, Assert.Single(operations).MaxRetries);
     }
 
     #endregion
@@ -512,8 +503,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("00:10:00", operations[0].RetryPeriod);
+        Assert.Equal("00:10:00", Assert.Single(operations).RetryPeriod);
     }
 
     #endregion
@@ -554,8 +544,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(DefaultValues.ReorderPolicyScheduleInterval, operations[0].RetryPeriod);
+        Assert.Equal(DefaultValues.ReorderPolicyScheduleInterval, Assert.Single(operations).RetryPeriod);
     }
 
     #endregion
@@ -661,8 +650,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddReorderPolicyOperation operation = operations[0];
+        AddReorderPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("Metrics", operation.TableName);
         Assert.Equal("public", operation.Schema);
         Assert.Equal("metrics_time_idx", operation.IndexName);
@@ -713,8 +701,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddReorderPolicyOperation operation = operations[0];
+        AddReorderPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("Metrics", operation.TableName);
         Assert.Equal("metrics_attr_idx", operation.IndexName);
     }
@@ -762,8 +749,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddReorderPolicyOperation operation = operations[0];
+        AddReorderPolicyOperation operation = Assert.Single(operations);
         Assert.Equal("metrics_full_attr_idx", operation.IndexName);
         Assert.NotNull(operation.InitialStart);
         Assert.Equal("12:00:00", operation.ScheduleInterval);
@@ -810,8 +796,7 @@ public class ReorderPolicyModelExtractorTests
 
         List<AddReorderPolicyOperation> operations = [.. ReorderPolicyModelExtractor.GetReorderPolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("custom_schema", operations[0].Schema);
+        Assert.Equal("custom_schema", Assert.Single(operations).Schema);
     }
 
     #endregion

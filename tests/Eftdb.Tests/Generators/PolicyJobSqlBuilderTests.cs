@@ -73,8 +73,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             List<string> clauses = PolicyJobSqlBuilder.BuildJobClauses(null, null, maxRetries, null);
 
             // Assert
-            Assert.Single(clauses);
-            Assert.Equal("max_retries => 0", clauses[0]);
+            Assert.Equal("max_retries => 0", Assert.Single(clauses));
         }
 
         #endregion
@@ -91,9 +90,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             List<string> clauses = PolicyJobSqlBuilder.BuildJobClauses(null, null, maxRetries, null);
 
             // Assert
-            Assert.Single(clauses);
-            Assert.Equal("max_retries => 7", clauses[0]);
-            Assert.DoesNotContain("INTERVAL", clauses[0]);
+            string clause = Assert.Single(clauses);
+            Assert.Equal("max_retries => 7", clause);
+            Assert.DoesNotContain("INTERVAL", clause);
         }
 
         #endregion
@@ -132,8 +131,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 retryPeriod: "10 minutes", oldRetryPeriod: "10 minutes");
 
             // Assert
-            Assert.Single(clauses);
-            Assert.Equal("schedule_interval => INTERVAL '2 days'", clauses[0]);
+            Assert.Equal("schedule_interval => INTERVAL '2 days'", Assert.Single(clauses));
         }
 
         #endregion
@@ -169,8 +167,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 retryPeriod: null, oldRetryPeriod: null);
 
             // Assert
-            Assert.Single(clauses);
-            Assert.Equal("max_retries => 5", clauses[0]);
+            Assert.Equal("max_retries => 5", Assert.Single(clauses));
         }
 
         #endregion

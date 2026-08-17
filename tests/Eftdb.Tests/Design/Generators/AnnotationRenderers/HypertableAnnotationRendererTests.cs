@@ -1137,8 +1137,7 @@ public class HypertableAnnotationRendererTests
         AttributeCodeFragment hypertableAttr = Assert.Single(result, a => a.Type == typeof(HypertableAttribute));
         Assert.True(hypertableAttr.NamedArguments.ContainsKey(nameof(HypertableAttribute.CompressionOrderBy)));
         string[] orderByArray = Assert.IsType<string[]>(hypertableAttr.NamedArguments[nameof(HypertableAttribute.CompressionOrderBy)]);
-        Assert.Single(orderByArray);
-        Assert.Equal("unmapped_col DESC", orderByArray[0]);
+        Assert.Equal("unmapped_col DESC", Assert.Single(orderByArray));
     }
 
     #endregion
@@ -1174,8 +1173,7 @@ public class HypertableAnnotationRendererTests
         AttributeCodeFragment hypertableAttr = Assert.Single(result, a => a.Type == typeof(HypertableAttribute));
         Assert.True(hypertableAttr.NamedArguments.ContainsKey(nameof(HypertableAttribute.CompressionOrderBy)));
         object[] orderByArray = Assert.IsType<object[]>(hypertableAttr.NamedArguments[nameof(HypertableAttribute.CompressionOrderBy)]);
-        Assert.Single(orderByArray);
-        Assert.IsType<NameOfCodeFragment>(orderByArray[0]);
+        Assert.IsType<NameOfCodeFragment>(Assert.Single(orderByArray));
     }
 
     #endregion
@@ -1519,8 +1517,7 @@ public class HypertableAnnotationRendererTests
         AttributeCodeFragment hypertableAttr = Assert.Single(result, a => a.Type == typeof(HypertableAttribute));
         Assert.True(hypertableAttr.NamedArguments.ContainsKey(nameof(HypertableAttribute.CompressionOrderBy)));
         string[] orderByArray = Assert.IsType<string[]>(hypertableAttr.NamedArguments[nameof(HypertableAttribute.CompressionOrderBy)]);
-        Assert.Single(orderByArray);
-        Assert.Equal("unmapped_col", orderByArray[0]);
+        Assert.Equal("unmapped_col", Assert.Single(orderByArray));
     }
 
     #endregion

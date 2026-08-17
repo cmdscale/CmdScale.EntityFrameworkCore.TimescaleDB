@@ -677,10 +677,10 @@ public class HypertableTypeBuilderTests
 
         List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
         Assert.NotNull(dimensions);
-        Assert.Single(dimensions);
-        Assert.Equal("DeviceId", dimensions[0].ColumnName);
-        Assert.Equal(EDimensionType.Hash, dimensions[0].Type);
-        Assert.Equal(4, dimensions[0].NumberOfPartitions);
+        Dimension dimension = Assert.Single(dimensions);
+        Assert.Equal("DeviceId", dimension.ColumnName);
+        Assert.Equal(EDimensionType.Hash, dimension.Type);
+        Assert.Equal(4, dimension.NumberOfPartitions);
     }
 
     #endregion
@@ -726,10 +726,10 @@ public class HypertableTypeBuilderTests
 
         List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
         Assert.NotNull(dimensions);
-        Assert.Single(dimensions);
-        Assert.Equal("Location", dimensions[0].ColumnName);
-        Assert.Equal(EDimensionType.Range, dimensions[0].Type);
-        Assert.Equal("1000", dimensions[0].Interval);
+        Dimension dimension = Assert.Single(dimensions);
+        Assert.Equal("Location", dimension.ColumnName);
+        Assert.Equal(EDimensionType.Range, dimension.Type);
+        Assert.Equal("1000", dimension.Interval);
     }
 
     #endregion
@@ -1377,10 +1377,10 @@ public class HypertableTypeBuilderTests
 
         List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
         Assert.NotNull(dimensions);
-        Assert.Single(dimensions);
-        Assert.Equal("Region", dimensions[0].ColumnName);
-        Assert.Equal(EDimensionType.Range, dimensions[0].Type);
-        Assert.Equal("1 month", dimensions[0].Interval);
+        Dimension dimension = Assert.Single(dimensions);
+        Assert.Equal("Region", dimension.ColumnName);
+        Assert.Equal(EDimensionType.Range, dimension.Type);
+        Assert.Equal("1 month", dimension.Interval);
     }
 
     #endregion
@@ -1425,10 +1425,10 @@ public class HypertableTypeBuilderTests
 
         List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
         Assert.NotNull(dimensions);
-        Assert.Single(dimensions);
-        Assert.Equal("WarehouseId", dimensions[0].ColumnName);
-        Assert.Equal(EDimensionType.Hash, dimensions[0].Type);
-        Assert.Equal(8, dimensions[0].NumberOfPartitions);
+        Dimension dimension = Assert.Single(dimensions);
+        Assert.Equal("WarehouseId", dimension.ColumnName);
+        Assert.Equal(EDimensionType.Hash, dimension.Type);
+        Assert.Equal(8, dimension.NumberOfPartitions);
     }
 
     #endregion

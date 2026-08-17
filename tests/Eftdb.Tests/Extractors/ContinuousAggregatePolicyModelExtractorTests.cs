@@ -80,8 +80,7 @@ public class ContinuousAggregatePolicyModelExtractorTests
         List<AddContinuousAggregatePolicyOperation> operations =
             [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddContinuousAggregatePolicyOperation op = operations[0];
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
         Assert.Equal("hourly_metrics", op.MaterializedViewName);
         Assert.Equal("7 days", op.StartOffset);
         Assert.Equal("1 hour", op.EndOffset);
@@ -148,8 +147,7 @@ public class ContinuousAggregatePolicyModelExtractorTests
         List<AddContinuousAggregatePolicyOperation> operations =
             [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddContinuousAggregatePolicyOperation op = operations[0];
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
         Assert.Equal("hourly_metrics", op.MaterializedViewName);
         Assert.Equal("1 month", op.StartOffset);
         Assert.Equal("1 hour", op.EndOffset);
@@ -326,8 +324,7 @@ public class ContinuousAggregatePolicyModelExtractorTests
         List<AddContinuousAggregatePolicyOperation> operations =
             [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("telemetry", operations[0].Schema);
+        Assert.Equal("telemetry", Assert.Single(operations).Schema);
     }
 
     #endregion
@@ -384,8 +381,7 @@ public class ContinuousAggregatePolicyModelExtractorTests
         List<AddContinuousAggregatePolicyOperation> operations =
             [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddContinuousAggregatePolicyOperation op = operations[0];
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
         Assert.False(op.IfNotExists);
         Assert.Equal(1, op.BucketsPerBatch);
         Assert.Equal(0, op.MaxBatchesPerExecution);
@@ -519,8 +515,7 @@ public class ContinuousAggregatePolicyModelExtractorTests
         List<AddContinuousAggregatePolicyOperation> operations =
             [.. ContinuousAggregatePolicyModelExtractor.GetContinuousAggregatePolicies(relationalModel)];
 
-        Assert.Single(operations);
-        AddContinuousAggregatePolicyOperation op = operations[0];
+        AddContinuousAggregatePolicyOperation op = Assert.Single(operations);
         Assert.Equal("hourly_attr_metrics", op.MaterializedViewName);
         Assert.Equal("7 days", op.StartOffset);
         Assert.Equal("1 hour", op.EndOffset);

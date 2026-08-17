@@ -876,10 +876,10 @@ public class HypertableConventionTests
 
         List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
         Assert.NotNull(dimensions);
-        Assert.Single(dimensions);
-        Assert.Equal("Location", dimensions[0].ColumnName);
-        Assert.Equal(EDimensionType.Range, dimensions[0].Type);
-        Assert.Equal("30 days", dimensions[0].Interval);
+        Dimension dimension = Assert.Single(dimensions);
+        Assert.Equal("Location", dimension.ColumnName);
+        Assert.Equal(EDimensionType.Range, dimension.Type);
+        Assert.Equal("30 days", dimension.Interval);
     }
 
     #endregion
@@ -924,10 +924,10 @@ public class HypertableConventionTests
 
         List<Dimension>? dimensions = JsonSerializer.Deserialize<List<Dimension>>(dimensionsJson);
         Assert.NotNull(dimensions);
-        Assert.Single(dimensions);
-        Assert.Equal("WarehouseId", dimensions[0].ColumnName);
-        Assert.Equal(EDimensionType.Hash, dimensions[0].Type);
-        Assert.Equal(4, dimensions[0].NumberOfPartitions);
+        Dimension dimension = Assert.Single(dimensions);
+        Assert.Equal("WarehouseId", dimension.ColumnName);
+        Assert.Equal(EDimensionType.Hash, dimension.Type);
+        Assert.Equal(4, dimension.NumberOfPartitions);
     }
 
     #endregion

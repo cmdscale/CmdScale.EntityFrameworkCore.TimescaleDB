@@ -52,8 +52,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        CreateHypertableOperation operation = operations[0];
+        CreateHypertableOperation operation = Assert.Single(operations);
         Assert.Equal("Metrics", operation.TableName);
         Assert.Equal("public", operation.Schema);
         Assert.Equal("Timestamp", operation.TimeColumnName);
@@ -152,8 +151,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        CreateHypertableOperation operation = operations[0];
+        CreateHypertableOperation operation = Assert.Single(operations);
         Assert.Equal("timestamp_utc", operation.TimeColumnName);
     }
 
@@ -195,8 +193,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("1 day", operations[0].ChunkTimeInterval);
+        Assert.Equal("1 day", Assert.Single(operations).ChunkTimeInterval);
     }
 
     #endregion
@@ -236,8 +233,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal(DefaultValues.ChunkTimeInterval, operations[0].ChunkTimeInterval);
+        Assert.Equal(DefaultValues.ChunkTimeInterval, Assert.Single(operations).ChunkTimeInterval);
     }
 
     #endregion
@@ -278,8 +274,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.True(operations[0].EnableCompression);
+        Assert.True(Assert.Single(operations).EnableCompression);
     }
 
     #endregion
@@ -319,8 +314,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.False(operations[0].EnableCompression);
+        Assert.False(Assert.Single(operations).EnableCompression);
     }
 
     #endregion
@@ -362,12 +356,10 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        CreateHypertableOperation operation = operations[0];
+        CreateHypertableOperation operation = Assert.Single(operations);
 
         Assert.NotNull(operation.CompressionSegmentBy);
-        Assert.Single(operation.CompressionSegmentBy);
-        Assert.Equal("TenantId", operation.CompressionSegmentBy[0]);
+        Assert.Equal("TenantId", Assert.Single(operation.CompressionSegmentBy));
         Assert.True(operation.EnableCompression);
     }
 
@@ -412,8 +404,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        CreateHypertableOperation operation = operations[0];
+        CreateHypertableOperation operation = Assert.Single(operations);
 
         Assert.NotNull(operation.CompressionOrderBy);
         Assert.Equal(2, operation.CompressionOrderBy.Count);
@@ -467,8 +458,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        CreateHypertableOperation operation = operations[0];
+        CreateHypertableOperation operation = Assert.Single(operations);
 
         Assert.NotNull(operation.CompressionSegmentBy);
         Assert.Equal("tenant_id", operation.CompressionSegmentBy[0]);
@@ -523,8 +513,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        CreateHypertableOperation operation = operations[0];
+        CreateHypertableOperation operation = Assert.Single(operations);
 
         Assert.NotNull(operation.CompressionSegmentBy);
         Assert.Equal("tid", operation.CompressionSegmentBy[0]);
@@ -572,9 +561,9 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].ChunkSkipColumns);
-        string column = Assert.Single(operations[0].ChunkSkipColumns!);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.ChunkSkipColumns);
+        string column = Assert.Single(operation.ChunkSkipColumns!);
         Assert.Equal("DeviceId", column);
     }
 
@@ -618,11 +607,11 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].ChunkSkipColumns);
-        Assert.Equal(2, operations[0].ChunkSkipColumns!.Count);
-        Assert.Contains("DeviceId", operations[0].ChunkSkipColumns!);
-        Assert.Contains("Location", operations[0].ChunkSkipColumns!);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.ChunkSkipColumns);
+        Assert.Equal(2, operation.ChunkSkipColumns!.Count);
+        Assert.Contains("DeviceId", operation.ChunkSkipColumns!);
+        Assert.Contains("Location", operation.ChunkSkipColumns!);
     }
 
     #endregion
@@ -665,9 +654,9 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].ChunkSkipColumns);
-        string column = Assert.Single(operations[0].ChunkSkipColumns!);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.ChunkSkipColumns);
+        string column = Assert.Single(operation.ChunkSkipColumns!);
         Assert.Equal("device_id", column);
     }
 
@@ -710,9 +699,9 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].AdditionalDimensions);
-        Dimension dimension = Assert.Single(operations[0].AdditionalDimensions!);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.AdditionalDimensions);
+        Dimension dimension = Assert.Single(operation.AdditionalDimensions!);
         Assert.Equal("DeviceId", dimension.ColumnName);
         Assert.Equal(EDimensionType.Hash, dimension.Type);
         Assert.Equal(4, dimension.NumberOfPartitions);
@@ -757,9 +746,9 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].AdditionalDimensions);
-        Dimension dimension = Assert.Single(operations[0].AdditionalDimensions!);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.AdditionalDimensions);
+        Dimension dimension = Assert.Single(operation.AdditionalDimensions!);
         Assert.Equal("Location", dimension.ColumnName);
         Assert.Equal(EDimensionType.Range, dimension.Type);
         Assert.Equal("1000", dimension.Interval);
@@ -806,16 +795,16 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].AdditionalDimensions);
-        Assert.Equal(2, operations[0].AdditionalDimensions!.Count);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.AdditionalDimensions);
+        Assert.Equal(2, operation.AdditionalDimensions!.Count);
 
-        Dimension hashDim = operations[0].AdditionalDimensions![0];
+        Dimension hashDim = operation.AdditionalDimensions![0];
         Assert.Equal("DeviceId", hashDim.ColumnName);
         Assert.Equal(EDimensionType.Hash, hashDim.Type);
         Assert.Equal(4, hashDim.NumberOfPartitions);
 
-        Dimension rangeDim = operations[0].AdditionalDimensions![1];
+        Dimension rangeDim = operation.AdditionalDimensions![1];
         Assert.Equal("Location", rangeDim.ColumnName);
         Assert.Equal(EDimensionType.Range, rangeDim.Type);
         Assert.Equal("1000", rangeDim.Interval);
@@ -861,9 +850,9 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].AdditionalDimensions);
-        Dimension dimension = Assert.Single(operations[0].AdditionalDimensions!);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.AdditionalDimensions);
+        Dimension dimension = Assert.Single(operation.AdditionalDimensions!);
         Assert.Equal("device_id", dimension.ColumnName);
     }
 
@@ -965,16 +954,14 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        CreateHypertableOperation operation = operations[0];
+        CreateHypertableOperation operation = Assert.Single(operations);
         Assert.Equal("Metrics", operation.TableName);
         Assert.Equal("public", operation.Schema);
         Assert.Equal("Timestamp", operation.TimeColumnName);
         Assert.Equal("1 hour", operation.ChunkTimeInterval);
         Assert.True(operation.EnableCompression);
         Assert.NotNull(operation.ChunkSkipColumns);
-        Assert.Single(operation.ChunkSkipColumns);
-        Assert.Equal("DeviceId", operation.ChunkSkipColumns[0]);
+        Assert.Equal("DeviceId", Assert.Single(operation.ChunkSkipColumns));
         Assert.NotNull(operation.AdditionalDimensions);
         Dimension dimension = Assert.Single(operation.AdditionalDimensions);
         Assert.Equal("DeviceId", dimension.ColumnName);
@@ -1017,8 +1004,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.False(operations[0].MigrateData);
+        Assert.False(Assert.Single(operations).MigrateData);
     }
 
     #endregion
@@ -1059,8 +1045,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.True(operations[0].MigrateData);
+        Assert.True(Assert.Single(operations).MigrateData);
     }
 
     #endregion
@@ -1101,8 +1086,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.False(operations[0].MigrateData);
+        Assert.False(Assert.Single(operations).MigrateData);
     }
 
     #endregion
@@ -1142,8 +1126,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.True(operations[0].MigrateData);
+        Assert.True(Assert.Single(operations).MigrateData);
     }
 
     #endregion
@@ -1183,8 +1166,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("custom_schema", operations[0].Schema);
+        Assert.Equal("custom_schema", Assert.Single(operations).Schema);
     }
 
     #endregion
@@ -1225,8 +1207,7 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.Equal("timestamp_col", operations[0].TimeColumnName);
+        Assert.Equal("timestamp_col", Assert.Single(operations).TimeColumnName);
     }
 
     #endregion
@@ -1269,9 +1250,9 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].ChunkSkipColumns);
-        string column = Assert.Single(operations[0].ChunkSkipColumns!);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.ChunkSkipColumns);
+        string column = Assert.Single(operation.ChunkSkipColumns!);
         Assert.Equal("device_identifier", column);
     }
 
@@ -1315,9 +1296,9 @@ public class HypertableModelExtractorTests
 
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].AdditionalDimensions);
-        Dimension dimension = Assert.Single(operations[0].AdditionalDimensions!);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.AdditionalDimensions);
+        Dimension dimension = Assert.Single(operation.AdditionalDimensions!);
         Assert.Equal("device_identifier", dimension.ColumnName);
     }
 
@@ -1363,8 +1344,7 @@ public class HypertableModelExtractorTests
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
         // Assert
-        Assert.Single(operations);
-        Assert.Equal("time", operations[0].TimeColumnName);
+        Assert.Equal("time", Assert.Single(operations).TimeColumnName);
     }
 
     #endregion
@@ -1413,11 +1393,11 @@ public class HypertableModelExtractorTests
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
         // Assert
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].ChunkSkipColumns);
-        Assert.Equal(2, operations[0].ChunkSkipColumns!.Count);
-        Assert.Contains("device_id", operations[0].ChunkSkipColumns!);
-        Assert.Contains("location", operations[0].ChunkSkipColumns!);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.ChunkSkipColumns);
+        Assert.Equal(2, operation.ChunkSkipColumns!.Count);
+        Assert.Contains("device_id", operation.ChunkSkipColumns!);
+        Assert.Contains("location", operation.ChunkSkipColumns!);
     }
 
     #endregion
@@ -1471,16 +1451,16 @@ public class HypertableModelExtractorTests
         List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
 
         // Assert
-        Assert.Single(operations);
-        Assert.NotNull(operations[0].AdditionalDimensions);
-        Assert.Equal(2, operations[0].AdditionalDimensions!.Count);
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.AdditionalDimensions);
+        Assert.Equal(2, operation.AdditionalDimensions!.Count);
 
-        Dimension hashDim = operations[0].AdditionalDimensions![0];
+        Dimension hashDim = operation.AdditionalDimensions![0];
         Assert.Equal("device_id", hashDim.ColumnName);
         Assert.Equal(EDimensionType.Hash, hashDim.Type);
         Assert.Equal(4, hashDim.NumberOfPartitions);
 
-        Dimension rangeDim = operations[0].AdditionalDimensions![1];
+        Dimension rangeDim = operation.AdditionalDimensions![1];
         Assert.Equal("location", rangeDim.ColumnName);
         Assert.Equal(EDimensionType.Range, rangeDim.Type);
         Assert.Equal("1000", rangeDim.Interval);

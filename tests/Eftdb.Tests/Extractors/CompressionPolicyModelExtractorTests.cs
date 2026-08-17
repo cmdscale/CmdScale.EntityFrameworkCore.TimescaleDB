@@ -164,8 +164,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        AddCompressionPolicyOperation operation = entries[0].Operation;
+        AddCompressionPolicyOperation operation = Assert.Single(entries).Operation;
         Assert.Equal("after_only_metrics", operation.TableName);
         Assert.Equal("public", operation.Schema);
         Assert.Equal("7 days", operation.After);
@@ -214,8 +213,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        AddCompressionPolicyOperation operation = entries[0].Operation;
+        AddCompressionPolicyOperation operation = Assert.Single(entries).Operation;
         Assert.Equal("created_before_only_metrics", operation.TableName);
         Assert.Equal("public", operation.Schema);
         Assert.Null(operation.After);
@@ -264,8 +262,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.Equal("12 hours", entries[0].Operation.ScheduleInterval);
+        Assert.Equal("12 hours", Assert.Single(entries).Operation.ScheduleInterval);
     }
 
     #endregion
@@ -310,8 +307,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.Null(entries[0].Operation.ScheduleInterval);
+        Assert.Null(Assert.Single(entries).Operation.ScheduleInterval);
     }
 
     #endregion
@@ -356,8 +352,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.Equal("Europe/Berlin", entries[0].Operation.Timezone);
+        Assert.Equal("Europe/Berlin", Assert.Single(entries).Operation.Timezone);
     }
 
     #endregion
@@ -402,8 +397,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.True(entries[0].Operation.IfNotExists);
+        Assert.True(Assert.Single(entries).Operation.IfNotExists);
     }
 
     #endregion
@@ -450,8 +444,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        DateTime? initialStart = entries[0].Operation.InitialStart;
+        DateTime? initialStart = Assert.Single(entries).Operation.InitialStart;
         Assert.NotNull(initialStart);
         DateTime expectedDate = new(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         Assert.Equal(expectedDate, initialStart.Value);
@@ -499,8 +492,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.Null(entries[0].Operation.InitialStart);
+        Assert.Null(Assert.Single(entries).Operation.InitialStart);
     }
 
     #endregion
@@ -546,8 +538,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.Equal("14 days", entries[0].ChunkTimeInterval);
+        Assert.Equal("14 days", Assert.Single(entries).ChunkTimeInterval);
     }
 
     #endregion
@@ -592,8 +583,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.Equal(DefaultValues.ChunkTimeInterval, entries[0].ChunkTimeInterval);
+        Assert.Equal(DefaultValues.ChunkTimeInterval, Assert.Single(entries).ChunkTimeInterval);
     }
 
     #endregion
@@ -638,8 +628,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        Assert.Equal("analytics", entries[0].Operation.Schema);
+        Assert.Equal("analytics", Assert.Single(entries).Operation.Schema);
     }
 
     #endregion
@@ -729,8 +718,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        AddCompressionPolicyOperation operation = entries[0].Operation;
+        AddCompressionPolicyOperation operation = Assert.Single(entries).Operation;
         Assert.Equal("compression_policy_attribute_metrics", operation.TableName);
         Assert.Equal("7 days", operation.After);
     }
@@ -845,8 +833,7 @@ public class CompressionPolicyModelExtractorTests
             [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(relationalModel)];
 
         // Assert
-        Assert.Single(entries);
-        CompressionPolicyModelExtractor.CompressionPolicyEntry entry = entries[0];
+        CompressionPolicyModelExtractor.CompressionPolicyEntry entry = Assert.Single(entries);
         AddCompressionPolicyOperation operation = entry.Operation;
 
         Assert.Equal("fully_configured_metrics", operation.TableName);

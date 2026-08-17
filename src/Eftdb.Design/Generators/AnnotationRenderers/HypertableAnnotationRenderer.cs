@@ -408,7 +408,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
                     positional.Add(ColumnReference(entityType, col));
                 }
 
-                attributes.Add(new AttributeCodeFragment(typeof(SparseIndexAttribute), positional.ToArray(), new Dictionary<string, object?>()));
+                attributes.Add(new AttributeCodeFragment(typeof(SparseIndexAttribute), [.. positional], new Dictionary<string, object?>()));
             }
 
             Consume(annotations, HypertableAnnotations.CompressionSparseIndex);

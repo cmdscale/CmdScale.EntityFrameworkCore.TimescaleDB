@@ -1333,8 +1333,7 @@ public class HypertableDifferTests
 
         Assert.Null(alterOp.OldCompressionSegmentBy);
         Assert.NotNull(alterOp.CompressionSegmentBy);
-        Assert.Single(alterOp.CompressionSegmentBy);
-        Assert.Equal("TenantId", alterOp.CompressionSegmentBy[0]);
+        Assert.Equal("TenantId", Assert.Single(alterOp.CompressionSegmentBy));
 
         Assert.True(alterOp.EnableCompression);
     }

@@ -218,8 +218,7 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
 
         Assert.True(info.CompressionEnabled);
 
-        Assert.Single(info.CompressionSegmentBy);
-        Assert.Equal("TenantId", info.CompressionSegmentBy[0]);
+        Assert.Equal("TenantId", Assert.Single(info.CompressionSegmentBy));
     }
 
     #endregion
@@ -319,11 +318,9 @@ public class HypertableScaffoldingExtractorTests : MigrationTestBase, IAsyncLife
         Assert.Single(result);
         HypertableScaffoldingExtractor.HypertableInfo info = (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "Metrics")];
 
-        Assert.Single(info.CompressionSegmentBy);
-        Assert.Equal("DeviceId", info.CompressionSegmentBy[0]);
+        Assert.Equal("DeviceId", Assert.Single(info.CompressionSegmentBy));
 
-        Assert.Single(info.CompressionOrderBy);
-        Assert.Contains("Timestamp DESC", info.CompressionOrderBy[0]);
+        Assert.Contains("Timestamp DESC", Assert.Single(info.CompressionOrderBy));
     }
 
     #endregion
