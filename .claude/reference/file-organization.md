@@ -185,7 +185,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Generators/TimescaleModelCodeGeneratorSelector.cs` | Prefers `TimescaleCSharpModelGenerator` over base `CSharpModelGenerator` |
 | `Generators/TimescaleCSharpModelGenerator.cs` | Injects TimescaleDB `using` directives when `UseDataAnnotations = true` |
 | `Generators/TimescaleDbAnnotationCodeGenerator.cs` | Dispatches to `IFeatureAnnotationRenderer` implementations |
-| `Generators/TimescaleCSharpHelper.cs` | Extends `ICSharpHelper.UnknownLiteral` for `NameOfCodeFragment` and mixed arrays |
+| `Generators/TimescaleCSharpHelper.cs` | Extends `ICSharpHelper.UnknownLiteral` for `NameOfCodeFragment`, `SparseIndexSelectorCodeFragment`, and mixed arrays |
 | `Generators/AnnotationRenderers/IFeatureAnnotationRenderer.cs` | Per-feature renderer interface |
 | `Generators/AnnotationRenderers/HypertableAnnotationRenderer.cs` | Renders hypertable annotations to fluent API or data annotation C# |
 | `Generators/AnnotationRenderers/ContinuousAggregateAnnotationRenderer.cs` | Renders continuous aggregate annotations by parsing the view definition |
@@ -196,6 +196,7 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Generators/AnnotationRenderers/PolicyJobRendererHelper.cs` | Shared helpers for emitting policy-job optional arguments (`InitialStart`, `WithScheduleInterval`, etc.) |
 | `Generators/AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName` |
 | `Generators/AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` producing `nameof(X)` or `$"{nameof(X)} DESC"` |
+| `Generators/AnnotationRenderers/SparseIndexSelectorCodeFragment.cs` | Custom record used as a `WithSparseIndex` argument; `TimescaleCSharpHelper` renders it as `s => s.Bloom(x => x.Property)` or `s => s.MinMax(x => x.Property)` |
 
 ### Scaffolding (Phase 1: Database Extraction)
 

@@ -14,8 +14,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
             builder.HasNoKey();
             builder.IsContinuousAggregate<TradeAggregate, Trade>("trade_aggregate_view", "1 hour", x => x.Timestamp, true, "7 days")
                 .AddAggregateFunction(x => x.AveragePrice, x => x.Price, EAggregateFunction.Avg)
-                .AddAggregateFunction(x => x.MinPrice, x => x.Price, EAggregateFunction.Max)
-                .AddAggregateFunction(x => x.MaxPrice, x => x.Price, EAggregateFunction.Min)
+                .AddAggregateFunction(x => x.MinPrice, x => x.Price, EAggregateFunction.Min)
+                .AddAggregateFunction(x => x.MaxPrice, x => x.Price, EAggregateFunction.Max)
                 .AddAggregateFunction(x => x.TotalVolume, x => x.Size, EAggregateFunction.Sum)
                 .AddAggregateFunction(x => x.TradeCount, x => x.Timestamp, EAggregateFunction.Count)
                 .AddGroupByColumn(x => x.Exchange)

@@ -15,7 +15,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
 
             builder.IsHypertable(x => x.RecordedAt)
                    .WithChunkTimeInterval("1 day")
-                   .WithCompressionSegmentBy(x => x.Site, x => x.MetricType)
                    .WithCompressionOrderBy(
                        s => s.By(x => x.SensorId),
                        s => s.ByDescending(x => x.RecordedAt))

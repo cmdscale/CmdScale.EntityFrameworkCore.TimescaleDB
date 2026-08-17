@@ -246,7 +246,7 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 | `TimescaleModelCodeGeneratorSelector.cs` | Selects `TimescaleCSharpModelGenerator` over EF Core's default `CSharpModelGenerator` |
 | `TimescaleCSharpModelGenerator.cs` | Wraps base model generator; injects TimescaleDB `using` directives when `UseDataAnnotations = true` |
 | `TimescaleDbAnnotationCodeGenerator.cs` | `IAnnotationCodeGenerator` implementation; dispatches to `IFeatureAnnotationRenderer` instances |
-| `TimescaleCSharpHelper.cs` | Extends `ICSharpHelper.UnknownLiteral` to render `NameOfCodeFragment` and mixed `object?[]` arrays |
+| `TimescaleCSharpHelper.cs` | Extends `ICSharpHelper.UnknownLiteral` to render `NameOfCodeFragment`, `SparseIndexSelectorCodeFragment` (as `s => s.Bloom(...)`/`s => s.MinMax(...)`), and mixed `object?[]` arrays |
 | `AnnotationRenderers/IFeatureAnnotationRenderer.cs` | Per-feature renderer interface: `GenerateFluentApiCalls` + `GenerateDataAnnotationAttributes` |
 | `AnnotationRenderers/HypertableAnnotationRenderer.cs` | Renders hypertable and dimension annotations to fluent API or data annotation attributes |
 | `AnnotationRenderers/ContinuousAggregateAnnotationRenderer.cs` | Renders continuous aggregate annotations; parses the stored view definition via `ViewDefinitionParser` to reconstruct structured configuration |
@@ -257,6 +257,7 @@ Converts `DatabaseModel` annotations to C# fluent API calls or data annotation a
 | `AnnotationRenderers/PolicyJobRendererHelper.cs` | Shared static helpers for rendering optional policy-job fields (InitialStart, ScheduleInterval, MaxRuntime, etc.) shared across all policy renderers |
 | `AnnotationRenderers/AnnotationRendererHelper.cs` | Static helpers: `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName`, `ResolveColumns` |
 | `AnnotationRenderers/NameOfCodeFragment.cs` | Custom `CodeFragment` record: renders as `nameof(Property)` or `$"{nameof(Property)} DESC"` |
+| `AnnotationRenderers/SparseIndexSelectorCodeFragment.cs` | Custom record carrying `Kind` + `PropertyNames`; passed as `WithSparseIndex` arguments and rendered by `TimescaleCSharpHelper` as `s => s.Bloom(x => x.Property)` / `s => s.MinMax(...)` |
 
 ### Scaffolding Pipeline
 
@@ -303,17 +304,17 @@ Custom operations are sorted by `TimescaleMigrationsModelDiffer.GetOperationPrio
 |----------|---------------|
 | -60 | `DropRetentionPolicyOperation` |
 | -50 | `RemoveContinuousAggregatePolicyOperation` |
+| -45 | `DropCompressionPolicyOperation` |
 | -40 | `DropContinuousAggregateOperation` |
-| -25 | `DropCompressionPolicyOperation` |
 | -20 | `DropReorderPolicyOperation` |
 | 0 | Standard EF operations (CreateTable, AddColumn, DropTable, …) |
 | 10 | `CreateHypertableOperation` |
 | 15 | `AlterHypertableOperation` |
 | 20 | `AddReorderPolicyOperation` / `AlterReorderPolicyOperation` |
-| 25 | `AddCompressionPolicyOperation` / `AlterCompressionPolicyOperation` |
 | 30 | `CreateContinuousAggregateOperation` |
 | 40 | `AlterContinuousAggregateOperation` |
-| 50 | `AddContinuousAggregatePolicyOperation` |
+| 45 | `AddContinuousAggregatePolicyOperation` |
+| 50 | `AddCompressionPolicyOperation` / `AlterCompressionPolicyOperation` |
 | 60 | `AddRetentionPolicyOperation` / `AlterRetentionPolicyOperation` |
 
 ## Continuous Aggregates Implementation Details

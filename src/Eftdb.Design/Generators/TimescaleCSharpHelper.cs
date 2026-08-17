@@ -15,6 +15,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
         public override string UnknownLiteral(object? value) => value switch
         {
             NameOfCodeFragment nameOf => Literal(nameOf),
+            SparseIndexSelectorCodeFragment selector => Literal(selector),
             object?[] array when Array.Exists(array, entry => entry is NameOfCodeFragment) =>
                 $"new[] {{ {string.Join(", ", array.Select(UnknownLiteral))} }}",
             _ => base.UnknownLiteral(value),
@@ -23,6 +24,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
         private static string Literal(NameOfCodeFragment nameOf) => nameOf.Suffix.Length == 0
             ? $"nameof({nameOf.PropertyName})"
             : $"$\"{{nameof({nameOf.PropertyName})}}{nameOf.Suffix}\"";
+
+        private static string Literal(SparseIndexSelectorCodeFragment selector)
+        {
+            string method = selector.Kind == Abstractions.ESparseIndexType.MinMax
+                ? nameof(Configuration.Hypertable.SparseIndexSelector<object>.MinMax)
+                : nameof(Configuration.Hypertable.SparseIndexSelector<object>.Bloom);
+            string arguments = string.Join(", ", selector.PropertyNames.Select(p => $"x => x.{p}"));
+            return $"s => s.{method}({arguments})";
+        }
     }
 }
 #pragma warning restore EF1001
