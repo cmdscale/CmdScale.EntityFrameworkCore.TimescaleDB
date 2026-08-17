@@ -193,9 +193,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 
             List<FirstLastAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
-            Assert.Single(aggregates);
-            Assert.Equal(100.00m, aggregates[0].FirstPrice);
-            Assert.Equal(103.00m, aggregates[0].LastPrice);
+            FirstLastAggregate aggregate = Assert.Single(aggregates);
+            Assert.Equal(100.00m, aggregate.FirstPrice);
+            Assert.Equal(103.00m, aggregate.LastPrice);
         }
 
         #endregion
@@ -351,8 +351,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 
             List<WhereClauseAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
-            Assert.Single(aggregates);
-            Assert.Equal(100.00m, aggregates[0].AvgPrice);
+            Assert.Equal(100.00m, Assert.Single(aggregates).AvgPrice);
         }
 
         #endregion
@@ -642,8 +641,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 
             List<MaterializedOnlyFalseAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
-            Assert.Single(aggregates);
-            Assert.Equal(100.00m, aggregates[0].AvgPrice);
+            Assert.Equal(100.00m, Assert.Single(aggregates).AvgPrice);
         }
 
         #endregion
@@ -1129,8 +1127,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 
             List<SnakeCaseAggregate> aggregates = await context.TradeAggregates.ToListAsync(TestContext.Current.CancellationToken);
 
-            Assert.Single(aggregates);
-            Assert.Equal(100.00m, aggregates[0].AvgPrice);
+            Assert.Equal(100.00m, Assert.Single(aggregates).AvgPrice);
         }
 
         #endregion
@@ -1205,9 +1202,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             List<CountStarAggregate> aggregates = await context.Aggregates
                 .ToListAsync(TestContext.Current.CancellationToken);
 
-            Assert.Single(aggregates);
-            Assert.Equal(3L, aggregates[0].TotalCount);
-            Assert.Equal(2L, aggregates[0].CategoryCount);
+            CountStarAggregate aggregate = Assert.Single(aggregates);
+            Assert.Equal(3L, aggregate.TotalCount);
+            Assert.Equal(2L, aggregate.CategoryCount);
         }
 
         #endregion

@@ -558,8 +558,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             List<string> statements = GetRuntimeStatements(operation);
 
             // Assert
-            Assert.Single(statements);
-            Assert.Contains("'public.\"TestTable\"'", statements[0]);
+            Assert.Contains("'public.\"TestTable\"'", Assert.Single(statements));
         }
 
         #endregion
@@ -580,8 +579,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             List<string> statements = GetRuntimeStatements(operation);
 
             // Assert
-            Assert.Single(statements);
-            Assert.Contains("'public.\"TestTable\"'", statements[0]);
+            Assert.Contains("'public.\"TestTable\"'", Assert.Single(statements));
         }
 
         #endregion
@@ -603,9 +601,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
 
             // Assert
-            Assert.Single(statements);
-            Assert.Contains("drop_after => INTERVAL '7 days'", statements[0]);
-            Assert.DoesNotContain("drop_created_before", statements[0]);
+            string statement = Assert.Single(statements);
+            Assert.Contains("drop_after => INTERVAL '7 days'", statement);
+            Assert.DoesNotContain("drop_created_before", statement);
         }
 
         #endregion
@@ -627,9 +625,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
 
             // Assert
-            Assert.Single(statements);
-            Assert.Contains("drop_created_before => INTERVAL '30 days'", statements[0]);
-            Assert.DoesNotContain("drop_after", statements[0]);
+            string statement = Assert.Single(statements);
+            Assert.Contains("drop_created_before => INTERVAL '30 days'", statement);
+            Assert.DoesNotContain("drop_after", statement);
         }
 
         #endregion
@@ -781,10 +779,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             List<string> statements = RetentionPolicySqlGenerator.Generate(operation);
 
             // Assert
-            Assert.Single(statements);
-            Assert.Contains("add_retention_policy", statements[0]);
-            Assert.DoesNotContain("drop_after", statements[0]);
-            Assert.DoesNotContain("drop_created_before", statements[0]);
+            string statement = Assert.Single(statements);
+            Assert.Contains("add_retention_policy", statement);
+            Assert.DoesNotContain("drop_after", statement);
+            Assert.DoesNotContain("drop_created_before", statement);
         }
 
         #endregion

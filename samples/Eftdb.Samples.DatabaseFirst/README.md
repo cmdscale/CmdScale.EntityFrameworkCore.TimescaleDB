@@ -11,14 +11,7 @@ For command usage see [dotnet ef tools](../../docs/01-dotnet-tools.md); for the 
 Install the design-time package, then run:
 
 ```bash
-dotnet ef dbcontext scaffold \
-  "Host=localhost;Database=cmdscale-ef-timescaledb;Username=timescale_admin;Password=R#!kro#GP43ra8Ae" \
-  CmdScale.EntityFrameworkCore.TimescaleDB.Design \
-  --output-dir Models \
-  --schema public \
-  --context-dir . \
-  --context MyTimescaleDbContext \
-  --project samples/Eftdb.Samples.DatabaseFirst
+dotnet ef dbcontext scaffold "Host=localhost;Database=cmdscale-ef-timescaledb;Username=timescale_admin;Password=R#!kro#GP43ra8Ae" CmdScale.EntityFrameworkCore.TimescaleDB.Design --output-dir Models --context-dir . --context MyTimescaleDbContext --project samples/Eftdb.Samples.DatabaseFirst --schema public
 ```
 
 Add `--data-annotations` to generate attributes instead of Fluent API calls.

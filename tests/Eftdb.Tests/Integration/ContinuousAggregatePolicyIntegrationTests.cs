@@ -448,10 +448,7 @@ public class ContinuousAggregatePolicyIntegrationTests : MigrationTestBase, IAsy
         IReadOnlyList<MigrationOperation> operations = GenerateMigrationOperations(sourceContext, targetContext);
 
         // Assert
-        Assert.Single(operations);
-        Assert.IsType<Operations.AddContinuousAggregatePolicyOperation>(operations[0]);
-
-        Operations.AddContinuousAggregatePolicyOperation addOp = (Operations.AddContinuousAggregatePolicyOperation)operations[0];
+        Operations.AddContinuousAggregatePolicyOperation addOp = (Operations.AddContinuousAggregatePolicyOperation)Assert.Single(operations);
         Assert.Equal("hourly_metrics", addOp.MaterializedViewName);
         Assert.Equal("1 month", addOp.StartOffset);
         Assert.Equal("1 hour", addOp.EndOffset);

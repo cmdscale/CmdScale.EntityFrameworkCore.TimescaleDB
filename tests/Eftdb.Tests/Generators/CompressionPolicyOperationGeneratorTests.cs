@@ -485,9 +485,9 @@ public class CompressionPolicyOperationGeneratorTests
         List<string> statements = CompressionPolicySqlGenerator.Generate(operation);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("after => INTERVAL '7 days'", statements[0]);
-        Assert.DoesNotContain("created_before =>", statements[0]);
+        string statement = Assert.Single(statements);
+        Assert.Contains("after => INTERVAL '7 days'", statement);
+        Assert.DoesNotContain("created_before =>", statement);
     }
 
     #endregion
@@ -509,9 +509,9 @@ public class CompressionPolicyOperationGeneratorTests
         List<string> statements = CompressionPolicySqlGenerator.Generate(operation);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("created_before => INTERVAL '30 days'", statements[0]);
-        Assert.DoesNotContain("after => INTERVAL", statements[0]);
+        string statement = Assert.Single(statements);
+        Assert.Contains("created_before => INTERVAL '30 days'", statement);
+        Assert.DoesNotContain("after => INTERVAL", statement);
     }
 
     #endregion
@@ -533,8 +533,7 @@ public class CompressionPolicyOperationGeneratorTests
         List<string> statements = CompressionPolicySqlGenerator.Generate(operation);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("'public.\"TestTable\"'", statements[0]);
+        Assert.Contains("'public.\"TestTable\"'", Assert.Single(statements));
     }
 
     #endregion
@@ -555,8 +554,7 @@ public class CompressionPolicyOperationGeneratorTests
         List<string> statements = CompressionPolicySqlGenerator.Generate(operation);
 
         // Assert
-        Assert.Single(statements);
-        Assert.Contains("'public.\"TestTable\"'", statements[0]);
+        Assert.Contains("'public.\"TestTable\"'", Assert.Single(statements));
     }
 
     #endregion

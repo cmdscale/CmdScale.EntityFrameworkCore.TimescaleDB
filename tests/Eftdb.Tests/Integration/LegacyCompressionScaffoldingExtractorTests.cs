@@ -116,11 +116,9 @@ public class LegacyCompressionScaffoldingExtractorTests : IAsyncLifetime
             });
 
         // Assert
-        Assert.Single(segmentByCols);
-        Assert.Equal("device_id", segmentByCols[0]);
+        Assert.Equal("device_id", Assert.Single(segmentByCols));
 
-        Assert.Single(orderByCols);
-        Assert.Equal("ts DESC", orderByCols[0]);
+        Assert.Equal("ts DESC", Assert.Single(orderByCols));
     }
 
     #endregion
@@ -165,8 +163,7 @@ public class LegacyCompressionScaffoldingExtractorTests : IAsyncLifetime
 
         // Assert
         Assert.Empty(segmentByCols);
-        Assert.Single(orderByCols);
-        Assert.Equal("ts ASC", orderByCols[0]);
+        Assert.Equal("ts ASC", Assert.Single(orderByCols));
     }
 
     #endregion
@@ -199,12 +196,11 @@ public class LegacyCompressionScaffoldingExtractorTests : IAsyncLifetime
             (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "legacy_ht_extract_segby")];
 
         Assert.True(info.CompressionEnabled);
-        Assert.Single(info.CompressionSegmentBy);
-        Assert.Equal("region", info.CompressionSegmentBy[0]);
+        Assert.Equal("region", Assert.Single(info.CompressionSegmentBy));
 
-        Assert.Single(info.CompressionOrderBy);
-        Assert.Contains("ts", info.CompressionOrderBy[0]);
-        Assert.Contains("DESC", info.CompressionOrderBy[0]);
+        string orderByEntry = Assert.Single(info.CompressionOrderBy);
+        Assert.Contains("ts", orderByEntry);
+        Assert.Contains("DESC", orderByEntry);
     }
 
     #endregion
@@ -330,8 +326,7 @@ public class LegacyCompressionScaffoldingExtractorTests : IAsyncLifetime
             (HypertableScaffoldingExtractor.HypertableInfo)result[("public", "legacy_ht_with_cagg")];
 
         Assert.True(info.CompressionEnabled);
-        Assert.Single(info.CompressionSegmentBy);
-        Assert.Equal("region", info.CompressionSegmentBy[0]);
+        Assert.Equal("region", Assert.Single(info.CompressionSegmentBy));
     }
 
     #endregion
