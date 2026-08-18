@@ -34,6 +34,8 @@ public class HypertableIntegrationTests : MigrationTestBase, IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
+
         if (_container != null)
         {
             await _container.DisposeAsync();

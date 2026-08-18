@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features
@@ -7,7 +7,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features
     /// Defines a contract for a component that can detect differences for a specific 
     /// TimescaleDB feature between two model states.
     /// </summary>
-    public interface IFeatureDiffer
+    internal interface IFeatureDiffer
     {
         /// <summary>
         /// Gets the migration operations needed to transition from the source to the target model.

@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -9,7 +9,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Migrations;
 namespace CmdScale.EntityFrameworkCore.TimescaleDB
 {
 #pragma warning disable EF1001
-    public class TimescaleDbMigrationsSqlGenerator(
+    internal class TimescaleDbMigrationsSqlGenerator(
         MigrationsSqlGeneratorDependencies dependencies,
         INpgsqlSingletonOptions npgsqlSingletonOptions,
         TimescaleDbOptions? timescaleDbOptions = null) : NpgsqlMigrationsSqlGenerator(dependencies, npgsqlSingletonOptions)

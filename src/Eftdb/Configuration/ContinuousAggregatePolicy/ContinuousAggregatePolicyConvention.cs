@@ -15,7 +15,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
     /// This convention processes the [ContinuousAggregatePolicy] attribute and converts it to entity type annotations
     /// that will be used during migration generation to create the add_continuous_aggregate_policy() call.
     /// </remarks>
-    public class ContinuousAggregatePolicyConvention : IEntityTypeAddedConvention
+    internal class ContinuousAggregatePolicyConvention : IEntityTypeAddedConvention
     {
         /// <summary>
         /// Called when an entity type is added to the model.

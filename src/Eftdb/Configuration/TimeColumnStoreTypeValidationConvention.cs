@@ -12,7 +12,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
     /// so that custom mappings (such as the Npgsql NodaTime plugin) work, and correctness is enforced 
     /// here against the resolved store type.
     /// </summary>
-    public class TimeColumnStoreTypeValidationConvention : IModelFinalizedConvention
+    internal class TimeColumnStoreTypeValidationConvention : IModelFinalizedConvention
     {
         /// <summary>
         /// Called once the model has been finalized and relational type mappings are resolved.

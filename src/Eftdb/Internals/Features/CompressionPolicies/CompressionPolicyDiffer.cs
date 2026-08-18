@@ -15,7 +15,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Compressio
     /// policies that a future TimescaleDB version might generate) are invisible to this differ and
     /// never produce spurious migration operations.
     /// </remarks>
-    public class CompressionPolicyDiffer : IFeatureDiffer
+    internal class CompressionPolicyDiffer : IFeatureDiffer
     {
         public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
         {

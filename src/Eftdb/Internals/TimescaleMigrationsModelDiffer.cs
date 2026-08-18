@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.CompressionPolicies;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregatePolicies;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates;
@@ -16,7 +16,7 @@ using Microsoft.EntityFrameworkCore.Update.Internal;
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
 {
 #pragma warning disable EF1001 // Suppress warning about internal APIs usage, common for providers/extensions
-    public class TimescaleMigrationsModelDiffer(
+    internal class TimescaleMigrationsModelDiffer(
         IRelationalTypeMappingSource typeMappingSource,
         IMigrationsAnnotationProvider migrationsAnnotationProvider,
         IRelationalAnnotationProvider relationalAnnotationProvider,

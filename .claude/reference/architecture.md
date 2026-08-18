@@ -35,7 +35,12 @@ src/Eftdb.Design/
                                   {Feature}AnnotationApplier
 ```
 
-All per-feature Design types are `internal` (tests reach them via `InternalsVisibleTo`). The Design package's public surface is only the pipeline entry types (`TimescaleDBDesignTimeServices`, `TimescaleDatabaseModelFactory`, `TimescaleDbCodeGenerator`, `TimescaleCSharpMigrationOperationGenerator`, and the `Generators/Timescale*` classes) — keep new feature types internal.
+### Visibility Policy
+
+Implementation types are `internal` in both packages (tests reach them via `InternalsVisibleTo`); keep new ones internal:
+
+- **Runtime public surface** = the consumer contract only: attributes, type builders + string builders, `OrderBy*`/`SparseIndex*` fluent types, `Abstractions/`, `EF.Functions` extensions, bulk copy, `UseTimescaleDb()`/`TimescaleDbOptions`, `MigrationExtensions`, `Operations` (appear in `OperationBuilder<T>` signatures), plus `{Feature}Annotations` and `DefaultValues` (kept public so consumers can read config off a built model). Differs, model extractors, SQL generators, conventions, `SqlBuilderHelper`, `PolicyJobSqlBuilder`, and the `Timescale*` differ/SQL-generator/convention-plugin classes are internal.
+- **Design public surface** = only the pipeline entry types (`TimescaleDBDesignTimeServices`, `TimescaleDatabaseModelFactory`, `TimescaleDbCodeGenerator`, `TimescaleCSharpMigrationOperationGenerator`, and the `Generators/Timescale*` classes). All per-feature Design types are internal.
 
 Hypertable extras: `DimensionAttribute`, `SparseIndex` + `SparseIndexAttribute` + `SparseIndexValidationConvention` (validates bloom/minmax arity, segmentby/orderby prerequisites, duplicates at model finalization). ContinuousAggregate extras: property-level `TimeBucketAttribute`, `AggregateAttribute`, `GroupByColumnAttribute`; generic `ContinuousAggregateBuilder<TEntity, TSource>`.
 

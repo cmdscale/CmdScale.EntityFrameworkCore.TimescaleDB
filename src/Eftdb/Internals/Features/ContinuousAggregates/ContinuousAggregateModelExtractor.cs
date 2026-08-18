@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates
 {
-    public class ContinuousAggregateModelExtractor
+    internal class ContinuousAggregateModelExtractor
     {
         public static IEnumerable<CreateContinuousAggregateOperation> GetContinuousAggregates(IRelationalModel? relationalModel)
         {

@@ -10,7 +10,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features
     /// missing schemas to <see cref="DefaultValues.DefaultSchema"/> before building or querying the maps,
     /// matching how the model extractors normalize <c>GetSchema()</c>.
     /// </remarks>
-    public sealed class FeatureDiffContext
+    internal sealed class FeatureDiffContext
     {
         /// <summary>Maps a source object's <c>(schema, oldTableName)</c> to its <c>(schema, newTableName)</c>.</summary>
         public IReadOnlyDictionary<(string Schema, string Name), (string Schema, string Name)> TableRenames { get; init; }

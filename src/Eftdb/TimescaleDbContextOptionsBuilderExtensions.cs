@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
@@ -121,7 +121,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             }
         }
 
-        public class TimescaleDbConventionSetPlugin : IConventionSetPlugin
+        internal class TimescaleDbConventionSetPlugin : IConventionSetPlugin
         {
             public ConventionSet ModifyConventions(ConventionSet conventionSet)
             {

@@ -12,7 +12,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
     /// <c>OnModelCreating</c> is visible — unlike <see cref="IEntityTypeAddedConvention"/>, which fires
     /// before <c>OnModelCreating</c> executes.
     /// </summary>
-    public class CompressionPolicyPrerequisiteValidationConvention : IModelFinalizedConvention
+    internal class CompressionPolicyPrerequisiteValidationConvention : IModelFinalizedConvention
     {
         /// <summary>
         /// Called once the model has been finalized and all conventions have run.

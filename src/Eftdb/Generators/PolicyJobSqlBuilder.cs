@@ -4,7 +4,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
     /// Builds the SQL shared by TimescaleDB automation policies whose
     /// scheduling is tuned through the common <c>alter_job</c> function.
     /// </summary>
-    public static class PolicyJobSqlBuilder
+    internal static class PolicyJobSqlBuilder
     {
         /// <summary>
         /// Builds alter_job tuning clauses for a newly added policy, including every value

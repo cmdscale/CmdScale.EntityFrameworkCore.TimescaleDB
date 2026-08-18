@@ -11,7 +11,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
     /// A convention that configures an entity as a hypertable based on the presence of
     /// the [Hypertable] attribute.
     /// </summary>
-    public class HypertableConvention : IEntityTypeAddedConvention
+    internal class HypertableConvention : IEntityTypeAddedConvention
     {
         /// <summary>
         /// Called when an entity type is added to the model.

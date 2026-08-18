@@ -23,7 +23,7 @@ Verify the operation classes exist in `Operations/`. If missing, abort: report w
 6. `TimescaleDbMigrationsSqlGenerator.cs` — add a `case` per operation calling the SQL generator; `suppressTransaction = true` for DDL that cannot run in a transaction (e.g. CA creation).
 7. `Design/Features/{Feature}/{Feature}CSharpGenerator.cs` — emit the typed `migrationBuilder.[Method](...)` call (internal class) via `MigrationCallWriter`/`CSharpGeneratorHelper`, one named arg per line, skipping defaults; register the operation type in `TimescaleCSharpMigrationOperationGenerator`.
 
-Both paths (runtime SQL, design-time C#) must be registered — a missing registration is the most common integration bug.
+Both paths (runtime SQL, design-time C#) must be registered — a missing registration is the most common integration bug. Differs, extractors, and both generators are **internal** (see the visibility policy in architecture.md); only the `MigrationExtensions` methods and `Operations` are public.
 
 ## Handoff
 

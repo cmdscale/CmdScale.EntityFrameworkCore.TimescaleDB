@@ -5,7 +5,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
     /// <summary>
     /// Generates SQL for continuous aggregate refresh policy operations.
     /// </summary>
-    public class ContinuousAggregatePolicySqlGenerator
+    internal class ContinuousAggregatePolicySqlGenerator
     {
         /// <summary>
         /// Generates SQL statements for adding a continuous aggregate refresh policy.

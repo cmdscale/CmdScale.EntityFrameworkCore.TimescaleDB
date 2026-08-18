@@ -11,7 +11,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
     /// A convention that configures the retention policy for a hypertable or continuous aggregate
     /// based on the presence of the [RetentionPolicy] attribute.
     /// </summary>
-    public class RetentionPolicyConvention : IEntityTypeAddedConvention
+    internal class RetentionPolicyConvention : IEntityTypeAddedConvention
     {
         /// <summary>
         /// Called when an entity type is added to the model.

@@ -11,7 +11,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
     /// A convention that configures the compression policy for a hypertable or continuous aggregate
     /// based on the presence of the <see cref="CompressionPolicyAttribute"/>.
     /// </summary>
-    public class CompressionPolicyConvention : IEntityTypeAddedConvention
+    internal class CompressionPolicyConvention : IEntityTypeAddedConvention
     {
         /// <summary>
         /// Called when an entity type is added to the model.

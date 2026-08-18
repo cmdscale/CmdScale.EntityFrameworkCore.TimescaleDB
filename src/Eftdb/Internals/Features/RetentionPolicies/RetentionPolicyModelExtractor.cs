@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.RetentionPolicies
 {
-    public static class RetentionPolicyModelExtractor
+    internal static class RetentionPolicyModelExtractor
     {
         public static IEnumerable<AddRetentionPolicyOperation> GetRetentionPolicies(IRelationalModel? relationalModel)
         {

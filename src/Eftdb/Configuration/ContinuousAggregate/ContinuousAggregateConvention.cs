@@ -1,4 +1,4 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -11,7 +11,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
     /// Reads the [ContinuousAggregate], [TimeBucket], and [Aggregate] attributes
     /// to configure an entity as a TimescaleDB continuous aggregate.
     /// </summary>
-    public class ContinuousAggregateConvention : IEntityTypeAddedConvention
+    internal class ContinuousAggregateConvention : IEntityTypeAddedConvention
     {
         public void ProcessEntityTypeAdded(IConventionEntityTypeBuilder entityTypeBuilder, IConventionContext<IConventionEntityTypeBuilder> context)
         {

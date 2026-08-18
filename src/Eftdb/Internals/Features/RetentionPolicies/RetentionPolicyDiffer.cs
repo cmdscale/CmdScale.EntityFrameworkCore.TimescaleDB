@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.RetentionPolicies
 {
-    public class RetentionPolicyDiffer : IFeatureDiffer
+    internal class RetentionPolicyDiffer : IFeatureDiffer
     {
         public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
         {
