@@ -60,6 +60,35 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
         public static string[] ResolveColumns(IEntityType entityType, string? value)
             => [.. SplitColumns(value).Select(column => ResolvePropertyName(entityType, column))];
 
+        /// <summary>
+        /// References a column as <c>nameof(Property)</c> when it resolves to a CLR property on the entity;
+        /// falls back to the raw string for unmapped columns, where a <c>nameof</c> would not compile.
+        /// </summary>
+        public static object ColumnReference(IEntityType entityType, string column, string suffix = "")
+            => TryResolvePropertyName(entityType, column, out string property)
+                ? new NameOfCodeFragment(property, suffix)
+                : suffix.Length == 0 ? column : column + suffix;
+
+        /// <summary>
+        /// Splits a <c>"column [ASC|DESC] [NULLS ...]"</c> entry into a property reference plus literal suffix.
+        /// </summary>
+        public static object OrderByReference(IEntityType entityType, string entry)
+        {
+            int space = entry.IndexOf(' ');
+            return space < 0
+                ? ColumnReference(entityType, entry)
+                : ColumnReference(entityType, entry[..space], entry[space..]);
+        }
+
+        /// <summary>
+        /// Keeps mixed reference arrays as-is so <c>nameof</c> fragments render, and narrows
+        /// all-string arrays to <c>string[]</c> so the base helper emits a plain array literal.
+        /// </summary>
+        public static object ToArgumentArray(object[] entries)
+            => Array.Exists(entries, entry => entry is NameOfCodeFragment)
+                ? entries
+                : Array.ConvertAll(entries, entry => (string)entry);
+
         public static IAnnotation? Find(IDictionary<string, IAnnotation> annotations, string key)
             => annotations.TryGetValue(key, out IAnnotation? annotation) ? annotation : null;
 

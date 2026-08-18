@@ -150,4 +150,100 @@ public class TimescaleCSharpHelperTests
     }
 
     #endregion
+
+    // ── ColumnListCodeFragment ─────────────────────────────────────────────────
+
+    #region UnknownLiteral_ColumnListCodeFragment_SingleNameOf_NoSuffix_RendersAsNameof
+
+    [Fact]
+    public void UnknownLiteral_ColumnListCodeFragment_SingleNameOf_NoSuffix_RendersAsNameof()
+    {
+        // Arrange
+        ColumnListCodeFragment fragment = new([new NameOfCodeFragment("Agg.ServiceName")]);
+
+        // Act
+        string result = _code.UnknownLiteral(fragment);
+
+        // Assert
+        Assert.Equal("nameof(Agg.ServiceName)", result);
+    }
+
+    #endregion
+
+    #region UnknownLiteral_ColumnListCodeFragment_SingleNameOf_WithSuffix_RendersAsInterpolatedString
+
+    [Fact]
+    public void UnknownLiteral_ColumnListCodeFragment_SingleNameOf_WithSuffix_RendersAsInterpolatedString()
+    {
+        // Arrange
+        ColumnListCodeFragment fragment = new([new NameOfCodeFragment("Agg.TimeBucket", " DESC")]);
+
+        // Act
+        string result = _code.UnknownLiteral(fragment);
+
+        // Assert
+        Assert.Equal("$\"{nameof(Agg.TimeBucket)} DESC\"", result);
+    }
+
+    #endregion
+
+    #region UnknownLiteral_ColumnListCodeFragment_MultiNameOf_OneWithSuffix_RendersAsInterpolatedString
+
+    [Fact]
+    public void UnknownLiteral_ColumnListCodeFragment_MultiNameOf_OneWithSuffix_RendersAsInterpolatedString()
+    {
+        // Arrange
+        ColumnListCodeFragment fragment = new([
+            new NameOfCodeFragment("Agg.A"),
+            new NameOfCodeFragment("Agg.B", " DESC"),
+        ]);
+
+        // Act
+        string result = _code.UnknownLiteral(fragment);
+
+        // Assert
+        Assert.Equal("$\"{nameof(Agg.A)}, {nameof(Agg.B)} DESC\"", result);
+    }
+
+    #endregion
+
+    #region UnknownLiteral_ColumnListCodeFragment_MixedNameOfAndRawString_EmbedsRawLiterally
+
+    [Fact]
+    public void UnknownLiteral_ColumnListCodeFragment_MixedNameOfAndRawString_EmbedsRawLiterally()
+    {
+        // Arrange
+        ColumnListCodeFragment fragment = new([
+            new NameOfCodeFragment("Agg.A"),
+            "unmapped_col",
+        ]);
+
+        // Act
+        string result = _code.UnknownLiteral(fragment);
+
+        // Assert
+        Assert.Equal("$\"{nameof(Agg.A)}, unmapped_col\"", result);
+    }
+
+    #endregion
+
+    #region UnknownLiteral_ColumnListCodeFragment_RawEntryWithBracesAndQuotes_IsEscaped
+
+    [Fact]
+    public void UnknownLiteral_ColumnListCodeFragment_RawEntryWithBracesAndQuotes_IsEscaped()
+    {
+        // Arrange
+        ColumnListCodeFragment fragment = new([
+            new NameOfCodeFragment("Agg.A"),
+            "{\"odd\"}",
+        ]);
+
+        // Act
+        string result = _code.UnknownLiteral(fragment);
+
+        // Assert
+        Assert.Equal("$\"{nameof(Agg.A)}, {{\\\"odd\\\"}}\"", result);
+    }
+
+    #endregion
 }

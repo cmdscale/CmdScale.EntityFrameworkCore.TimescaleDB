@@ -296,29 +296,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             }
         }
 
-        /// <summary>
-        /// References a column as <c>nameof(Property)</c> when it resolves to a CLR property on the entity;
-        /// falls back to the raw string for unmapped columns, where a <c>nameof</c> would not compile.
-        /// </summary>
-        private static object ColumnReference(IEntityType entityType, string column, string suffix = "")
-            => TryResolvePropertyName(entityType, column, out string property)
-                ? new NameOfCodeFragment(property, suffix)
-                : suffix.Length == 0 ? column : column + suffix;
-
-        // Splits a "column [ASC|DESC] [NULLS ...]" entry into a property reference plus literal suffix.
-        private static object OrderByReference(IEntityType entityType, string entry)
-        {
-            int space = entry.IndexOf(' ');
-            return space < 0
-                ? ColumnReference(entityType, entry)
-                : ColumnReference(entityType, entry[..space], entry[space..]);
-        }
-
-        private static object ToArgumentArray(object[] entries)
-            => Array.Exists(entries, entry => entry is NameOfCodeFragment)
-                ? entries
-                : Array.ConvertAll(entries, entry => (string)entry);
-
         private static object[] BuildSparseIndexArguments(IEntityType entityType, string raw)
         {
             List<object> selectors = [];
