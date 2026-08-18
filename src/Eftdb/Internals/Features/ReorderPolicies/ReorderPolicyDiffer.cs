@@ -1,10 +1,10 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPolicies
 {
-    public class ReorderPolicyDiffer : IFeatureDiffer
+    internal class ReorderPolicyDiffer : IFeatureDiffer
     {
         public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
         {

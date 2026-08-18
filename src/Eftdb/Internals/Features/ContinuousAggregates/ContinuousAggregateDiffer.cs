@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates
 {
-    public class ContinuousAggregateDiffer : IFeatureDiffer
+    internal class ContinuousAggregateDiffer : IFeatureDiffer
     {
         public IReadOnlyList<MigrationOperation> GetDifferences(IRelationalModel? source, IRelationalModel? target, FeatureDiffContext? context = null)
         {

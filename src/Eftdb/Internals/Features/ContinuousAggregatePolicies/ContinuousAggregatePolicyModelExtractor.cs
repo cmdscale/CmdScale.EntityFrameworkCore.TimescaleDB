@@ -9,7 +9,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
     /// <summary>
     /// Extracts continuous aggregate refresh policy configuration from the EF Core model.
     /// </summary>
-    public class ContinuousAggregatePolicyModelExtractor
+    internal class ContinuousAggregatePolicyModelExtractor
     {
         /// <summary>
         /// Gets all continuous aggregate refresh policy configurations from the given model.

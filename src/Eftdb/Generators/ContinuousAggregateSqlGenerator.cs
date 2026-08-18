@@ -3,7 +3,7 @@ using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    public class ContinuousAggregateSqlGenerator
+    internal class ContinuousAggregateSqlGenerator
     {
         private const string CommunityWarning = "Skipping Community Edition features (compression) - not available in Apache Edition";
         private const string AlterDdl = "ALTER MATERIALIZED VIEW";

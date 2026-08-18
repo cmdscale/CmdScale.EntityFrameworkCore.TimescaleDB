@@ -7,7 +7,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
     /// <c>add_compression_policy</c>/<c>remove_compression_policy</c> forms) for compression policy
     /// migration operations on hypertables and continuous aggregates.
     /// </summary>
-    public static class CompressionPolicySqlGenerator
+    internal static class CompressionPolicySqlGenerator
     {
         public static List<string> Generate(AddCompressionPolicyOperation operation, bool useLegacyCompressionNames = false)
         {

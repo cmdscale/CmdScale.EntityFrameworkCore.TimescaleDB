@@ -1,11 +1,11 @@
-﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPolicies
 {
-    public static class ReorderPolicyModelExtractor
+    internal static class ReorderPolicyModelExtractor
     {
         public static IEnumerable<AddReorderPolicyOperation> GetReorderPolicies(IRelationalModel? relationalModel)
         {

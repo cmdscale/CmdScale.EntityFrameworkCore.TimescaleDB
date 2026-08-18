@@ -1,9 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    public static class SqlBuilderHelper
+    internal static class SqlBuilderHelper
     {
         private static readonly string quoteString = "\"";
 

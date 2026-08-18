@@ -3,7 +3,6 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Infrastructure;

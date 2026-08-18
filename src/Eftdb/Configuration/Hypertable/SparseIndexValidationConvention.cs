@@ -11,7 +11,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable
     /// and <c>compress_orderby</c> configuration. Runs at model finalization so that all fluent API
     /// configuration applied in <c>OnModelCreating</c> is visible.
     /// </summary>
-    public class SparseIndexValidationConvention : IModelFinalizedConvention
+    internal class SparseIndexValidationConvention : IModelFinalizedConvention
     {
         /// <inheritdoc />
         public IModel ProcessModelFinalized(IModel model)

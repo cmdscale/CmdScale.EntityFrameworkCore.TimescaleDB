@@ -5,7 +5,7 @@ using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    public class HypertableSqlGenerator
+    internal class HypertableSqlGenerator
     {
         private const string CommunityWarning = "Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition";
 

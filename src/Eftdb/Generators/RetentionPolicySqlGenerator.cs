@@ -2,7 +2,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    public class RetentionPolicySqlGenerator
+    internal class RetentionPolicySqlGenerator
     {
         private const string ProcName = "policy_retention";
 

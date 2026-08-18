@@ -2,7 +2,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    public class ReorderPolicySqlGenerator
+    internal class ReorderPolicySqlGenerator
     {
         private const string ProcName = "policy_reorder";
 

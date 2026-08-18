@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using System.Reflection;
@@ -11,7 +11,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy
     /// A convention that configures the reorder policy for a hypertable based on the presence of
     /// the [ReorderPolicy] attribute.
     /// </summary>
-    public class ReorderPolicyConvention : IEntityTypeAddedConvention
+    internal class ReorderPolicyConvention : IEntityTypeAddedConvention
     {
         /// <summary>
         /// Called when an entity type is added to the model.

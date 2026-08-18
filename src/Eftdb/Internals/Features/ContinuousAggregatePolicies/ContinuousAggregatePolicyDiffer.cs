@@ -7,7 +7,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
     /// <summary>
     /// Detects differences in continuous aggregate refresh policy configurations between model snapshots.
     /// </summary>
-    public class ContinuousAggregatePolicyDiffer : IFeatureDiffer
+    internal class ContinuousAggregatePolicyDiffer : IFeatureDiffer
     {
         /// <summary>
         /// Gets the migration operations needed to transition continuous aggregate refresh policies from the source to the target model.

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.CompressionPolicies
 {
-    public static class CompressionPolicyModelExtractor
+    internal static class CompressionPolicyModelExtractor
     {
         /// <summary>
         /// Pairs a compression policy operation with the chunk time interval of its owning hypertable,
