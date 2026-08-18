@@ -19,6 +19,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared
         public DbSet<ApiRequestLog> ApiRequestLogs { get; set; }
         public DbSet<ApiRequestAggregate> ApiRequestAggregates { get; set; }
         public DbSet<MetricSnapshot> MetricSnapshots { get; set; }
+        public DbSet<ChannelizedSensorReading> ChannelizedSensorReadings { get; set; }
+        public DbSet<HourlySensorAggregate> HourlySensorAggregates { get; set; }
+        public DbSet<StationReading> StationReadings { get; set; }
+        public DbSet<HourlyStationAggregate> HourlyStationAggregates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

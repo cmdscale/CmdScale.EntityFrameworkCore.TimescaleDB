@@ -153,7 +153,8 @@ Quick reference for locating key files in the CmdScale.EntityFrameworkCore.Times
 | `Configuration/ConventionValidationHelper.cs` | Shared validation helpers for conventions: `ValidateExclusiveFields` (XOR guard) and `ParseInitialStart` (DateTime parse with error context) |
 | `Configuration/TimeColumnStoreTypeValidationConvention.cs` | Model-finalized validation of hypertable & continuous-aggregate time-column store types |
 | `Internals/TimeColumnStoreTypeValidator.cs` | Allowed PostgreSQL store types for a TimescaleDB time dimension |
-| `Internals/ExpressionHelper.cs` | Shared helper consolidating CLR property-name extraction from lambda expressions |
+| `Internals/ExpressionHelper.cs` | Shared helper: `GetPropertyName<T,TProperty>(Expression)` extracts CLR property names from selector lambdas; chained member access (e.g. `x => x.Param1.Value`) yields dot-separated paths that `ColumnNameResolver` traverses |
+| `Internals/ColumnNameResolver.cs` | Single resolution authority: `Resolve` (→ column name) and `ResolveProperty` (→ `IProperty`) accept a CLR property name, a dot-separated complex-type path, or the database column name; recursive complex-type traversal in both directions; complex collections are skipped |
 | `DefaultValues.cs` | Centralized defaults |
 | `TimescaleDbOptions.cs` | Provider options: `UseLegacyCompressionSql()` for pre-2.18 compatibility |
 | `Abstractions/Dimension.cs` | Range/hash partitioning |

@@ -44,7 +44,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
                 return;
             }
 
-            IProperty? property = ResolveProperty(entityType, timeColumnName);
+            IProperty? property = ColumnNameResolver.ResolveProperty(entityType, timeColumnName, GetStoreObjectIdentifier(entityType));
             if (property == null)
             {
                 // Unresolvable column names are left to the model extractor, which skips them; this keeps
@@ -92,7 +92,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
                 return;
             }
 
-            IProperty? property = ResolveProperty(parentEntityType, sourceColumnName);
+            IProperty? property = ColumnNameResolver.ResolveProperty(parentEntityType, sourceColumnName, GetStoreObjectIdentifier(parentEntityType));
             if (property == null)
             {
                 return;
@@ -122,24 +122,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
             {
                 throw new InvalidOperationException($"The time column '{columnModelName}' on {owner} maps to PostgreSQL type '{storeType}', which is not a valid TimescaleDB time dimension.");
             }
-        }
-
-        private static IProperty? ResolveProperty(IEntityType entityType, string nameOrColumn)
-        {
-            IProperty? direct = entityType.FindProperty(nameOrColumn);
-            if (direct != null)
-            {
-                return direct;
-            }
-
-            StoreObjectIdentifier? storeIdentifier = GetStoreObjectIdentifier(entityType);
-            if (storeIdentifier == null)
-            {
-                return null;
-            }
-
-            return entityType.GetProperties()
-                .FirstOrDefault(p => string.Equals(p.GetColumnName(storeIdentifier.Value), nameOrColumn, StringComparison.Ordinal));
         }
 
         private static StoreObjectIdentifier? GetStoreObjectIdentifier(IEntityType entityType)
