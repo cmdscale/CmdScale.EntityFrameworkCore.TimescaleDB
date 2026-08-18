@@ -29,10 +29,13 @@ src/Eftdb/
   Operations/                     Create|Add / Alter / Drop|Remove {Feature}Operation
 
 src/Eftdb.Design/
-  Generators/                     {Feature}CSharpGenerator  (typed migration calls)
-  Generators/AnnotationRenderers/ {Feature}AnnotationRenderer  (scaffold → fluent API / attributes)
-  Scaffolding/                    {Feature}ScaffoldingExtractor, {Feature}AnnotationApplier
+  Features/{Feature}/             {Feature}CSharpGenerator      (typed migration calls),
+                                  {Feature}AnnotationRenderer   (scaffold → fluent API / attributes),
+                                  {Feature}ScaffoldingExtractor (+ {Feature}Info record),
+                                  {Feature}AnnotationApplier
 ```
+
+All per-feature Design types are `internal` (tests reach them via `InternalsVisibleTo`). The Design package's public surface is only the pipeline entry types (`TimescaleDBDesignTimeServices`, `TimescaleDatabaseModelFactory`, `TimescaleDbCodeGenerator`, `TimescaleCSharpMigrationOperationGenerator`, and the `Generators/Timescale*` classes) — keep new feature types internal.
 
 Hypertable extras: `DimensionAttribute`, `SparseIndex` + `SparseIndexAttribute` + `SparseIndexValidationConvention` (validates bloom/minmax arity, segmentby/orderby prerequisites, duplicates at model finalization). ContinuousAggregate extras: property-level `TimeBucketAttribute`, `AggregateAttribute`, `GroupByColumnAttribute`; generic `ContinuousAggregateBuilder<TEntity, TSource>`.
 
@@ -65,9 +68,9 @@ Design (`src/Eftdb.Design/`):
 - `TimescaleDBDesignTimeServices` — registers `TimescaleCSharpMigrationOperationGenerator`, `TimescaleDatabaseModelFactory`, `TimescaleDbAnnotationCodeGenerator`, `TimescaleModelCodeGeneratorSelector`
 - `Generators/MigrationCallWriter`, `Generators/CSharpGeneratorHelper` — emit `.Method(arg: value, …)` calls, collection-expression/static-call literals
 - `Generators/TimescaleCSharpHelper` — extends `UnknownLiteral` for `NameOfCodeFragment`, `SparseIndexSelectorCodeFragment` (→ `s => s.Bloom(...)`), `ColumnListCodeFragment` (→ `nameof(...)` or constant interpolated string), mixed `object?[]` arrays
-- `Generators/AnnotationRenderers/AnnotationRendererHelper` — `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName`, `ResolveColumns`, `ColumnReference`, `OrderByReference`, `ToArgumentArray`
-- `Generators/AnnotationRenderers/PolicyJobRendererHelper` — optional policy-job argument rendering shared by all policy renderers
-- Code fragments: `NameOfCodeFragment` (`nameof(X)` / `$"{nameof(X)} DESC"`), `SparseIndexSelectorCodeFragment`, `ColumnListCodeFragment`
+- `Generators/AnnotationRendererHelper` — `Find`, `GetString`, `SplitColumns`, `Consume`, `ResolvePropertyName`, `TryResolvePropertyName`, `ResolveColumns`, `ColumnReference`, `OrderByReference`, `ToArgumentArray`
+- `Generators/PolicyJobRendererHelper` — optional policy-job argument rendering shared by all policy renderers
+- `Generators/IFeatureAnnotationRenderer` + code fragments `NameOfCodeFragment` (`nameof(X)` / `$"{nameof(X)} DESC"`), `SparseIndexSelectorCodeFragment`, `ColumnListCodeFragment`
 - `Scaffolding/ScaffoldingExtractorHelper` — `UsingConnection` execute-around, `ViewExists`, `TimescaleInternalSchemaExclusion`
 - `Scaffolding/IntervalParsingHelper` — `NormalizeInterval` (`"01:00:00"` → `"1 hour"`); **all interval reads must be normalized** to avoid phantom migrations
 - `Scaffolding/ViewDefinitionParser` — best-effort cached parse of CA view SQL (time bucket, aggregates, GROUP BY, WHERE)

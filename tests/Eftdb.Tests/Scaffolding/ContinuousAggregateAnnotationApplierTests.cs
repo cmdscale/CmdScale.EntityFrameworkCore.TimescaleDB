@@ -1,7 +1,8 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
-using static CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding.ContinuousAggregateScaffoldingExtractor;
+using static CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAggregate.ContinuousAggregateScaffoldingExtractor;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Scaffolding;
 

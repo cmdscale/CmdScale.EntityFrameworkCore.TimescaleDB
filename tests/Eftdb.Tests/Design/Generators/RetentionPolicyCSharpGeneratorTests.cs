@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.RetentionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;

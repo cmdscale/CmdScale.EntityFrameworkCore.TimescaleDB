@@ -5,7 +5,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
     /// <summary>
     /// Interface for applying TimescaleDB feature annotations to scaffolded database tables.
     /// </summary>
-    public interface IAnnotationApplier
+    internal interface IAnnotationApplier
     {
         /// <summary>
         /// Applies annotations to the database table based on the feature metadata.

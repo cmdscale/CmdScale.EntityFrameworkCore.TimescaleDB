@@ -1,7 +1,8 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
-using static CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding.HypertableScaffoldingExtractor;
+using static CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.Hypertable.HypertableScaffoldingExtractor;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Scaffolding;
 

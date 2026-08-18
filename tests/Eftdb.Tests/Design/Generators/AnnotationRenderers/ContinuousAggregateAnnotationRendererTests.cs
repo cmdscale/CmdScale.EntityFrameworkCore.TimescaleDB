@@ -1,10 +1,11 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAggregate;
 #pragma warning disable EF1001 // IOperationReporter and AnnotationCodeGeneratorDependencies are design-time internals.
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationRenderers;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Design.Internal;
@@ -1152,7 +1153,7 @@ public class ContinuousAggregateAnnotationRendererTests
         // Assert
         MethodCallCodeFragment root = Assert.Single(result, f => f.Method == "IsContinuousAggregate");
 
-        Assert.IsType<CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationRenderers.NameOfCodeFragment>(root.Arguments[1]);
+        Assert.IsType<CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.NameOfCodeFragment>(root.Arguments[1]);
     }
 
     #endregion
