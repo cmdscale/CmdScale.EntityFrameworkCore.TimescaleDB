@@ -8,7 +8,7 @@
 
 ## Type of Change
 
-- [ ] Bug fix (non-breaking change adressing an issue)
+- [ ] Bug fix (non-breaking change addressing an issue)
 - [ ] New feature (non-breaking change adding functionality)
 - [ ] Refactoring
 - [ ] Documentation
