@@ -1,3 +1,6 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.RetentionPolicy;
 #pragma warning disable EF1001 // IOperationReporter and AnnotationCodeGeneratorDependencies are design-time internals.
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;

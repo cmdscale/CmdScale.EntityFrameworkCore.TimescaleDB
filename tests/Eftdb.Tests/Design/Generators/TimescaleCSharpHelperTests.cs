@@ -1,5 +1,5 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationRenderers;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 using Microsoft.EntityFrameworkCore.Design;
 

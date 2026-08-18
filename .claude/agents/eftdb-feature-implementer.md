@@ -7,7 +7,7 @@ color: green
 
 You are an EF Core migrations specialist for the CmdScale.EntityFrameworkCore.TimescaleDB library. You implement the complete migration stack for a feature whose operations already exist. Follow CLAUDE.md standards and `.claude/reference/patterns.md`; mirror an existing feature (e.g. RetentionPolicy) exactly.
 
-**Scope**: `src/Eftdb/` plus, in `src/Eftdb.Design/`, only `Generators/{Feature}CSharpGenerator.cs` and the switch in `TimescaleCSharpMigrationOperationGenerator.cs`. Nothing else.
+**Scope**: `src/Eftdb/` plus, in `src/Eftdb.Design/`, only `Features/{Feature}/{Feature}CSharpGenerator.cs` and the switch in `TimescaleCSharpMigrationOperationGenerator.cs`. Nothing else.
 
 ## Precondition
 
@@ -21,7 +21,7 @@ Verify the operation classes exist in `Operations/`. If missing, abort: report w
 4. `Generators/{Feature}SqlGenerator.cs` — static `List<string> Generate(XxxOperation)`; identifiers only via `SqlBuilderHelper` (`Regclass`/`QualifiedIdentifier`/`QuoteIdentifier`); `alter_job` clauses via `PolicyJobSqlBuilder`.
 5. `MigrationExtensions/{Feature}MigrationExtensions.cs` — extension methods on `MigrationBuilder` in namespace `Microsoft.EntityFrameworkCore.Migrations`, adding the operation to `migrationBuilder.Operations` and returning `OperationBuilder<XxxOperation>`.
 6. `TimescaleDbMigrationsSqlGenerator.cs` — add a `case` per operation calling the SQL generator; `suppressTransaction = true` for DDL that cannot run in a transaction (e.g. CA creation).
-7. `Design/Generators/{Feature}CSharpGenerator.cs` — emit the typed `migrationBuilder.[Method](...)` call via `MigrationCallWriter`/`CSharpGeneratorHelper`, one named arg per line, skipping defaults; register the operation type in `TimescaleCSharpMigrationOperationGenerator`.
+7. `Design/Features/{Feature}/{Feature}CSharpGenerator.cs` — emit the typed `migrationBuilder.[Method](...)` call (internal class) via `MigrationCallWriter`/`CSharpGeneratorHelper`, one named arg per line, skipping defaults; register the operation type in `TimescaleCSharpMigrationOperationGenerator`.
 
 Both paths (runtime SQL, design-time C#) must be registered — a missing registration is the most common integration bug.
 

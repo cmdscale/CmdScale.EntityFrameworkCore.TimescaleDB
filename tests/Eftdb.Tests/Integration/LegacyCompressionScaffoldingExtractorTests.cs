@@ -1,3 +1,5 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using Npgsql;
 using Testcontainers.PostgreSql;

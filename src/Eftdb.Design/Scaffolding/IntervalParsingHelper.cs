@@ -6,7 +6,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
     /// <summary>
     /// Provides helper methods for parsing and normalizing TimescaleDB interval values.
     /// </summary>
-    public static partial class IntervalParsingHelper
+    internal static partial class IntervalParsingHelper
     {
         private const long MicrosecondsPerSecond = 1_000_000L;
 

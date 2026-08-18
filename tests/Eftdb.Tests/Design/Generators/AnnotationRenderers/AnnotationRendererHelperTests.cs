@@ -1,4 +1,4 @@
-using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationRenderers;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
