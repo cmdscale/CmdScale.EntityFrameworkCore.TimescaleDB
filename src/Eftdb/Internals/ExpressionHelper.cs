@@ -8,23 +8,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
     internal static class ExpressionHelper
     {
         /// <summary>
-        /// Extracts the property name from a simple property access expression,
-        /// unwrapping boxing conversions produced by <c>object</c>-typed selectors.
+        /// Extracts the property name from a property access expression, unwrapping boxing
+        /// conversions produced by <c>object</c>-typed selectors. A chained access through
+        /// complex-type members (e.g. <c>x => x.Param1.Value</c>) yields a dot-separated
+        /// path (<c>"Param1.Value"</c>) that <see cref="ColumnNameResolver"/> traverses.
         /// </summary>
-        /// <exception cref="ArgumentException">Thrown when the expression is not a simple property access.</exception>
+        /// <exception cref="ArgumentException">Thrown when the expression is not a property access rooted in the lambda parameter.</exception>
         internal static string GetPropertyName<T, TProperty>(Expression<Func<T, TProperty>> propertyExpression)
         {
-            if (propertyExpression.Body is MemberExpression memberExpression)
+            Expression? body = propertyExpression.Body;
+            if (body is UnaryExpression unaryExpression)
             {
-                return memberExpression.Member.Name;
+                body = unaryExpression.Operand;
             }
 
-            if (propertyExpression.Body is UnaryExpression unaryExpression && unaryExpression.Operand is MemberExpression unaryMemberExpression)
+            List<string> segments = [];
+            while (body is MemberExpression memberExpression)
             {
-                return unaryMemberExpression.Member.Name;
+                segments.Add(memberExpression.Member.Name);
+                body = memberExpression.Expression;
             }
 
-            throw new ArgumentException("Expression must be a simple property access expression.", nameof(propertyExpression));
+            if (segments.Count == 0 || body is not ParameterExpression)
+            {
+                throw new ArgumentException("Expression must be a simple property access expression.", nameof(propertyExpression));
+            }
+
+            segments.Reverse();
+            return string.Join('.', segments);
         }
     }
 }

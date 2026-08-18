@@ -6,6 +6,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Extractors;
 
@@ -2623,6 +2624,288 @@ public class ContinuousAggregateModelExtractorTests
         // Assert
         CreateContinuousAggregateOperation operation = Assert.Single(operations);
         Assert.Equal("custom_schema", operation.Schema);
+    }
+
+    #endregion
+
+    // ── Complex-type support ──
+
+    #region Should_Resolve_AggregateFunction_Source_Column_Inside_ComplexType
+
+    [ComplexType]
+    private class ComplexMeasurement1
+    {
+        public double Value { get; set; }
+    }
+
+    private class ComplexAggSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public ComplexMeasurement1 Param1 { get; set; } = new();
+    }
+
+    private class ComplexAggHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ComplexAggFunctionContext : DbContext
+    {
+        public DbSet<ComplexAggSourceMetric> Metrics => Set<ComplexAggSourceMetric>();
+        public DbSet<ComplexAggHourlyMetric> HourlyMetrics => Set<ComplexAggHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexAggSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_agg_src_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ComplexAggHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<ComplexAggHourlyMetric, ComplexAggSourceMetric>(
+                    "complex_agg_hourly",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(
+                    x => x.AvgValue,
+                    x => x.Param1.Value,
+                    EAggregateFunction.Avg
+                );
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_AggregateFunction_Source_Column_Inside_ComplexType()
+    {
+        // Arrange
+        using ComplexAggFunctionContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("AvgValue:Avg:Param1_Value", operation.AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Resolve_AggregateFunction_Source_Column_Inside_ComplexType_Under_SnakeCase
+
+    [ComplexType]
+    private class ComplexMeasurement2
+    {
+        public double SensorValue { get; set; }
+    }
+
+    private class ComplexAggSnakeSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public ComplexMeasurement2 Param1 { get; set; } = new();
+    }
+
+    private class ComplexAggSnakeHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgSensorValue { get; set; }
+    }
+
+    private class ComplexAggSnakeCaseContext : DbContext
+    {
+        public DbSet<ComplexAggSnakeSourceMetric> Metrics => Set<ComplexAggSnakeSourceMetric>();
+        public DbSet<ComplexAggSnakeHourlyMetric> HourlyMetrics => Set<ComplexAggSnakeHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseSnakeCaseNamingConvention()
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexAggSnakeSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_agg_snake_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ComplexAggSnakeHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<ComplexAggSnakeHourlyMetric, ComplexAggSnakeSourceMetric>(
+                    "complex_agg_snake_hourly",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(
+                    x => x.AvgSensorValue,
+                    x => x.Param1.SensorValue,
+                    EAggregateFunction.Avg
+                );
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_AggregateFunction_Source_Column_Inside_ComplexType_Under_SnakeCase()
+    {
+        // Arrange
+        using ComplexAggSnakeCaseContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.AggregateFunctions);
+        Assert.Equal("avg_sensor_value:Avg:param1_sensor_value", operation.AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Resolve_GroupBy_On_ComplexType_Member
+
+    [ComplexType]
+    private class ComplexMeasurement3
+    {
+        public string DeviceId { get; set; } = string.Empty;
+    }
+
+    private class ComplexGroupBySourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public ComplexMeasurement3 Param1 { get; set; } = new();
+        public double Value { get; set; }
+    }
+
+    private class ComplexGroupByHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+        public string DeviceId { get; set; } = string.Empty;
+    }
+
+    private class ComplexGroupByContext : DbContext
+    {
+        public DbSet<ComplexGroupBySourceMetric> Metrics => Set<ComplexGroupBySourceMetric>();
+        public DbSet<ComplexGroupByHourlyMetric> HourlyMetrics => Set<ComplexGroupByHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexGroupBySourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_grp_by_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ComplexGroupByHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<ComplexGroupByHourlyMetric, ComplexGroupBySourceMetric>(
+                    "complex_grp_by_hourly",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddGroupByColumn(x => x.Param1.DeviceId);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_GroupBy_On_ComplexType_Member()
+    {
+        // Arrange
+        using ComplexGroupByContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Single(operation.GroupByColumns);
+        Assert.Equal("Param1_DeviceId", operation.GroupByColumns[0]);
+    }
+
+    #endregion
+
+    #region Should_Resolve_TimeBucket_Source_Inside_ComplexType
+
+    [ComplexType]
+    private class ComplexMeasurement4
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class ComplexTimeBucketSourceMetric
+    {
+        public double Value { get; set; }
+        public ComplexMeasurement4 Meta { get; set; } = new();
+    }
+
+    private class ComplexTimeBucketHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class ComplexTimeBucketContext : DbContext
+    {
+        public DbSet<ComplexTimeBucketSourceMetric> Metrics => Set<ComplexTimeBucketSourceMetric>();
+        public DbSet<ComplexTimeBucketHourlyMetric> HourlyMetrics => Set<ComplexTimeBucketHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexTimeBucketSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_tb_src_metrics");
+                entity.IsHypertable<ComplexTimeBucketSourceMetric, DateTime>(x => x.Meta.Timestamp);
+            });
+
+            modelBuilder.Entity<ComplexTimeBucketHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<ComplexTimeBucketHourlyMetric, ComplexTimeBucketSourceMetric, DateTime>(
+                    "complex_tb_hourly",
+                    "1 hour",
+                    x => x.Meta.Timestamp
+                );
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_TimeBucket_Source_Inside_ComplexType()
+    {
+        // Arrange
+        using ComplexTimeBucketContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        // Assert
+        CreateContinuousAggregateOperation operation = Assert.Single(operations);
+        Assert.Equal("Meta_Timestamp", operation.TimeBucketSourceColumn);
     }
 
     #endregion

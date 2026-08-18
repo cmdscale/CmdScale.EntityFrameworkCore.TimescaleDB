@@ -165,31 +165,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
         /// </summary>
         internal static string ResolveColumnName(IEntityType entityType, StoreObjectIdentifier storeIdentifier, string propertyName)
         {
-            string? exact = entityType.FindProperty(propertyName)?.GetColumnName(storeIdentifier);
-            if (!string.IsNullOrEmpty(exact))
-            {
-                return exact;
-            }
-
-            foreach (IProperty property in entityType.GetProperties())
-            {
-                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
-                {
-                    string? resolved = property.GetColumnName(storeIdentifier);
-                    if (!string.IsNullOrEmpty(resolved))
-                    {
-                        return resolved;
-                    }
-                }
-
-                string? columnName = property.GetColumnName(storeIdentifier);
-                if (string.Equals(columnName, propertyName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return columnName!;
-                }
-            }
-
-            return propertyName;
+            IProperty? property = ColumnNameResolver.ResolveProperty(entityType, propertyName, storeIdentifier, ignoreCase: true);
+            string? resolved = property?.GetColumnName(storeIdentifier);
+            return string.IsNullOrEmpty(resolved) ? propertyName : resolved;
         }
     }
 }

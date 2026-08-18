@@ -5,6 +5,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Extractors;
@@ -1551,6 +1552,326 @@ public class HypertableModelExtractorTests
 
         // Assert
         Assert.Empty(operations);
+    }
+
+    #endregion
+
+    // ── Complex-type support ──
+
+    #region Should_Extract_TimeColumn_Inside_ComplexType
+
+    [ComplexType]
+    private class MetaA
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class ComplexTimeMetric
+    {
+        public double Value { get; set; }
+        public MetaA Meta { get; set; } = new();
+    }
+
+    private class ComplexTimeContext : DbContext
+    {
+        public DbSet<ComplexTimeMetric> Metrics => Set<ComplexTimeMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexTimeMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_time_metrics");
+                entity.IsHypertable<ComplexTimeMetric, DateTime>(x => x.Meta.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_TimeColumn_Inside_ComplexType()
+    {
+        // Arrange
+        using ComplexTimeContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.Equal("Meta_Timestamp", operation.TimeColumnName);
+    }
+
+    #endregion
+
+    #region Should_Extract_ChunkSkipColumn_On_ComplexType_Member
+
+    [ComplexType]
+    private class MetaB
+    {
+        public string DeviceId { get; set; } = string.Empty;
+    }
+
+    private class ComplexChunkSkipMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public MetaB Meta { get; set; } = new();
+        public double Value { get; set; }
+    }
+
+    private class ComplexChunkSkipContext : DbContext
+    {
+        public DbSet<ComplexChunkSkipMetric> Metrics => Set<ComplexChunkSkipMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexChunkSkipMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_chunk_skip_metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithChunkSkipping(x => x.Meta.DeviceId);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_ChunkSkipColumn_On_ComplexType_Member()
+    {
+        // Arrange
+        using ComplexChunkSkipContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.ChunkSkipColumns);
+        string column = Assert.Single(operation.ChunkSkipColumns!);
+        Assert.Equal("Meta_DeviceId", column);
+    }
+
+    #endregion
+
+    #region Should_Extract_CompressionSegmentBy_On_ComplexType_Member
+
+    [ComplexType]
+    private class MetaC
+    {
+        public string TenantId { get; set; } = string.Empty;
+    }
+
+    private class ComplexSegmentByMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public MetaC Meta { get; set; } = new();
+        public double Value { get; set; }
+    }
+
+    private class ComplexSegmentByContext : DbContext
+    {
+        public DbSet<ComplexSegmentByMetric> Metrics => Set<ComplexSegmentByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexSegmentByMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_seg_by_metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionSegmentBy(x => x.Meta.TenantId);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_CompressionSegmentBy_On_ComplexType_Member()
+    {
+        // Arrange
+        using ComplexSegmentByContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.CompressionSegmentBy);
+        Assert.Equal("Meta_TenantId", Assert.Single(operation.CompressionSegmentBy));
+        Assert.True(operation.EnableCompression);
+    }
+
+    #endregion
+
+    #region Should_Extract_CompressionOrderBy_On_ComplexType_Member
+
+    [ComplexType]
+    private class MetaD
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class ComplexOrderByMetric
+    {
+        public double Value { get; set; }
+        public MetaD Meta { get; set; } = new();
+    }
+
+    private class ComplexOrderByContext : DbContext
+    {
+        public DbSet<ComplexOrderByMetric> Metrics => Set<ComplexOrderByMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexOrderByMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_order_by_metrics");
+                entity.IsHypertable<ComplexOrderByMetric, DateTime>(x => x.Meta.Timestamp)
+                      .WithCompressionOrderBy(s => [
+                          s.ByDescending(x => x.Meta.Timestamp)
+                      ]);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_CompressionOrderBy_On_ComplexType_Member()
+    {
+        // Arrange
+        using ComplexOrderByContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.NotNull(operation.CompressionOrderBy);
+        Assert.Equal("Meta_Timestamp DESC", Assert.Single(operation.CompressionOrderBy));
+        Assert.True(operation.EnableCompression);
+    }
+
+    #endregion
+
+    #region Should_Extract_SparseIndex_Bloom_On_ComplexType_Member
+
+    [ComplexType]
+    private class MetaE
+    {
+        public string DeviceId { get; set; } = string.Empty;
+    }
+
+    private class ComplexSparseIndexMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public MetaE Meta { get; set; } = new();
+        public double Value { get; set; }
+    }
+
+    private class ComplexSparseIndexContext : DbContext
+    {
+        public DbSet<ComplexSparseIndexMetric> Metrics => Set<ComplexSparseIndexMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexSparseIndexMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_sparse_idx_metrics");
+                entity.IsHypertable(x => x.Timestamp)
+                      .WithCompressionOrderBy(s => [s.ByDescending(x => x.Timestamp)])
+                      .WithSparseIndex(s => s.Bloom(x => x.Meta.DeviceId));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_SparseIndex_Bloom_On_ComplexType_Member()
+    {
+        // Arrange
+        using ComplexSparseIndexContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.Contains("bloom(Meta_DeviceId)", operation.CompressionSparseIndex);
+        Assert.True(operation.EnableCompression);
+    }
+
+    #endregion
+
+    #region Should_Resolve_TimeColumn_Inside_ComplexType_Under_SnakeCase
+
+    [ComplexType]
+    private class MetaF
+    {
+        public DateTime TimestampUtc { get; set; }
+    }
+
+    private class ComplexSnakeTimeMetric
+    {
+        public double Value { get; set; }
+        public MetaF Meta { get; set; } = new();
+    }
+
+    private class ComplexSnakeTimeContext : DbContext
+    {
+        public DbSet<ComplexSnakeTimeMetric> Metrics => Set<ComplexSnakeTimeMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseSnakeCaseNamingConvention()
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ComplexSnakeTimeMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("complex_snake_time_metrics");
+                entity.IsHypertable<ComplexSnakeTimeMetric, DateTime>(x => x.Meta.TimestampUtc);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_TimeColumn_Inside_ComplexType_Under_SnakeCase()
+    {
+        // Arrange
+        using ComplexSnakeTimeContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        // Act
+        List<CreateHypertableOperation> operations = [.. HypertableModelExtractor.GetHypertables(relationalModel)];
+
+        // Assert
+        CreateHypertableOperation operation = Assert.Single(operations);
+        Assert.Equal("meta_timestamp_utc", operation.TimeColumnName);
     }
 
     #endregion

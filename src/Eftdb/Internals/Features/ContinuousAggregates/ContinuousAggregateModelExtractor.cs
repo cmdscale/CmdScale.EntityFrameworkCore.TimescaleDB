@@ -154,7 +154,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 }
 
                 // Resolve alias column name from aggregate entity to respect naming conventions
-                string? aliasDbName = entityType.FindProperty(aliasModelName)?.GetColumnName(aggregateStoreIdentifier);
+                string? aliasDbName = ColumnNameResolver.Resolve(entityType, aliasModelName, aggregateStoreIdentifier);
                 if (string.IsNullOrWhiteSpace(aliasDbName))
                 {
                     aliasDbName = aliasModelName;
@@ -181,7 +181,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             foreach (string modelColumn in modelGroupByColumns)
             {
                 // Try to resolve as a property name from the parent entity
-                string? dbColumnName = parentEntityType.FindProperty(modelColumn)?.GetColumnName(parentStoreIdentifier);
+                string? dbColumnName = ColumnNameResolver.Resolve(parentEntityType, modelColumn, parentStoreIdentifier);
                 groupByColumns.Add(!string.IsNullOrWhiteSpace(dbColumnName) ? dbColumnName : modelColumn);
             }
 

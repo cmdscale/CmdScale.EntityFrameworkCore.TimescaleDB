@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using NodaTime;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Conventions;
 
@@ -737,6 +738,103 @@ public class TimeColumnStoreTypeValidationConventionTests
 
         Assert.Contains("not a valid TimescaleDB time dimension", exception.Message);
         Assert.Contains("boolean", exception.Message);
+    }
+
+    #endregion
+
+    // ── Complex-type support ──
+
+    #region Should_Allow_ComplexType_TimeColumn_With_Valid_DateTime_Store_Type
+
+    [ComplexType]
+    private class ValidComplexMeta
+    {
+        public DateTime Timestamp { get; set; }
+    }
+
+    private class ValidComplexTimeEntity
+    {
+        public double Value { get; set; }
+        public ValidComplexMeta Meta { get; set; } = new();
+    }
+
+    private class ValidComplexTimeContext : DbContext
+    {
+        public DbSet<ValidComplexTimeEntity> Metrics => Set<ValidComplexTimeEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ValidComplexTimeEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("validation_complex_valid_time");
+                entity.IsHypertable<ValidComplexTimeEntity, DateTime>(x => x.Meta.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Allow_ComplexType_TimeColumn_With_Valid_DateTime_Store_Type()
+    {
+        // Arrange & Act
+        using ValidComplexTimeContext context = new();
+        IModel model = GetModel(context);
+        IEntityType entityType = model.FindEntityType(typeof(ValidComplexTimeEntity))!;
+
+        // Assert
+        Assert.Equal(true, entityType.FindAnnotation(HypertableAnnotations.IsHypertable)?.Value);
+    }
+
+    #endregion
+
+    #region Should_Throw_When_ComplexType_TimeColumn_Has_Invalid_Store_Type
+
+    [ComplexType]
+    private class InvalidComplexMeta
+    {
+        public string Tag { get; set; } = string.Empty;
+    }
+
+    private class InvalidComplexTimeEntity
+    {
+        public double Value { get; set; }
+        public InvalidComplexMeta Meta { get; set; } = new();
+    }
+
+    private class InvalidComplexTimeContext : DbContext
+    {
+        public DbSet<InvalidComplexTimeEntity> Metrics => Set<InvalidComplexTimeEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<InvalidComplexTimeEntity>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("validation_complex_invalid_time");
+                entity.IsHypertable<InvalidComplexTimeEntity, string>(x => x.Meta.Tag);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Throw_When_ComplexType_TimeColumn_Has_Invalid_Store_Type()
+    {
+        // Arrange & Act & Assert
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+        {
+            using InvalidComplexTimeContext context = new();
+            IModel model = GetModel(context);
+        });
+
+        Assert.Contains("not a valid TimescaleDB time dimension", exception.Message);
     }
 
     #endregion

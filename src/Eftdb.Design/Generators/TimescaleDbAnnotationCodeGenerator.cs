@@ -218,13 +218,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
         {
             if (columnName == "*") return "*";
             if (parentEntityType is null) return columnName;
-            string parentTableName = parentEntityType.GetTableName() ?? parentEntityType.Name;
-            string? parentSchema = parentEntityType.GetSchema();
-            StoreObjectIdentifier parentStoreId = StoreObjectIdentifier.Table(parentTableName, parentSchema);
-            IProperty? parentProp = parentEntityType.GetProperties()
-                .FirstOrDefault(p => (p.GetColumnName(parentStoreId) ?? p.Name) == columnName);
-            return parentProp is not null
-                ? new NameOfCodeFragment($"{parentEntityType.ShortName()}.{parentProp.Name}")
+            return AnnotationRendererHelper.TryResolvePropertyName(parentEntityType, columnName, out string propertyName)
+                ? new NameOfCodeFragment($"{parentEntityType.ShortName()}.{propertyName}")
                 : (object)columnName;
         }
     }
