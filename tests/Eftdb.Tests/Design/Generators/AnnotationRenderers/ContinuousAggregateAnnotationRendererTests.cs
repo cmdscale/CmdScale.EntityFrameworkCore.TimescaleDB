@@ -4,6 +4,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationRenderers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Design.Internal;
@@ -2911,6 +2912,514 @@ public class ContinuousAggregateAnnotationRendererTests
         Assert.NotNull(caAttr);
         Assert.True(caAttr.NamedArguments.ContainsKey(nameof(ContinuousAggregateAttribute.EnableCompression)));
         Assert.Equal(true, caAttr.NamedArguments[nameof(ContinuousAggregateAttribute.EnableCompression)]);
+    }
+
+    #endregion
+
+    // ── Rename-safe scaffolding of compression settings ────────────────────────
+
+    #region GenerateFluentApiCalls_CompressionSegmentBy_ResolvableColumn_YieldsColumnListCodeFragment
+
+    private class CaCompSegBySourceEntity21
+    {
+        public DateTime Time { get; set; }
+        public string ServiceName { get; set; } = "";
+    }
+
+    private class CaCompSegByCaEntity21
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgDuration { get; set; }
+        public string ServiceName { get; set; } = "";
+    }
+
+    private class CaCompSegByContext21 : DbContext
+    {
+        public DbSet<CaCompSegBySourceEntity21> Sources => Set<CaCompSegBySourceEntity21>();
+        public DbSet<CaCompSegByCaEntity21> Stats => Set<CaCompSegByCaEntity21>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaCompSegBySourceEntity21>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("ca_comp_seg_src21");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.ServiceName).HasColumnName("service_name");
+            });
+            modelBuilder.Entity<CaCompSegByCaEntity21>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("ca_comp_seg_stats21");
+                e.Property(x => x.AvgDuration).HasColumnName("avg_duration");
+                e.Property(x => x.ServiceName).HasColumnName("service_name");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_CompressionSegmentBy_ResolvableColumn_YieldsColumnListCodeFragment()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " avg(s.duration) AS avg_duration, s.service_name AS service_name" +
+            " FROM ca_comp_seg_src21 s GROUP BY time_bucket('01:00:00'::interval, s.\"time\"), s.service_name";
+
+        using CaCompSegByContext21 context = new();
+        IEntityType entityType = GetEntityType<CaCompSegByCaEntity21>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "ca_comp_seg_stats21"),
+            (ContinuousAggregateAnnotations.ParentName, "ca_comp_seg_src21"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (HypertableAnnotations.CompressionSegmentBy, "service_name"));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        MethodCallCodeFragment? segByCall = null;
+        for (MethodCallCodeFragment? cur = root; cur != null; cur = cur.ChainedCall)
+        {
+            if (cur.Method == "WithCompressionSegmentBy") { segByCall = cur; break; }
+        }
+        Assert.NotNull(segByCall);
+        ColumnListCodeFragment columnList = Assert.IsType<ColumnListCodeFragment>(segByCall.Arguments[0]);
+        NameOfCodeFragment entry = Assert.IsType<NameOfCodeFragment>(Assert.Single(columnList.Entries));
+        Assert.Equal("CaCompSegByCaEntity21.ServiceName", entry.PropertyName);
+        Assert.Equal("", entry.Suffix);
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_CompressionOrderBy_ResolvableColumn_YieldsColumnListCodeFragmentWithSuffix
+
+    private class CaCompOrdBySourceEntity22
+    {
+        public DateTime Time { get; set; }
+    }
+
+    private class CaCompOrdByCaEntity22
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgVal { get; set; }
+    }
+
+    private class CaCompOrdByContext22 : DbContext
+    {
+        public DbSet<CaCompOrdBySourceEntity22> Sources => Set<CaCompOrdBySourceEntity22>();
+        public DbSet<CaCompOrdByCaEntity22> Stats => Set<CaCompOrdByCaEntity22>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaCompOrdBySourceEntity22>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("ca_comp_ord_src22");
+                e.Property(x => x.Time).HasColumnName("time");
+            });
+            modelBuilder.Entity<CaCompOrdByCaEntity22>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("ca_comp_ord_stats22");
+                e.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                e.Property(x => x.AvgVal).HasColumnName("avg_val");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_CompressionOrderBy_ResolvableColumn_YieldsColumnListCodeFragmentWithSuffix()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS time_bucket," +
+            " avg(s.val) AS avg_val" +
+            " FROM ca_comp_ord_src22 s GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using CaCompOrdByContext22 context = new();
+        IEntityType entityType = GetEntityType<CaCompOrdByCaEntity22>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "ca_comp_ord_stats22"),
+            (ContinuousAggregateAnnotations.ParentName, "ca_comp_ord_src22"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (HypertableAnnotations.CompressionOrderBy, "time_bucket DESC"));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        MethodCallCodeFragment? ordByCall = null;
+        for (MethodCallCodeFragment? cur = root; cur != null; cur = cur.ChainedCall)
+        {
+            if (cur.Method == "WithCompressionOrderBy") { ordByCall = cur; break; }
+        }
+        Assert.NotNull(ordByCall);
+        ColumnListCodeFragment columnList = Assert.IsType<ColumnListCodeFragment>(ordByCall.Arguments[0]);
+        NameOfCodeFragment entry = Assert.IsType<NameOfCodeFragment>(Assert.Single(columnList.Entries));
+        Assert.Equal("CaCompOrdByCaEntity22.TimeBucket", entry.PropertyName);
+        Assert.Equal(" DESC", entry.Suffix);
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_CompressionSegmentBy_UnresolvableColumn_FallsBackToRawString
+
+    private class CaCompSegByUnresCaEntity23
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgVal { get; set; }
+    }
+
+    private class CaCompSegByUnresContext23 : DbContext
+    {
+        public DbSet<CaCompSegByUnresCaEntity23> Stats => Set<CaCompSegByUnresCaEntity23>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaCompSegByUnresCaEntity23>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("ca_comp_seg_unres_stats23");
+                e.Property(x => x.AvgVal).HasColumnName("avg_val");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_CompressionSegmentBy_UnresolvableColumn_FallsBackToRawString()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket, avg(s.val) AS avg_val" +
+            " FROM ca_comp_seg_unres_src23 s GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using CaCompSegByUnresContext23 context = new();
+        IEntityType entityType = GetEntityType<CaCompSegByUnresCaEntity23>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "ca_comp_seg_unres_stats23"),
+            (ContinuousAggregateAnnotations.ParentName, "ca_comp_seg_unres_src23"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (HypertableAnnotations.CompressionSegmentBy, "unmapped_col"));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        MethodCallCodeFragment? segByCall = null;
+        for (MethodCallCodeFragment? cur = root; cur != null; cur = cur.ChainedCall)
+        {
+            if (cur.Method == "WithCompressionSegmentBy") { segByCall = cur; break; }
+        }
+        Assert.NotNull(segByCall);
+        string rawArg = Assert.IsType<string>(segByCall.Arguments[0]);
+        Assert.Equal("unmapped_col", rawArg);
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_CompressionOrderBy_MixedResolvableAndUnresolvable_YieldsColumnListCodeFragmentWithBothEntries
+
+    private class CaCompMixedSourceEntity24
+    {
+        public DateTime Time { get; set; }
+    }
+
+    private class CaCompMixedCaEntity24
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgVal { get; set; }
+    }
+
+    private class CaCompMixedContext24 : DbContext
+    {
+        public DbSet<CaCompMixedSourceEntity24> Sources => Set<CaCompMixedSourceEntity24>();
+        public DbSet<CaCompMixedCaEntity24> Stats => Set<CaCompMixedCaEntity24>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaCompMixedSourceEntity24>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("ca_comp_mixed_src24");
+                e.Property(x => x.Time).HasColumnName("time");
+            });
+            modelBuilder.Entity<CaCompMixedCaEntity24>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("ca_comp_mixed_stats24");
+                e.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                e.Property(x => x.AvgVal).HasColumnName("avg_val");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_CompressionOrderBy_MixedResolvableAndUnresolvable_YieldsColumnListCodeFragmentWithBothEntries()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS time_bucket," +
+            " avg(s.val) AS avg_val" +
+            " FROM ca_comp_mixed_src24 s GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        using CaCompMixedContext24 context = new();
+        IEntityType entityType = GetEntityType<CaCompMixedCaEntity24>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "ca_comp_mixed_stats24"),
+            (ContinuousAggregateAnnotations.ParentName, "ca_comp_mixed_src24"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (HypertableAnnotations.CompressionOrderBy, "time_bucket DESC, unmapped_col"));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        MethodCallCodeFragment? ordByCall = null;
+        for (MethodCallCodeFragment? cur = root; cur != null; cur = cur.ChainedCall)
+        {
+            if (cur.Method == "WithCompressionOrderBy") { ordByCall = cur; break; }
+        }
+        Assert.NotNull(ordByCall);
+        ColumnListCodeFragment columnList = Assert.IsType<ColumnListCodeFragment>(ordByCall.Arguments[0]);
+        Assert.Equal(2, columnList.Entries.Count);
+        NameOfCodeFragment nameOfEntry = Assert.IsType<NameOfCodeFragment>(columnList.Entries[0]);
+        Assert.Equal("CaCompMixedCaEntity24.TimeBucket", nameOfEntry.PropertyName);
+        Assert.Equal(" DESC", nameOfEntry.Suffix);
+        string rawEntry = Assert.IsType<string>(columnList.Entries[1]);
+        Assert.Equal("unmapped_col", rawEntry);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_CompressionSegmentBy_ResolvableColumn_YieldsBareNameOfInNamedArg
+
+    private class CaCompDaSegBySourceEntity25
+    {
+        public DateTime Time { get; set; }
+        public string ServiceName { get; set; } = "";
+    }
+
+    private class CaCompDaSegByCaEntity25
+    {
+        public DateTime Bucket { get; set; }
+        public string ServiceName { get; set; } = "";
+    }
+
+    private class CaCompDaSegByContext25 : DbContext
+    {
+        public DbSet<CaCompDaSegBySourceEntity25> Sources => Set<CaCompDaSegBySourceEntity25>();
+        public DbSet<CaCompDaSegByCaEntity25> Stats => Set<CaCompDaSegByCaEntity25>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaCompDaSegBySourceEntity25>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("ca_comp_da_seg_src25");
+                e.Property(x => x.Time).HasColumnName("time");
+                e.Property(x => x.ServiceName).HasColumnName("service_name");
+            });
+            modelBuilder.Entity<CaCompDaSegByCaEntity25>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("ca_comp_da_seg_stats25");
+                e.Property(x => x.ServiceName).HasColumnName("service_name");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_CompressionSegmentBy_ResolvableColumn_YieldsBareNameOfInNamedArg()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket," +
+            " s.service_name AS service_name" +
+            " FROM ca_comp_da_seg_src25 s GROUP BY time_bucket('01:00:00'::interval, s.\"time\"), s.service_name";
+
+        TimescaleDbAnnotationCodeGenerator generator = (TimescaleDbAnnotationCodeGenerator)CreateAnnotationCodeGenerator();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        using CaCompDaSegByContext25 context = new();
+        IEntityType entityType = GetEntityType<CaCompDaSegByCaEntity25>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "ca_comp_da_seg_stats25"),
+            (ContinuousAggregateAnnotations.ParentName, "ca_comp_da_seg_src25"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (HypertableAnnotations.CompressionSegmentBy, "service_name"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = generator
+            .GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment? caAttr = result.FirstOrDefault(a => a.Type == typeof(ContinuousAggregateAttribute));
+        Assert.NotNull(caAttr);
+        Assert.True(caAttr.NamedArguments.ContainsKey(nameof(ContinuousAggregateAttribute.CompressionSegmentBy)));
+        object?[] segByArg = Assert.IsType<object[]>(caAttr.NamedArguments[nameof(ContinuousAggregateAttribute.CompressionSegmentBy)]);
+        NameOfCodeFragment nameOf = Assert.IsType<NameOfCodeFragment>(Assert.Single(segByArg));
+        Assert.Equal("ServiceName", nameOf.PropertyName);
+        Assert.Equal("", nameOf.Suffix);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_CompressionOrderBy_ResolvableColumn_YieldsSuffixedNameOfInNamedArg
+
+    private class CaCompDaOrdBySourceEntity26
+    {
+        public DateTime Time { get; set; }
+    }
+
+    private class CaCompDaOrdByCaEntity26
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgVal { get; set; }
+    }
+
+    private class CaCompDaOrdByContext26 : DbContext
+    {
+        public DbSet<CaCompDaOrdBySourceEntity26> Sources => Set<CaCompDaOrdBySourceEntity26>();
+        public DbSet<CaCompDaOrdByCaEntity26> Stats => Set<CaCompDaOrdByCaEntity26>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaCompDaOrdBySourceEntity26>(e =>
+            {
+                e.HasKey(x => x.Time);
+                e.ToTable("ca_comp_da_ord_src26");
+                e.Property(x => x.Time).HasColumnName("time");
+            });
+            modelBuilder.Entity<CaCompDaOrdByCaEntity26>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("ca_comp_da_ord_stats26");
+                e.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                e.Property(x => x.AvgVal).HasColumnName("avg_val");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_CompressionOrderBy_ResolvableColumn_YieldsSuffixedNameOfInNamedArg()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS time_bucket," +
+            " avg(s.val) AS avg_val" +
+            " FROM ca_comp_da_ord_src26 s GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        TimescaleDbAnnotationCodeGenerator generator = (TimescaleDbAnnotationCodeGenerator)CreateAnnotationCodeGenerator();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        using CaCompDaOrdByContext26 context = new();
+        IEntityType entityType = GetEntityType<CaCompDaOrdByCaEntity26>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "ca_comp_da_ord_stats26"),
+            (ContinuousAggregateAnnotations.ParentName, "ca_comp_da_ord_src26"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (HypertableAnnotations.CompressionOrderBy, "time_bucket DESC"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = generator
+            .GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment? caAttr = result.FirstOrDefault(a => a.Type == typeof(ContinuousAggregateAttribute));
+        Assert.NotNull(caAttr);
+        Assert.True(caAttr.NamedArguments.ContainsKey(nameof(ContinuousAggregateAttribute.CompressionOrderBy)));
+        object?[] ordByArg = Assert.IsType<object[]>(caAttr.NamedArguments[nameof(ContinuousAggregateAttribute.CompressionOrderBy)]);
+        NameOfCodeFragment nameOf = Assert.IsType<NameOfCodeFragment>(Assert.Single(ordByArg));
+        Assert.Equal("TimeBucket", nameOf.PropertyName);
+        Assert.Equal(" DESC", nameOf.Suffix);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_CompressionSegmentBy_AllUnresolvable_YieldsPlainStringArray
+
+    private class CaCompDaUnresCaEntity27
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgVal { get; set; }
+    }
+
+    private class CaCompDaUnresContext27 : DbContext
+    {
+        public DbSet<CaCompDaUnresCaEntity27> Stats => Set<CaCompDaUnresCaEntity27>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CaCompDaUnresCaEntity27>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("ca_comp_da_unres_stats27");
+                e.Property(x => x.AvgVal).HasColumnName("avg_val");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_CompressionSegmentBy_AllUnresolvable_YieldsPlainStringArray()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, s.\"time\") AS bucket, avg(s.val) AS avg_val" +
+            " FROM ca_comp_da_unres_src27 s GROUP BY time_bucket('01:00:00'::interval, s.\"time\")";
+
+        TimescaleDbAnnotationCodeGenerator generator = (TimescaleDbAnnotationCodeGenerator)CreateAnnotationCodeGenerator();
+        generator.ScaffoldDataAnnotationsMode = true;
+
+        using CaCompDaUnresContext27 context = new();
+        IEntityType entityType = GetEntityType<CaCompDaUnresCaEntity27>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "ca_comp_da_unres_stats27"),
+            (ContinuousAggregateAnnotations.ParentName, "ca_comp_da_unres_src27"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef),
+            (HypertableAnnotations.CompressionSegmentBy, "unmapped_col_a, unmapped_col_b"));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = generator
+            .GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        AttributeCodeFragment? caAttr = result.FirstOrDefault(a => a.Type == typeof(ContinuousAggregateAttribute));
+        Assert.NotNull(caAttr);
+        Assert.True(caAttr.NamedArguments.ContainsKey(nameof(ContinuousAggregateAttribute.CompressionSegmentBy)));
+        string[] segByArg = Assert.IsType<string[]>(caAttr.NamedArguments[nameof(ContinuousAggregateAttribute.CompressionSegmentBy)]);
+        Assert.Equal(2, segByArg.Length);
+        Assert.Equal("unmapped_col_a", segByArg[0]);
+        Assert.Equal("unmapped_col_b", segByArg[1]);
     }
 
     #endregion

@@ -132,14 +132,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             string segmentBy = GetString(annotations, HypertableAnnotations.CompressionSegmentBy) ?? "";
             if (!string.IsNullOrWhiteSpace(segmentBy))
             {
-                call = call.Chain(WithCompressionSegmentByMethod, segmentBy);
+                call = call.Chain(WithCompressionSegmentByMethod, CompressionColumnsArg(entityType, caEntityClrName, segmentBy, isOrderBy: false));
                 compressionConfigured = true;
             }
 
             string orderBy = GetString(annotations, HypertableAnnotations.CompressionOrderBy) ?? "";
             if (!string.IsNullOrWhiteSpace(orderBy))
             {
-                call = call.Chain(WithCompressionOrderByMethod, orderBy);
+                call = call.Chain(WithCompressionOrderByMethod, CompressionColumnsArg(entityType, caEntityClrName, orderBy, isOrderBy: true));
                 compressionConfigured = true;
             }
 
@@ -238,13 +238,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             if (hasSegmentBy)
             {
                 caNamedArgs[nameof(ContinuousAggregateAttribute.CompressionSegmentBy)] =
-                    SplitColumns(compressionSegmentBy);
+                    ToArgumentArray([.. SplitColumns(compressionSegmentBy).Select(column => ColumnReference(entityType, column))]);
             }
 
             if (hasOrderBy)
             {
                 caNamedArgs[nameof(ContinuousAggregateAttribute.CompressionOrderBy)] =
-                    SplitColumns(compressionOrderBy);
+                    ToArgumentArray([.. SplitColumns(compressionOrderBy).Select(entry => OrderByReference(entityType, entry))]);
             }
 
             return [
@@ -319,6 +319,31 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationR
             => parentEntityType is not null && TryResolvePropertyName(parentEntityType, columnName, out string propName)
                 ? new NameOfCodeFragment($"{parentClrName}.{propName}")
                 : (object)columnName;
+
+        /// <summary>
+        /// Builds the single-string compression argument for the fluent chain.
+        /// </summary>
+        private static object CompressionColumnsArg(IEntityType entityType, string caEntityClrName, string raw, bool isOrderBy)
+        {
+            List<object> entries = [];
+            bool anyResolved = false;
+
+            foreach (string entry in SplitColumns(raw))
+            {
+                object reference = isOrderBy ? OrderByReference(entityType, entry) : ColumnReference(entityType, entry);
+                if (reference is NameOfCodeFragment nameOf)
+                {
+                    anyResolved = true;
+                    entries.Add(new NameOfCodeFragment($"{caEntityClrName}.{nameOf.PropertyName}", nameOf.Suffix));
+                }
+                else
+                {
+                    entries.Add(reference);
+                }
+            }
+
+            return anyResolved ? new ColumnListCodeFragment(entries) : raw;
+        }
 
         private static void ConsumeAllCaAnnotations(IDictionary<string, IAnnotation> annotations)
         {
