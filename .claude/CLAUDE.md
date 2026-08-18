@@ -1,135 +1,62 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
-CmdScale.EntityFrameworkCore.TimescaleDB is an Entity Framework Core provider extension that integrates TimescaleDB features (hypertables, compression, continuous aggregates, reorder policies, etc.) into EF Core's migration and scaffolding system. The library extends Npgsql.EntityFrameworkCore.PostgreSQL.
+CmdScale.EntityFrameworkCore.TimescaleDB is an EF Core provider extension integrating TimescaleDB features (hypertables, compression, continuous aggregates, policies) into EF Core's migration and scaffolding system. Extends Npgsql.EntityFrameworkCore.PostgreSQL.
 
-**Detailed documentation:** See `.claude/reference/` for architecture, patterns, and file organization.
+Detailed reference: `.claude/reference/architecture.md` (structure, file-location formula, priority table, scaffolding pipeline) and `.claude/reference/patterns.md` (patterns with code examples).
 
-## Build and Test Commands
-
-```bash
-dotnet build                    # Build the solution
-dotnet test                     # Run all tests (requires Docker for Testcontainers)
-dotnet test --filter "FullyQualifiedName~TestName"  # Run single test
-dotnet restore                  # Restore dependencies
-```
-
-### Test Coverage
-
-Coverage reports are always generated under `tests/Eftdb.Tests/TestResults/`.
+## Build and Test
 
 ```bash
-# Run tests with coverage
+dotnet build
+dotnet test                     # requires Docker (Testcontainers)
+dotnet test --filter "FullyQualifiedName~TestName"
+
+# Coverage (reports land in tests/Eftdb.Tests/TestResults/)
 dotnet test tests/Eftdb.Tests --settings tests/Eftdb.Tests/coverlet.runsettings --collect:"XPlat Code Coverage"
-
-# Generate HTML report (use -sourcedirs to resolve source locally instead of via Source Link)
 reportgenerator -reports:"tests/Eftdb.Tests/TestResults/**/coverage.cobertura.xml" -targetdir:"tests/Eftdb.Tests/TestResults/CoverageReport" -reporttypes:Html -sourcedirs:"src/"
+
+docker-compose up -d            # local TimescaleDB
+docker-compose down -v          # reset database (destructive)
 ```
 
-The HTML report will be at `tests/Eftdb.Tests/TestResults/CoverageReport/index.html`.
-
-### Local Development
-
-```bash
-docker-compose up -d            # Start TimescaleDB container
-docker-compose down -v          # Reset database (destructive)
-```
-
-### Testing Project/Package References
+Switch between project and NuGet package references:
 
 ```powershell
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-.\Scripts\Switch-References.ps1 -Mode Project   # For development
-.\Scripts\Switch-References.ps1 -Mode Package   # To test as NuGet consumer
+.\Scripts\Switch-References.ps1 -Mode Project   # development
+.\Scripts\Switch-References.ps1 -Mode Package   # test as NuGet consumer
 ```
 
 ## Coding Standards
 
-### C# Style Guidelines
+- **Explicit types** with target-typed `new()`: `StoreObjectIdentifier id = new();` — never `var`
+- **Collection expressions**: `List<string> items = ["a", "b"];` and spreads `[.. xs, .. ys]`
+- **Async**: `async/await` with `ConfigureAwait(false)` in library code
+- **Primary constructors** for classes that only assign parameters to fields
+- **Static** methods when no instance state is used
+- **Comments**: XML docs on public members, neutral voice, no pronouns. Explain "why", not "what" — code should be self-explaining. Never extract trivial 1–3 line guards into helpers.
+- **DRY**: constants in `DefaultValues.cs`, SQL via `SqlBuilderHelper`, shared logic via the helpers listed in architecture.md
+- **SoC**: extractors read metadata, differs compare models, generators produce SQL/C# — never mix
 
-**Type Declarations:** Use explicit types with `new()` target-typed initializer:
-```csharp
-StoreObjectIdentifier storeIdentifier = new();  // Correct
-var storeIdentifier = new StoreObjectIdentifier();  // Incorrect
-```
+## Documentation Policy
 
-**Collection Expressions:** Use `[]` syntax and spread operator:
-```csharp
-List<string> items = ["item1", "item2"];  // Correct
-List<string> allItems = [.. existingItems, .. newItems];  // Correct
-```
+Feature documentation lives in `docs/` (owned by `eftdb-docs-writer`). The root README is a deliberately compressed overview **without a feature list** — never add feature sections or usage examples to any README. Only correct a README when a change breaks instructions it already contains.
 
-**Async Programming:** Use `async/await` with `ConfigureAwait(false)` in library code.
+## Agents
 
-**Primary Constructors:** Use for classes that only assign parameters to fields:
-```csharp
-private class TestContext(string connectionString) : DbContext { }
-```
+New-feature flow: `eftdb-feature-initializer` → `eftdb-feature-implementer` → `eftdb-scaffold-support` → `test-writer` → `example-feature-generator` → `/prepare-commit`
 
-**Static Methods:** Make methods static when they don't depend on instance state.
-
-**Comments:** XML docs on public members; neutral voice; no pronouns or enumerations. Do not overuse comments to explain "what" code does - prefer clear code. Use comments to explain "why" or complex logic. The code should be self-explaining in most cases.
-
-### Architectural Principles
-
-**DRY:** Centralize constants in `DefaultValues.cs`, use `SqlBuilderHelper`, share patterns via extractors.
-
-**SoC:** Keep classes focused - extractors read metadata, differs compare models, generators produce SQL/C#.
-
-## Key Patterns (Quick Reference)
-
-| Pattern | Description | See |
-|---------|-------------|-----|
-| Service Registration | `UseTimescaleDb()` configures all services | `reference/patterns.md` |
-| Convention System | `IEntityTypeAddedConvention` processes attributes | `reference/patterns.md` |
-| Dual Configuration | Annotations + Fluent API → same annotations | `reference/patterns.md` |
-| IFeatureDiffer | Per-feature differ with model extractor + `FeatureDiffContext` | `reference/patterns.md` |
-| Runtime vs Design-Time | `*SqlGenerator` (SQL) vs `*CSharpGenerator` (typed migration calls) | `reference/patterns.md` |
-| Column Name Resolution | Always use `StoreObjectIdentifier` + `GetColumnName()` | `reference/patterns.md` |
-
-## Agent Workflow
-
-```
-New Feature → [1] eftdb-feature-initializer
-            → [2] eftdb-feature-implementer
-            → [3] eftdb-scaffold-support
-            → [4] test-writer
-            → [5] example-feature-generator
-            → [6] git-committer (/prepare-commit)
-```
-
-| Agent | Purpose | Skill |
-|-------|---------|-------|
-| `eftdb-feature-initializer` | Creates Operations, FluentAPI, Attributes, Conventions | |
-| `eftdb-feature-implementer` | Creates Differ, Extractor, Generator | |
-| `eftdb-scaffold-support` | Creates Scaffolding Extractor, Applier (Design-time) | |
-| `eftdb-bug-fixer` | Fixes bugs in runtime/design-time code | |
-| `test-writer` | Creates unit and integration tests | |
-| `test-coverage-planner` | Analyzes test coverage gaps | `/coverage-plan` |
-| `example-feature-generator` | Creates usage examples | |
-| `git-committer` | Formats, tests, generates commit message (does not stage) | `/prepare-commit` |
-| `code-detective` | Investigates bugs, traces history | |
-| `pr-code-reviewer` | Reviews PR changes against patterns | `/review` |
-| `eftdb-docs-writer` | Writes and updates documentation | |
-| `changelog-generator` | Generates changelog entries for the documentation page | |
-
-### Agent Boundaries
-
-| Agent | Allowed | Forbidden |
-|-------|---------|-----------|
-| `eftdb-feature-initializer` | `src/Eftdb/` (Operations, Configuration) | Design, Tests, Samples |
-| `eftdb-feature-implementer` | `src/Eftdb/` + `src/Eftdb.Design/` | Tests, Samples |
-| `eftdb-scaffold-support` | `src/Eftdb.Design/` only | All others |
-| `eftdb-bug-fixer` | `src/Eftdb/`, `src/Eftdb.Design/` | Tests (read-only), Samples |
-| `test-writer` | `tests/` only | src/, Samples |
-| `example-feature-generator` | `samples/` only | src/, Tests |
-
-## Reference Documentation
-
-- `.claude/reference/architecture.md` - Project structure, library organization
-- `.claude/reference/patterns.md` - Key patterns with code examples
-- `.claude/reference/file-organization.md` - File location quick reference
-- `.claude/agents/` - Detailed agent prompts
+| Agent | Purpose | Writes to | Skill |
+|-------|---------|-----------|-------|
+| `eftdb-feature-initializer` | Operations, fluent API, attributes, conventions | `src/Eftdb/` | |
+| `eftdb-feature-implementer` | Differ, extractor, SQL + C# generators | `src/Eftdb/`, `src/Eftdb.Design/` | |
+| `eftdb-scaffold-support` | Scaffolding extractor, applier, renderer | `src/Eftdb.Design/` only | |
+| `eftdb-bug-fixer` | Bug fixes in runtime/design-time code | `src/` (tests read-only) | |
+| `test-writer` | Unit and integration tests | `tests/` only | |
+| `test-coverage-planner` | Coverage gap analysis (plan only) | read-only | `/coverage-plan` |
+| `example-feature-generator` | Usage examples | `samples/` only | |
+| `git-committer` | Format, test, commit message (never stages/commits) | — | `/prepare-commit` |
+| `code-detective` | Bug investigation, history tracing | read-only | |
+| `pr-code-reviewer` | PR review against patterns | read-only | `/review` |
+| `eftdb-docs-writer` | Feature documentation | `docs/` only | |
