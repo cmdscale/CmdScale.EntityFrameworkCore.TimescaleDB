@@ -10,7 +10,7 @@
 `CmdScale.EntityFrameworkCore.TimescaleDB` (aka `Eftdb`) is an EntityFrameworkCore provider for [TimescaleDB](https://www.timescale.com/). It lets you interact with TimescaleDB in a type-safe way with rich IntelliSense support, so you don't have to write SQL in magic strings like you did with plain `Npgsql` - all without losing a single feature of `Npgsql`.
 
 > [!TIP]
-> Learn more about **Eftdb** in the [documentation](https://eftdb.cmdscale.com/docs/).
+> Learn more about **Eftdb** in the [documentation](https://eftdb.cmdscale.com/docs/)
 
 ## 📦 Installation
 
