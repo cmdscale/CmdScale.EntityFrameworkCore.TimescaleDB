@@ -3,6 +3,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 using NpgsqlTypes;
 using Testcontainers.PostgreSql;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Extensions;
 
@@ -17,7 +18,7 @@ public class BulkCopyExtensionsTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
+        _container = new PostgreSqlBuilder(TimescaleImages.Community)
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")

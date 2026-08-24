@@ -4,14 +4,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests;
 
-public class TimeBucketQueryTests(TimescaleQueryFixture fixture) : IClassFixture<TimescaleQueryFixture>
+public class TimeBucketQueryTests(TimescaleQueryFixture fixture)
+    : TimeBucketQueryTestsBase<TimescaleQueryFixture>(fixture), IClassFixture<TimescaleQueryFixture>;
+
+public class TimeBucketApacheQueryTests(TimescaleApacheQueryFixture fixture)
+    : TimeBucketQueryTestsBase<TimescaleApacheQueryFixture>(fixture), IClassFixture<TimescaleApacheQueryFixture>;
+
+public abstract class TimeBucketQueryTestsBase<TFixture>(TFixture fixture)
+    where TFixture : TimescaleQueryFixtureBase
 {
     #region Should_Generate_TimeBucket_DateTime_In_Select
 
     [Fact]
     public async Task Should_Generate_TimeBucket_DateTime_In_Select()
     {
-        await using TimescaleQueryFixture.QueryTestContext context = fixture.CreateContext();
+        await using TimescaleQueryFixtureBase.QueryTestContext context = fixture.CreateContext();
 
         TimeSpan bucket = TimeSpan.FromMinutes(5);
         _ = await context.Metrics
@@ -34,7 +41,7 @@ public class TimeBucketQueryTests(TimescaleQueryFixture fixture) : IClassFixture
     [Fact]
     public async Task Should_Generate_TimeBucket_DateTime_In_GroupBy()
     {
-        await using TimescaleQueryFixture.QueryTestContext context = fixture.CreateContext();
+        await using TimescaleQueryFixtureBase.QueryTestContext context = fixture.CreateContext();
 
         TimeSpan bucket = TimeSpan.FromMinutes(5);
         _ = await context.Metrics
@@ -66,7 +73,7 @@ public class TimeBucketQueryTests(TimescaleQueryFixture fixture) : IClassFixture
     [Fact]
     public async Task Should_Generate_TimeBucket_DateTime_In_Where()
     {
-        await using TimescaleQueryFixture.QueryTestContext context = fixture.CreateContext();
+        await using TimescaleQueryFixtureBase.QueryTestContext context = fixture.CreateContext();
 
         TimeSpan bucket = TimeSpan.FromMinutes(5);
         DateTime threshold = new(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc);
@@ -92,7 +99,7 @@ public class TimeBucketQueryTests(TimescaleQueryFixture fixture) : IClassFixture
     [Fact]
     public async Task Should_Generate_TimeBucket_DateTime_In_OrderBy()
     {
-        await using TimescaleQueryFixture.QueryTestContext context = fixture.CreateContext();
+        await using TimescaleQueryFixtureBase.QueryTestContext context = fixture.CreateContext();
 
         TimeSpan bucket = TimeSpan.FromMinutes(5);
         _ = await context.Metrics
@@ -116,7 +123,7 @@ public class TimeBucketQueryTests(TimescaleQueryFixture fixture) : IClassFixture
     [Fact]
     public async Task Should_Generate_TimeBucket_DateTime_With_Offset()
     {
-        await using TimescaleQueryFixture.QueryTestContext context = fixture.CreateContext();
+        await using TimescaleQueryFixtureBase.QueryTestContext context = fixture.CreateContext();
 
         TimeSpan bucket = TimeSpan.FromMinutes(5);
         TimeSpan offset = TimeSpan.FromMinutes(1);
@@ -141,7 +148,7 @@ public class TimeBucketQueryTests(TimescaleQueryFixture fixture) : IClassFixture
     [Fact]
     public async Task Should_Generate_TimeBucket_Integer_In_GroupBy()
     {
-        await using TimescaleQueryFixture.QueryTestContext context = fixture.CreateContext();
+        await using TimescaleQueryFixtureBase.QueryTestContext context = fixture.CreateContext();
 
         int bucket = 5;
         _ = await context.Metrics

@@ -5,11 +5,11 @@ using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    internal class HypertableSqlGenerator
+    internal static class HypertableSqlGenerator
     {
         private const string CommunityWarning = "Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition";
 
-        public static List<string> Generate(CreateHypertableOperation operation, bool useLegacyCompressionNames = false)
+        public static List<string> Generate(CreateHypertableOperation operation, bool useLegacyCompressionNames = false, bool isApacheEdition = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
@@ -96,14 +96,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
-            if (communityStatements.Count > 0)
-            {
-                statements.Add(SqlBuilderHelper.WrapCommunityFeatures(communityStatements, CommunityWarning));
-            }
+            statements.AddRange(SqlBuilderHelper.SkipOnApacheEdition(communityStatements, CommunityWarning, isApacheEdition));
             return statements;
         }
 
-        public static List<string> Generate(AlterHypertableOperation operation, bool useLegacyCompressionNames = false)
+        public static List<string> Generate(AlterHypertableOperation operation, bool useLegacyCompressionNames = false, bool isApacheEdition = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.TableName, operation.Schema);
@@ -126,10 +123,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             ApplyChunkSkippingChanges(operation, qualifiedTableName, communityStatements);
             ApplyDimensionChanges(operation, qualifiedTableName, statements);
 
-            if (communityStatements.Count > 0)
-            {
-                statements.Add(SqlBuilderHelper.WrapCommunityFeatures(communityStatements, CommunityWarning));
-            }
+            statements.AddRange(SqlBuilderHelper.SkipOnApacheEdition(communityStatements, CommunityWarning, isApacheEdition));
             return statements;
         }
 

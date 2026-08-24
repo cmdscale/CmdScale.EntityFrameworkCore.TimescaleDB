@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Testcontainers.PostgreSql;
 
@@ -6,7 +7,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils
 {
     public class TimescaleMigrationsFixture : MigrationsInfrastructureFixtureBase, IAsyncLifetime
     {
-        private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
+        private readonly PostgreSqlContainer _dbContainer = new PostgreSqlBuilder(TimescaleImages.Community)
             .WithDatabase("migration_tests_db")
             .WithUsername(TimescaleConnectionHelper.Username)
             .WithPassword(TimescaleConnectionHelper.Password)

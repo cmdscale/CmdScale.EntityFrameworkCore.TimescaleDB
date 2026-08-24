@@ -3,13 +3,18 @@ using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    internal class ContinuousAggregateSqlGenerator
+    internal static class ContinuousAggregateSqlGenerator
     {
-        private const string CommunityWarning = "Skipping Community Edition features (compression) - not available in Apache Edition";
+        private const string CaggCommunityWarning = "Skipping Community Edition feature (continuous aggregate) - not available in Apache Edition";
         private const string AlterDdl = "ALTER MATERIALIZED VIEW";
 
-        public static List<string> Generate(CreateContinuousAggregateOperation operation, bool useLegacyCompressionNames = false)
+        public static List<string> Generate(CreateContinuousAggregateOperation operation, bool useLegacyCompressionNames = false, bool isApacheEdition = false)
         {
+            if (isApacheEdition)
+            {
+                return [SqlBuilderHelper.SkipComment(CaggCommunityWarning)];
+            }
+
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
 
             List<string> statements = [];
@@ -67,7 +72,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 operation.CompressionSegmentBy,
                 operation.CompressionOrderBy,
                 AlterDdl,
-                CommunityWarning,
                 useLegacyCompressionNames);
 
             return statements;
@@ -191,13 +195,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 operation.CompressionSegmentBy,
                 operation.CompressionOrderBy,
                 AlterDdl,
-                CommunityWarning,
                 useLegacyCompressionNames);
 
             return statements;
         }
 
-        public static List<string> Generate(AlterContinuousAggregateOperation operation, bool useLegacyCompressionNames = false)
+        public static List<string> Generate(AlterContinuousAggregateOperation operation, bool useLegacyCompressionNames = false, bool isApacheEdition = false)
         {
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(operation.MaterializedViewName, operation.Schema);
             List<string> statements = [];
@@ -248,10 +251,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (compressionSettings.Count > 0)
             {
                 string setClause = $"ALTER MATERIALIZED VIEW {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});";
-                statements.Add(SqlBuilderHelper.WrapCommunityFeatures([setClause], CommunityWarning));
+                statements.Add(setClause);
             }
 
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CaggCommunityWarning, isApacheEdition);
         }
 
         public static List<string> Generate(DropContinuousAggregateOperation operation)

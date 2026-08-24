@@ -46,8 +46,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             => useLegacy ? "timescaledb.compress_orderby" : "timescaledb.orderby";
 
         /// <summary>
-        /// Appends a community-feature-guarded compression statement to <paramref name="statements"/>
-        /// when compression is configured for a newly created relation (hypertable or materialized view).
+        /// Appends the compression SET statement to <paramref name="statements"/> when compression
+        /// is configured for a newly created relation (hypertable or materialized view).
         /// </summary>
         /// <param name="statements">The statement list to append to.</param>
         /// <param name="relationName">The unqualified relation name.</param>
@@ -56,7 +56,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// <param name="compressionSegmentBy">Segment-by column list, or <see langword="null"/>.</param>
         /// <param name="compressionOrderBy">Order-by column list, or <see langword="null"/>.</param>
         /// <param name="alterDdl">The DDL keyword phrase used to target the relation (e.g., <c>"ALTER TABLE"</c> or <c>"ALTER MATERIALIZED VIEW"</c>).</param>
-        /// <param name="warningText">The RAISE WARNING text for the Apache Edition path.</param>
         /// <param name="useLegacy">When <see langword="true"/>, emits pre-2.18 compression option names.</param>
         internal static void AppendCreateCompressionStatements(
             List<string> statements,
@@ -66,7 +65,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             IReadOnlyList<string>? compressionSegmentBy,
             IReadOnlyList<string>? compressionOrderBy,
             string alterDdl,
-            string warningText,
             bool useLegacy = false)
         {
             bool hasSegmentBy = compressionSegmentBy is { Count: > 0 };
@@ -95,7 +93,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             string qualifiedIdentifier = SqlBuilderHelper.QualifiedIdentifier(relationName, schema);
             string setClause = $"{alterDdl} {qualifiedIdentifier} SET ({string.Join(", ", compressionSettings)});";
-            statements.Add(SqlBuilderHelper.WrapCommunityFeatures([setClause], warningText));
+            statements.Add(setClause);
         }
 
         /// <summary>

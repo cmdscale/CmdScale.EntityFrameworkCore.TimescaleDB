@@ -26,5 +26,24 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             UseLegacyCompressionNames = true;
             return this;
         }
+
+        /// <summary>
+        /// When <see langword="true"/>, migration SQL targets the Apache (OSS) edition of
+        /// TimescaleDB: Community-only statements are omitted and replaced by a SQL comment,
+        /// and a warning is logged during SQL generation.
+        /// When <see langword="false"/> (default), migration SQL targets the Community edition
+        /// and uses every configured feature; such SQL fails on an Apache server with a license
+        /// error when the model configures Community-only features.
+        /// </summary>
+        public bool IsApacheEdition { get; private set; }
+
+        /// <summary>
+        /// Configures the provider for the Apache (OSS) edition of TimescaleDB.
+        /// </summary>
+        public TimescaleDbOptions UseApacheEdition()
+        {
+            IsApacheEdition = true;
+            return this;
+        }
     }
 }

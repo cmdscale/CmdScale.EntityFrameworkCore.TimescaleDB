@@ -3,6 +3,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.PostgreSql;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 {
@@ -13,7 +14,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
 
         public async ValueTask InitializeAsync()
         {
-            _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
+            _container = new PostgreSqlBuilder(TimescaleImages.Community)
                 .WithDatabase("test_db")
                 .WithUsername("test_user")
                 .WithPassword("test_password")

@@ -2,11 +2,12 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    internal class RetentionPolicySqlGenerator
+    internal static class RetentionPolicySqlGenerator
     {
         private const string ProcName = "policy_retention";
+        private const string CommunityWarning = "Skipping Community Edition feature (retention policy) - not available in Apache Edition";
 
-        public static List<string> Generate(AddRetentionPolicyOperation operation)
+        public static List<string> Generate(AddRetentionPolicyOperation operation, bool isApacheEdition = false)
         {
             List<string> statements =
             [
@@ -20,10 +21,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 statements.Add(PolicyJobSqlBuilder.BuildAlterJobSql(operation.TableName, operation.Schema, ProcName, jobClauses));
             }
 
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CommunityWarning, isApacheEdition);
         }
 
-        public static List<string> Generate(AlterRetentionPolicyOperation operation)
+        public static List<string> Generate(AlterRetentionPolicyOperation operation, bool isApacheEdition = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
 
@@ -59,10 +60,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CommunityWarning, isApacheEdition);
         }
 
-        public static List<string> Generate(DropRetentionPolicyOperation operation)
+        public static List<string> Generate(DropRetentionPolicyOperation operation, bool isApacheEdition = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
 
@@ -70,7 +71,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             [
                 $"SELECT remove_retention_policy({qualifiedTableName}, if_exists => true);"
             ];
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CommunityWarning, isApacheEdition);
         }
 
         private static string BuildAddRetentionPolicySql(string tableName, string schema, string? dropAfter, string? dropCreatedBefore, DateTime? initialStart)

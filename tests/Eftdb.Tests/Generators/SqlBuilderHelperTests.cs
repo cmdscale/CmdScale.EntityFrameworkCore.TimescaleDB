@@ -409,6 +409,63 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region SkipOnApacheEdition
+
+        [Fact]
+        public void SkipOnApacheEdition_Community_ReturnsStatementsUnchanged()
+        {
+            // Arrange
+            List<string> statements = ["SELECT 1;", "SELECT 2;"];
+
+            // Act
+            List<string> result = SqlBuilderHelper.SkipOnApacheEdition(statements, "skip message", isApacheEdition: false);
+
+            // Assert
+            Assert.Same(statements, result);
+            Assert.Equal(["SELECT 1;", "SELECT 2;"], result);
+        }
+
+        [Fact]
+        public void SkipOnApacheEdition_Apache_ReplacesStatementsWithSingleComment()
+        {
+            // Arrange
+            List<string> statements = ["SELECT 1;", "SELECT 2;"];
+
+            // Act
+            List<string> result = SqlBuilderHelper.SkipOnApacheEdition(statements, "skip message", isApacheEdition: true);
+
+            // Assert
+            Assert.Equal(["-- skip message"], result);
+        }
+
+        [Fact]
+        public void SkipOnApacheEdition_EmptyList_StaysEmpty_OnCommunity()
+        {
+            // Arrange
+            List<string> statements = [];
+
+            // Act
+            List<string> result = SqlBuilderHelper.SkipOnApacheEdition(statements, "skip message", isApacheEdition: false);
+
+            // Assert
+            Assert.Empty(result);
+        }
+
+        [Fact]
+        public void SkipOnApacheEdition_EmptyList_StaysEmpty_OnApache()
+        {
+            // Arrange
+            List<string> statements = [];
+
+            // Act
+            List<string> result = SqlBuilderHelper.SkipOnApacheEdition(statements, "skip message", isApacheEdition: true);
+
+            // Assert
+            Assert.Empty(result);
+        }
+
+        #endregion
+
         #region BuildQueryString_Flushes_Trailing_Group_When_No_Terminating_Semicolon
 
         [Fact]

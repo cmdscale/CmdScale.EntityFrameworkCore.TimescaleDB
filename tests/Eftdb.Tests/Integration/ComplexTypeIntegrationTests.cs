@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Npgsql;
 using System.ComponentModel.DataAnnotations.Schema;
 using Testcontainers.PostgreSql;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration;
 
@@ -19,7 +20,7 @@ public class ComplexTypeIntegrationTests : MigrationTestBase, IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
+        _container = new PostgreSqlBuilder(TimescaleImages.Community)
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")

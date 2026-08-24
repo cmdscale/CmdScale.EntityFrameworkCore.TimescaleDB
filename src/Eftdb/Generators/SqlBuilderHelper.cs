@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore.Migrations;
-using System.Text;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
@@ -133,35 +132,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             => value.ToUniversalTime().ToString("o", System.Globalization.CultureInfo.InvariantCulture);
 
         /// <summary>
-        /// Wraps SQL statements in a Community Edition license-guard DO block. Statements execute
-        /// only when the TimescaleDB license is not <c>apache</c>; otherwise the supplied warning
-        /// is raised and the block exits without executing them.
+        /// The prefix that turns a skip message into a SQL comment statement. Shared by every
+        /// emitter of skip comments and by the migrations SQL generator that detects them.
         /// </summary>
-        /// <param name="sqlStatements">The statements to execute inside the guarded block.</param>
-        /// <param name="warningText">The text of the RAISE WARNING emitted on the Apache Edition path.</param>
-        internal static string WrapCommunityFeatures(List<string> sqlStatements, string warningText)
-        {
-            StringBuilder sb = new();
-            sb.AppendLine("DO $$");
-            sb.AppendLine("DECLARE");
-            sb.AppendLine("    license TEXT;");
-            sb.AppendLine("BEGIN");
-            sb.AppendLine("    license := current_setting('timescaledb.license', true);");
-            sb.AppendLine("    ");
-            sb.AppendLine("    IF license IS NULL OR license != 'apache' THEN");
+        internal const string SkipCommentMarker = "-- ";
 
-            foreach (string sql in sqlStatements)
+        /// <summary>
+        /// Formats a skip message as a SQL comment statement.
+        /// </summary>
+        internal static string SkipComment(string skipMessage) => $"{SkipCommentMarker}{skipMessage}";
+
+        /// <summary>
+        /// Applies the edition policy to Community-only statements. For the Community edition
+        /// (default) the statements are returned unchanged. When the provider is configured for
+        /// the Apache edition (<c>UseApacheEdition()</c>), the statements are replaced by a single
+        /// SQL comment carrying <paramref name="skipMessage"/>, so the skipped feature stays
+        /// visible in scripted migration output. An empty input stays empty on both editions.
+        /// </summary>
+        /// <param name="statements">The Community-only statements.</param>
+        /// <param name="skipMessage">The comment text emitted in place of the statements on the Apache edition.</param>
+        /// <param name="isApacheEdition">Whether the provider targets the Apache edition.</param>
+        internal static List<string> SkipOnApacheEdition(List<string> statements, string skipMessage, bool isApacheEdition)
+        {
+            if (statements.Count == 0 || !isApacheEdition)
             {
-                string cleanSql = EscapeStringLiteral(sql.TrimEnd(';'));
-                sb.AppendLine($"        EXECUTE '{cleanSql}';");
+                return statements;
             }
 
-            sb.AppendLine("    ELSE");
-            sb.AppendLine($"        RAISE WARNING '{EscapeStringLiteral(warningText)}';");
-            sb.AppendLine("    END IF;");
-            sb.AppendLine("END $$;");
-
-            return sb.ToString();
+            return [SkipComment(skipMessage)];
         }
     }
 }

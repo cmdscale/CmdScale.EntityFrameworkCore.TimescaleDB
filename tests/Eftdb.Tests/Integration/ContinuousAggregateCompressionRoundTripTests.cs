@@ -18,6 +18,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using System.Reflection;
 using Testcontainers.PostgreSql;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration;
 
@@ -33,7 +34,7 @@ public sealed class ContinuousAggregateCompressionRoundTripTests : MigrationTest
 
     public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
+        _container = new PostgreSqlBuilder(TimescaleImages.Community)
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")
