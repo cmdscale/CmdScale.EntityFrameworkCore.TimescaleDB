@@ -36,18 +36,7 @@ public class HypertableColumnstoreSqlGeneratorTests
 
         string expected = @"
             SELECT create_hypertable('public.""sensor_data""', 'ts');
-            DO $$
-            DECLARE
-                license TEXT;
-            BEGIN
-                license := current_setting('timescaledb.license', true);
-
-                IF license IS NULL OR license != 'apache' THEN
-                    EXECUTE 'ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = ''bloom(device_id)'')';
-                ELSE
-                    RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
-                END IF;
-            END $$;
+            ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = 'bloom(device_id)');
         ";
 
         // Act
@@ -77,18 +66,7 @@ public class HypertableColumnstoreSqlGeneratorTests
 
         string expected = @"
             SELECT create_hypertable('public.""sensor_data""', 'ts');
-            DO $$
-            DECLARE
-                license TEXT;
-            BEGIN
-                license := current_setting('timescaledb.license', true);
-
-                IF license IS NULL OR license != 'apache' THEN
-                    EXECUTE 'ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.compress_chunk_time_interval = ''24 hours'')';
-                ELSE
-                    RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
-                END IF;
-            END $$;
+            ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.compress_chunk_time_interval = '24 hours');
         ";
 
         // Act
@@ -119,18 +97,7 @@ public class HypertableColumnstoreSqlGeneratorTests
 
         string expected = @"
             SELECT create_hypertable('public.""sensor_data""', 'ts');
-            DO $$
-            DECLARE
-                license TEXT;
-            BEGIN
-                license := current_setting('timescaledb.license', true);
-
-                IF license IS NULL OR license != 'apache' THEN
-                    EXECUTE 'ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = ''bloom(device_id)'', timescaledb.compress_chunk_time_interval = ''7 days'')';
-                ELSE
-                    RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
-                END IF;
-            END $$;
+            ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = 'bloom(device_id)', timescaledb.compress_chunk_time_interval = '7 days');
         ";
 
         // Act
@@ -160,18 +127,7 @@ public class HypertableColumnstoreSqlGeneratorTests
 
         string expected = @"
             SELECT create_hypertable('public.""sensor_data""', 'ts');
-            DO $$
-            DECLARE
-                license TEXT;
-            BEGIN
-                license := current_setting('timescaledb.license', true);
-
-                IF license IS NULL OR license != 'apache' THEN
-                    EXECUTE 'ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = '''')';
-                ELSE
-                    RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
-                END IF;
-            END $$;
+            ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = '');
         ";
 
         // Act
@@ -235,12 +191,12 @@ public class HypertableColumnstoreSqlGeneratorTests
 
     #endregion
 
-    // ── Create: settings appear inside the community guard block ──
+    // ── Create: sparse index emitted as a clean ALTER TABLE after create ──
 
-    #region Should_Include_SparseIndex_Inside_Community_Guard_On_Create
+    #region Should_Emit_SparseIndex_As_Clean_Alter_On_Create
 
     [Fact]
-    public void Should_Include_SparseIndex_Inside_Community_Guard_On_Create()
+    public void Should_Emit_SparseIndex_As_Clean_Alter_On_Create()
     {
         // Arrange
         CreateHypertableOperation operation = new()
@@ -255,12 +211,12 @@ public class HypertableColumnstoreSqlGeneratorTests
         string result = GetGeneratedSql(operation);
 
         // Assert
-        Assert.Contains("DO $$", result);
-        Assert.Contains("timescaledb.license", result);
-        Assert.Contains("sparse_index", result);
-        int guardStart = result.IndexOf("DO $$", StringComparison.Ordinal);
+        Assert.DoesNotContain("DO $$", result);
+        Assert.DoesNotContain("timescaledb.license", result);
+        Assert.Contains("ALTER TABLE \"public\".\"sensor_data\" SET (timescaledb.sparse_index = 'bloom(device_id)');", result);
+        int createIdx = result.IndexOf("create_hypertable", StringComparison.Ordinal);
         int sparseIdx = result.IndexOf("sparse_index", StringComparison.Ordinal);
-        Assert.True(sparseIdx > guardStart, "sparse_index must appear inside the community guard block");
+        Assert.True(sparseIdx > createIdx, "sparse_index must appear after create_hypertable");
     }
 
     #endregion
@@ -282,18 +238,7 @@ public class HypertableColumnstoreSqlGeneratorTests
         };
 
         string expected = @"
-            DO $$
-            DECLARE
-                license TEXT;
-            BEGIN
-                license := current_setting('timescaledb.license', true);
-
-                IF license IS NULL OR license != 'apache' THEN
-                    EXECUTE 'ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = ''bloom(device_id), minmax(temperature)'')';
-                ELSE
-                    RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
-                END IF;
-            END $$;
+            ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = 'bloom(device_id), minmax(temperature)');
         ";
 
         // Act
@@ -322,18 +267,7 @@ public class HypertableColumnstoreSqlGeneratorTests
         };
 
         string expected = @"
-            DO $$
-            DECLARE
-                license TEXT;
-            BEGIN
-                license := current_setting('timescaledb.license', true);
-
-                IF license IS NULL OR license != 'apache' THEN
-                    EXECUTE 'ALTER TABLE ""public"".""sensor_data"" RESET (timescaledb.sparse_index)';
-                ELSE
-                    RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
-                END IF;
-            END $$;
+            ALTER TABLE ""public"".""sensor_data"" RESET (timescaledb.sparse_index);
         ";
 
         // Act
@@ -362,18 +296,7 @@ public class HypertableColumnstoreSqlGeneratorTests
         };
 
         string expected = @"
-            DO $$
-            DECLARE
-                license TEXT;
-            BEGIN
-                license := current_setting('timescaledb.license', true);
-
-                IF license IS NULL OR license != 'apache' THEN
-                    EXECUTE 'ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.compress_chunk_time_interval = ''7 days'')';
-                ELSE
-                    RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
-                END IF;
-            END $$;
+            ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.compress_chunk_time_interval = '7 days');
         ";
 
         // Act
@@ -402,18 +325,7 @@ public class HypertableColumnstoreSqlGeneratorTests
         };
 
         string expected = @"
-            DO $$
-            DECLARE
-                license TEXT;
-            BEGIN
-                license := current_setting('timescaledb.license', true);
-
-                IF license IS NULL OR license != 'apache' THEN
-                    EXECUTE 'ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.compress_chunk_time_interval = ''0'')';
-                ELSE
-                    RAISE WARNING 'Skipping Community Edition features (compression, chunk skipping) - not available in Apache Edition';
-                END IF;
-            END $$;
+            ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.compress_chunk_time_interval = '0');
         ";
 
         // Act
@@ -425,12 +337,12 @@ public class HypertableColumnstoreSqlGeneratorTests
 
     #endregion
 
-    // ── Alter: RESET statements appear inside community guard ──
+    // ── Alter: RESET and clear statements emitted cleanly ──
 
-    #region Should_Include_Reset_Statements_Inside_Community_Guard
+    #region Should_Emit_Reset_Statements_Cleanly
 
     [Fact]
-    public void Should_Include_Reset_Statements_Inside_Community_Guard()
+    public void Should_Emit_Reset_Statements_Cleanly()
     {
         // Arrange
         AlterHypertableOperation operation = new()
@@ -447,18 +359,15 @@ public class HypertableColumnstoreSqlGeneratorTests
         string result = GetGeneratedSql(operation);
 
         // Assert
-        Assert.Contains("DO $$", result);
-        Assert.Contains("timescaledb.license", result);
-        int guardStart = result.IndexOf("DO $$", StringComparison.Ordinal);
-        int sparseReset = result.IndexOf("RESET (timescaledb.sparse_index)", StringComparison.Ordinal);
-        int cctiClear = result.IndexOf("timescaledb.compress_chunk_time_interval = ''0''", StringComparison.Ordinal);
-        Assert.True(sparseReset > guardStart, "RESET (timescaledb.sparse_index) must appear inside community guard");
-        Assert.True(cctiClear > guardStart, "SET (timescaledb.compress_chunk_time_interval = '0') must appear inside community guard");
+        Assert.DoesNotContain("DO $$", result);
+        Assert.DoesNotContain("timescaledb.license", result);
+        Assert.Contains("ALTER TABLE \"public\".\"sensor_data\" RESET (timescaledb.sparse_index);", result);
+        Assert.Contains("timescaledb.compress_chunk_time_interval = '0'", result);
     }
 
     #endregion
 
-    // ── Alter: both removed → RESET and SET '0' inside one guard ──
+    // ── Alter: both removed → RESET and SET '0' emitted cleanly ──
 
     #region Should_Generate_Both_Removal_Statements_When_Both_Removed
 
@@ -481,8 +390,8 @@ public class HypertableColumnstoreSqlGeneratorTests
 
         // Assert
         Assert.Contains("RESET (timescaledb.sparse_index)", result);
-        Assert.Contains("timescaledb.compress_chunk_time_interval = ''0''", result);
-        Assert.Equal(1, result.Split("DO $$").Length - 1);
+        Assert.Contains("timescaledb.compress_chunk_time_interval = '0'", result);
+        Assert.DoesNotContain("DO $$", result);
     }
 
     #endregion

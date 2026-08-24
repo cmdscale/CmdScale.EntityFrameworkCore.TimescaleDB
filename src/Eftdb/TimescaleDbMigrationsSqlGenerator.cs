@@ -1,8 +1,11 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using Microsoft.Extensions.Logging;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure.Internal;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Migrations;
 
@@ -12,9 +15,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
     internal class TimescaleDbMigrationsSqlGenerator(
         MigrationsSqlGeneratorDependencies dependencies,
         INpgsqlSingletonOptions npgsqlSingletonOptions,
-        TimescaleDbOptions? timescaleDbOptions = null) : NpgsqlMigrationsSqlGenerator(dependencies, npgsqlSingletonOptions)
+        TimescaleDbOptions? timescaleDbOptions = null,
+        IDiagnosticsLogger<DbLoggerCategory.Migrations>? migrationsLogger = null) : NpgsqlMigrationsSqlGenerator(dependencies, npgsqlSingletonOptions)
     {
+        private static readonly string SkipCommentPrefix = SqlBuilderHelper.SkipComment("Skipping Community Edition feature");
+
         private readonly bool _useLegacyCompressionNames = timescaleDbOptions?.UseLegacyCompressionNames ?? false;
+        private readonly bool _isApacheEdition = timescaleDbOptions?.IsApacheEdition ?? false;
 
         protected override void Generate(
             MigrationOperation operation,
@@ -27,56 +34,56 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             switch (operation)
             {
                 case CreateHypertableOperation hypertableOperation:
-                    statements = HypertableSqlGenerator.Generate(hypertableOperation, _useLegacyCompressionNames);
+                    statements = HypertableSqlGenerator.Generate(hypertableOperation, _useLegacyCompressionNames, _isApacheEdition);
                     break;
 
                 case AlterHypertableOperation alterHypertableOperation:
-                    statements = HypertableSqlGenerator.Generate(alterHypertableOperation, _useLegacyCompressionNames);
+                    statements = HypertableSqlGenerator.Generate(alterHypertableOperation, _useLegacyCompressionNames, _isApacheEdition);
                     break;
 
                 case AlterReorderPolicyOperation alterReorderPolicyOperation:
-                    statements = ReorderPolicySqlGenerator.Generate(alterReorderPolicyOperation);
+                    statements = ReorderPolicySqlGenerator.Generate(alterReorderPolicyOperation, _isApacheEdition);
                     break;
 
                 case AddReorderPolicyOperation addReorderPolicyOperation:
-                    statements = ReorderPolicySqlGenerator.Generate(addReorderPolicyOperation);
+                    statements = ReorderPolicySqlGenerator.Generate(addReorderPolicyOperation, _isApacheEdition);
                     break;
 
                 case DropReorderPolicyOperation dropReorderPolicyOperation:
-                    statements = ReorderPolicySqlGenerator.Generate(dropReorderPolicyOperation);
+                    statements = ReorderPolicySqlGenerator.Generate(dropReorderPolicyOperation, _isApacheEdition);
                     break;
 
                 case AddRetentionPolicyOperation addRetentionPolicyOperation:
-                    statements = RetentionPolicySqlGenerator.Generate(addRetentionPolicyOperation);
+                    statements = RetentionPolicySqlGenerator.Generate(addRetentionPolicyOperation, _isApacheEdition);
                     break;
 
                 case AlterRetentionPolicyOperation alterRetentionPolicyOperation:
-                    statements = RetentionPolicySqlGenerator.Generate(alterRetentionPolicyOperation);
+                    statements = RetentionPolicySqlGenerator.Generate(alterRetentionPolicyOperation, _isApacheEdition);
                     break;
 
                 case DropRetentionPolicyOperation dropRetentionPolicyOperation:
-                    statements = RetentionPolicySqlGenerator.Generate(dropRetentionPolicyOperation);
+                    statements = RetentionPolicySqlGenerator.Generate(dropRetentionPolicyOperation, _isApacheEdition);
                     break;
 
                 case AddCompressionPolicyOperation addCompressionPolicyOperation:
-                    statements = CompressionPolicySqlGenerator.Generate(addCompressionPolicyOperation, _useLegacyCompressionNames);
+                    statements = CompressionPolicySqlGenerator.Generate(addCompressionPolicyOperation, _useLegacyCompressionNames, _isApacheEdition);
                     break;
 
                 case AlterCompressionPolicyOperation alterCompressionPolicyOperation:
-                    statements = CompressionPolicySqlGenerator.Generate(alterCompressionPolicyOperation, _useLegacyCompressionNames);
+                    statements = CompressionPolicySqlGenerator.Generate(alterCompressionPolicyOperation, _useLegacyCompressionNames, _isApacheEdition);
                     break;
 
                 case DropCompressionPolicyOperation dropCompressionPolicyOperation:
-                    statements = CompressionPolicySqlGenerator.Generate(dropCompressionPolicyOperation, _useLegacyCompressionNames);
+                    statements = CompressionPolicySqlGenerator.Generate(dropCompressionPolicyOperation, _useLegacyCompressionNames, _isApacheEdition);
                     break;
 
                 case CreateContinuousAggregateOperation createContinuousAggregateOperation:
-                    statements = ContinuousAggregateSqlGenerator.Generate(createContinuousAggregateOperation, _useLegacyCompressionNames);
-                    suppressTransaction = true;
+                    statements = ContinuousAggregateSqlGenerator.Generate(createContinuousAggregateOperation, _useLegacyCompressionNames, _isApacheEdition);
+                    suppressTransaction = !_isApacheEdition;
                     break;
 
                 case AlterContinuousAggregateOperation alterContinuousAggregateOperation:
-                    statements = ContinuousAggregateSqlGenerator.Generate(alterContinuousAggregateOperation, _useLegacyCompressionNames);
+                    statements = ContinuousAggregateSqlGenerator.Generate(alterContinuousAggregateOperation, _useLegacyCompressionNames, _isApacheEdition);
                     break;
 
                 case DropContinuousAggregateOperation dropContinuousAggregateOperation:
@@ -84,11 +91,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     break;
 
                 case AddContinuousAggregatePolicyOperation addContinuousAggregatePolicyOperation:
-                    statements = ContinuousAggregatePolicySqlGenerator.Generate(addContinuousAggregatePolicyOperation);
+                    statements = ContinuousAggregatePolicySqlGenerator.Generate(addContinuousAggregatePolicyOperation, _isApacheEdition);
                     break;
 
                 case RemoveContinuousAggregatePolicyOperation removeContinuousAggregatePolicyOperation:
-                    statements = ContinuousAggregatePolicySqlGenerator.Generate(removeContinuousAggregatePolicyOperation);
+                    statements = ContinuousAggregatePolicySqlGenerator.Generate(removeContinuousAggregatePolicyOperation, _isApacheEdition);
                     break;
 
                 default:
@@ -96,9 +103,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     return;
             }
 
+            LogSkippedCommunityFeatures(statements);
+
             bool usePerform = Options.HasFlag(MigrationsSqlGenerationOptions.Idempotent);
             SqlBuilderHelper.BuildQueryString(statements, builder, suppressTransaction, usePerform);
 
+        }
+
+        /// <summary>
+        /// Surfaces Apache-edition skip comments as generation-time warnings so skipped
+        /// Community-only features are visible in logs, not only in scripted SQL output.
+        /// </summary>
+        private void LogSkippedCommunityFeatures(List<string> statements)
+        {
+            if (!_isApacheEdition)
+            {
+                return;
+            }
+
+            ILogger logger = migrationsLogger?.Logger ?? Dependencies.Logger.Logger;
+            foreach (string statement in statements)
+            {
+                if (statement.StartsWith(SkipCommentPrefix, StringComparison.Ordinal))
+                {
+                    logger.LogWarning(
+                        "{SkippedCommunityFeature}",
+                        statement[SqlBuilderHelper.SkipCommentMarker.Length..]);
+                }
+            }
         }
 
         /// <summary>

@@ -7,6 +7,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Testcontainers.PostgreSql;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration;
 
@@ -17,7 +18,7 @@ public class ContinuousAggregatePolicyScaffoldingExtractorTests : MigrationTestB
 
     public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
+        _container = new PostgreSqlBuilder(TimescaleImages.Community)
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")

@@ -5,14 +5,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
     /// <summary>
     /// Generates SQL for continuous aggregate refresh policy operations.
     /// </summary>
-    internal class ContinuousAggregatePolicySqlGenerator
+    internal static class ContinuousAggregatePolicySqlGenerator
     {
+        private const string CommunityWarning = "Skipping Community Edition feature (continuous aggregate policy) - not available in Apache Edition";
+
         /// <summary>
         /// Generates SQL statements for adding a continuous aggregate refresh policy.
         /// </summary>
         /// <param name="operation">The add policy operation.</param>
         /// <returns>A list of SQL statements to execute.</returns>
-        public static List<string> Generate(AddContinuousAggregatePolicyOperation operation)
+        public static List<string> Generate(AddContinuousAggregatePolicyOperation operation, bool isApacheEdition = false)
         {
             string qualifiedViewName = SqlBuilderHelper.Regclass(operation.MaterializedViewName, operation.Schema);
 
@@ -79,7 +81,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             string sql = $"SELECT add_continuous_aggregate_policy({string.Join(", ", arguments)});";
 
-            return [sql];
+            return SqlBuilderHelper.SkipOnApacheEdition([sql], CommunityWarning, isApacheEdition);
         }
 
         /// <summary>
@@ -87,7 +89,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         /// </summary>
         /// <param name="operation">The remove policy operation.</param>
         /// <returns>A list of SQL statements to execute.</returns>
-        public static List<string> Generate(RemoveContinuousAggregatePolicyOperation operation)
+        public static List<string> Generate(RemoveContinuousAggregatePolicyOperation operation, bool isApacheEdition = false)
         {
             string qualifiedViewName = SqlBuilderHelper.Regclass(operation.MaterializedViewName, operation.Schema);
 
@@ -100,7 +102,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             string sql = $"SELECT remove_continuous_aggregate_policy({string.Join(", ", arguments)});";
 
-            return [sql];
+            return SqlBuilderHelper.SkipOnApacheEdition([sql], CommunityWarning, isApacheEdition);
         }
     }
 }

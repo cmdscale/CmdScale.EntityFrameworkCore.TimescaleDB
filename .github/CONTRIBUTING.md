@@ -87,6 +87,15 @@ For convenient local development, a `docker-compose.yml` file is included in the
 
 Also, some tests use `Testcontainers` and need you to have Docker installed. Just keep that in mind.
 
+#### Switching between TimescaleDB editions
+
+TimescaleDB ships in two editions: the **Community edition** (default image, full feature set) and the **Apache 2 edition** (`-oss` image tags, no columnstore/compression, continuous aggregates, or background policies). The library supports both (see `docs/05-apache-edition.md`), so manual testing against the Apache edition is sometimes needed.
+
+The auto-loaded `docker-compose.override.yml` adds a `db-apache` service for this. Both editions bind the same port `5432` with identical credentials.
+
+> [!WARNING]
+> Each edition has its own data volume, and they are **not interchangeable**
+
 ### 🧪 Testing
 
 This project uses a two-tier testing strategy to ensure code quality and correctness.

@@ -13,10 +13,10 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
     // ── Create with compression ───────────────────────────────────────────────
 
-    #region Create_WithCompression_Only_Emits_License_Guard_Block
+    #region Create_WithCompression_Only_Emits_Clean_AlterStatement
 
     [Fact]
-    public void Create_WithCompression_Only_Emits_License_Guard_Block()
+    public void Create_WithCompression_Only_Emits_Clean_AlterStatement()
     {
         // Arrange
         CreateContinuousAggregateOperation op = new()
@@ -37,7 +37,8 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         // Assert
         Assert.Equal(2, statements.Count);
         string compressionStmt = statements[1];
-        Assert.Contains("DO $$", compressionStmt);
+        Assert.DoesNotContain("DO $$", compressionStmt);
+        Assert.Contains("ALTER MATERIALIZED VIEW", compressionStmt);
         Assert.Contains("timescaledb.enable_columnstore = true", compressionStmt);
         Assert.DoesNotContain("compress_segmentby", compressionStmt);
         Assert.DoesNotContain("compress_orderby", compressionStmt);
@@ -71,7 +72,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         Assert.Equal(2, statements.Count);
         string compressionStmt = statements[1];
         Assert.Contains("timescaledb.enable_columnstore = true", compressionStmt);
-        Assert.Contains("segmentby = ''\"region\"''", compressionStmt);
+        Assert.Contains("segmentby = '\"region\"'", compressionStmt);
     }
 
     #endregion
@@ -102,7 +103,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         Assert.Equal(2, statements.Count);
         string compressionStmt = statements[1];
         Assert.Contains("timescaledb.enable_columnstore = true", compressionStmt);
-        Assert.Contains("orderby = ''\"time\" DESC''", compressionStmt);
+        Assert.Contains("orderby = '\"time\" DESC'", compressionStmt);
     }
 
     #endregion
@@ -167,10 +168,10 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
     #endregion
 
-    #region Create_WithViewDefinition_And_Compression_Emits_CreateThenGuard
+    #region Create_WithViewDefinition_And_Compression_Emits_CreateThenAlter
 
     [Fact]
-    public void Create_WithViewDefinition_And_Compression_Emits_CreateThenGuard()
+    public void Create_WithViewDefinition_And_Compression_Emits_CreateThenAlter()
     {
         // Arrange
         CreateContinuousAggregateOperation op = new()
@@ -189,7 +190,8 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         // Assert
         Assert.Equal(2, statements.Count);
         Assert.Contains("CREATE MATERIALIZED VIEW", statements[0]);
-        Assert.Contains("DO $$", statements[1]);
+        Assert.DoesNotContain("DO $$", statements[1]);
+        Assert.Contains("ALTER MATERIALIZED VIEW", statements[1]);
         Assert.Contains("timescaledb.enable_columnstore = true", statements[1]);
     }
 
@@ -226,10 +228,10 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
     // ── Alter with compression ────────────────────────────────────────────────
 
-    #region Alter_EnableCompression_EmitsLicenseGuardWithTrue
+    #region Alter_EnableCompression_EmitsCleanAlterWithTrue
 
     [Fact]
-    public void Alter_EnableCompression_EmitsLicenseGuardWithTrue()
+    public void Alter_EnableCompression_EmitsCleanAlterWithTrue()
     {
         // Arrange
         AlterContinuousAggregateOperation op = new()
@@ -245,16 +247,17 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
         // Assert
         string stmt = Assert.Single(statements);
-        Assert.Contains("DO $$", stmt);
+        Assert.DoesNotContain("DO $$", stmt);
+        Assert.Contains("ALTER MATERIALIZED VIEW", stmt);
         Assert.Contains("timescaledb.enable_columnstore = true", stmt);
     }
 
     #endregion
 
-    #region Alter_DisableCompression_EmitsLicenseGuardWithFalse
+    #region Alter_DisableCompression_EmitsCleanAlterWithFalse
 
     [Fact]
-    public void Alter_DisableCompression_EmitsLicenseGuardWithFalse()
+    public void Alter_DisableCompression_EmitsCleanAlterWithFalse()
     {
         // Arrange
         AlterContinuousAggregateOperation op = new()
@@ -295,7 +298,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
         // Assert
         string stmt = Assert.Single(statements);
-        Assert.Contains("segmentby = ''\"device_id\"''", stmt);
+        Assert.Contains("segmentby = '\"device_id\"'", stmt);
         Assert.DoesNotContain("\"region\"", stmt);
     }
 
@@ -346,7 +349,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         List<string> statements = Generate(op);
 
         // Assert
-        Assert.Contains("orderby = ''\"time\" DESC''", Assert.Single(statements));
+        Assert.Contains("orderby = '\"time\" DESC'", Assert.Single(statements));
     }
 
     #endregion
@@ -405,10 +408,10 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
     #endregion
 
-    #region Alter_WrapsCommunityFeaturesInLicenseGuard
+    #region Alter_EmitsCommunityFeaturesCleanly
 
     [Fact]
-    public void Alter_WrapsCommunityFeaturesInLicenseGuard()
+    public void Alter_EmitsCommunityFeaturesCleanly()
     {
         // Arrange
         AlterContinuousAggregateOperation op = new()
@@ -424,11 +427,11 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
         // Assert
         string stmt = Assert.Single(statements);
-        Assert.Contains("DO $$", stmt);
-        Assert.Contains("DECLARE", stmt);
-        Assert.Contains("timescaledb.license", stmt);
-        Assert.Contains("IF license IS NULL OR license != 'apache' THEN", stmt);
-        Assert.Contains("RAISE WARNING", stmt);
+        Assert.DoesNotContain("DO $$", stmt);
+        Assert.DoesNotContain("timescaledb.license", stmt);
+        Assert.DoesNotContain("RAISE WARNING", stmt);
+        Assert.Contains("ALTER MATERIALIZED VIEW", stmt);
+        Assert.Contains("timescaledb.enable_columnstore = true", stmt);
     }
 
     #endregion

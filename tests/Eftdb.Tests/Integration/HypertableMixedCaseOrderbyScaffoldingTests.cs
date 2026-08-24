@@ -10,6 +10,7 @@ using Npgsql;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Diagnostics.Internal;
 using System.Diagnostics;
 using Testcontainers.PostgreSql;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 
 #pragma warning disable EF1001 // Internal EF Core API usage required for testing scaffolding infrastructure
 
@@ -22,7 +23,7 @@ public class HypertableMixedCaseOrderbyScaffoldingTests : MigrationTestBase, IAs
 
     public async ValueTask InitializeAsync()
     {
-        _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
+        _container = new PostgreSqlBuilder(TimescaleImages.Community)
             .WithDatabase("test_db")
             .WithUsername("test_user")
             .WithPassword("test_password")

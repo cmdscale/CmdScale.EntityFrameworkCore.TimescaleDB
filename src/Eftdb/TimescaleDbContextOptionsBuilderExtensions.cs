@@ -93,6 +93,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
         /// </summary>
         private class TimescaleDbOptionsExtension(TimescaleDbOptions timescaleDbOptions) : IDbContextOptionsExtension
         {
+            internal TimescaleDbOptions TimescaleDbOptions => timescaleDbOptions;
+
             private DbContextOptionsExtensionInfo? _info;
             public DbContextOptionsExtensionInfo Info => _info ??= new ExtensionInfo(this);
 
@@ -113,11 +115,28 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             /// </summary>
             private class ExtensionInfo(IDbContextOptionsExtension extension) : DbContextOptionsExtensionInfo(extension)
             {
+                private new TimescaleDbOptionsExtension Extension => (TimescaleDbOptionsExtension)base.Extension;
+
                 public override bool IsDatabaseProvider => false;
                 public override string LogFragment => "using TimescaleDB extensions";
-                public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) => other is ExtensionInfo;
-                public override int GetServiceProviderHashCode() => GetType().GetHashCode();
-                public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) => debugInfo["TimescaleDB:Enabled"] = "True";
+
+                public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other)
+                    => other is ExtensionInfo otherInfo
+                       && Extension.TimescaleDbOptions.UseLegacyCompressionNames == otherInfo.Extension.TimescaleDbOptions.UseLegacyCompressionNames
+                       && Extension.TimescaleDbOptions.IsApacheEdition == otherInfo.Extension.TimescaleDbOptions.IsApacheEdition;
+
+                public override int GetServiceProviderHashCode()
+                    => HashCode.Combine(
+                        GetType(),
+                        Extension.TimescaleDbOptions.UseLegacyCompressionNames,
+                        Extension.TimescaleDbOptions.IsApacheEdition);
+
+                public override void PopulateDebugInfo(IDictionary<string, string> debugInfo)
+                {
+                    debugInfo["TimescaleDB:Enabled"] = "True";
+                    debugInfo["TimescaleDB:UseLegacyCompressionNames"] = Extension.TimescaleDbOptions.UseLegacyCompressionNames.ToString();
+                    debugInfo["TimescaleDB:IsApacheEdition"] = Extension.TimescaleDbOptions.IsApacheEdition.ToString();
+                }
             }
         }
 

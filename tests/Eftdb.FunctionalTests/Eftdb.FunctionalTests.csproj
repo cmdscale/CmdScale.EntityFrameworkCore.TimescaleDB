@@ -34,6 +34,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Include="..\Eftdb.Tests\Utils\TimescaleImages.cs" Link="Utils\TimescaleImages.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\..\src\Eftdb\Eftdb.csproj" />
 		<ProjectReference Include="..\..\src\Eftdb.Design\Eftdb.Design.csproj" />
 	</ItemGroup>

@@ -2,11 +2,12 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 {
-    internal class ReorderPolicySqlGenerator
+    internal static class ReorderPolicySqlGenerator
     {
         private const string ProcName = "policy_reorder";
+        private const string CommunityWarning = "Skipping Community Edition feature (reorder policy) - not available in Apache Edition";
 
-        public static List<string> Generate(AddReorderPolicyOperation operation)
+        public static List<string> Generate(AddReorderPolicyOperation operation, bool isApacheEdition = false)
         {
             List<string> statements =
             [
@@ -20,10 +21,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 statements.Add(PolicyJobSqlBuilder.BuildAlterJobSql(operation.TableName, operation.Schema, ProcName, jobClauses));
             }
 
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CommunityWarning, isApacheEdition);
         }
 
-        public static List<string> Generate(AlterReorderPolicyOperation operation)
+        public static List<string> Generate(AlterReorderPolicyOperation operation, bool isApacheEdition = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
 
@@ -56,10 +57,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CommunityWarning, isApacheEdition);
         }
 
-        public static List<string> Generate(DropReorderPolicyOperation operation)
+        public static List<string> Generate(DropReorderPolicyOperation operation, bool isApacheEdition = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
 
@@ -67,7 +68,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             [
                 $"SELECT remove_reorder_policy({qualifiedTableName}, if_exists => true);"
             ];
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CommunityWarning, isApacheEdition);
         }
 
         private static string BuildAddReorderPolicySql(string tableName, string schema, string indexName, DateTime? initialStart)

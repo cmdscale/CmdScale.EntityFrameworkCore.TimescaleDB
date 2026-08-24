@@ -1,12 +1,17 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Testcontainers.PostgreSql;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.FunctionalTests.Utils;
 
-public class TimescaleQueryFixture : IAsyncLifetime
+public class TimescaleQueryFixture() : TimescaleQueryFixtureBase(TimescaleImages.Community);
+
+public class TimescaleApacheQueryFixture() : TimescaleQueryFixtureBase(TimescaleImages.Apache);
+
+public abstract class TimescaleQueryFixtureBase(string image) : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("timescale/timescaledb:latest-pg17")
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder(image)
         .WithDatabase("query_tests_db")
         .WithUsername(TimescaleConnectionHelper.Username)
         .WithPassword(TimescaleConnectionHelper.Password)

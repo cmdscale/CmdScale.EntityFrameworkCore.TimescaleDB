@@ -9,7 +9,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
     /// </summary>
     internal static class CompressionPolicySqlGenerator
     {
-        public static List<string> Generate(AddCompressionPolicyOperation operation, bool useLegacyCompressionNames = false)
+        private const string CommunityWarning = "Skipping Community Edition feature (compression policy) - not available in Apache Edition";
+
+        public static List<string> Generate(AddCompressionPolicyOperation operation, bool useLegacyCompressionNames = false, bool isApacheEdition = false)
         {
             List<string> statements =
             [
@@ -25,10 +27,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                     useLegacyCompressionNames)
             ];
 
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CommunityWarning, isApacheEdition);
         }
 
-        public static List<string> Generate(AlterCompressionPolicyOperation operation, bool useLegacyCompressionNames = false)
+        public static List<string> Generate(AlterCompressionPolicyOperation operation, bool useLegacyCompressionNames = false, bool isApacheEdition = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
 
@@ -47,10 +49,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                     useLegacyCompressionNames)
             ];
 
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CommunityWarning, isApacheEdition);
         }
 
-        public static List<string> Generate(DropCompressionPolicyOperation operation, bool useLegacyCompressionNames = false)
+        public static List<string> Generate(DropCompressionPolicyOperation operation, bool useLegacyCompressionNames = false, bool isApacheEdition = false)
         {
             string qualifiedTableName = SqlBuilderHelper.Regclass(operation.TableName, operation.Schema);
 
@@ -58,7 +60,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             [
                 BuildRemovePolicySql(qualifiedTableName, useLegacyCompressionNames)
             ];
-            return statements;
+            return SqlBuilderHelper.SkipOnApacheEdition(statements, CommunityWarning, isApacheEdition);
         }
 
         private static string BuildRemovePolicySql(string qualifiedTableName, bool useLegacy)
