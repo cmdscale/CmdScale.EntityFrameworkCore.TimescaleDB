@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using System.Data.Common;
 using System.Text.Json;
@@ -56,7 +57,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.CompressionPo
                         string schema = reader.GetString(0);
                         string name = reader.GetString(1);
                         string? configJson = reader.IsDBNull(2) ? null : reader.GetString(2);
-                        DateTime? initialStart = reader.IsDBNull(3) ? null : reader.GetDateTime(3);
+                        DateTime? initialStart = reader.IsDBNull(3) ? null : ConventionValidationHelper.NormalizeInitialStartToUtc(reader.GetDateTime(3));
                         string? scheduleInterval = reader.IsDBNull(4) ? null : IntervalParsingHelper.NormalizeInterval(reader.GetString(4));
                         string? timezone = reader.IsDBNull(5) ? null : reader.GetString(5);
 

@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -31,7 +32,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ReorderPol
                 )
                 .Where(x =>
                     x.Target.IndexName != x.Source.IndexName ||
-                    x.Target.InitialStart != x.Source.InitialStart ||
+                    ConventionValidationHelper.NormalizeInitialStartToUtc(x.Target.InitialStart) != ConventionValidationHelper.NormalizeInitialStartToUtc(x.Source.InitialStart) ||
                     x.Target.ScheduleInterval != x.Source.ScheduleInterval ||
                     x.Target.MaxRuntime != x.Source.MaxRuntime ||
                     x.Target.MaxRetries != x.Source.MaxRetries ||

@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -47,7 +48,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Compressio
                     x.Target.Operation.After != x.Source.Operation.After ||
                     x.Target.Operation.CreatedBefore != x.Source.Operation.CreatedBefore ||
                     ScheduleIntervalChanged(x.Source, x.Target) ||
-                    x.Target.Operation.InitialStart != x.Source.Operation.InitialStart ||
+                    ConventionValidationHelper.NormalizeInitialStartToUtc(x.Target.Operation.InitialStart) != ConventionValidationHelper.NormalizeInitialStartToUtc(x.Source.Operation.InitialStart) ||
                     x.Target.Operation.Timezone != x.Source.Operation.Timezone
                 );
 
