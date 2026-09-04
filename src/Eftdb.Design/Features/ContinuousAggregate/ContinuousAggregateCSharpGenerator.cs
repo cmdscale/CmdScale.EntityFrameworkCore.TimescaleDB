@@ -41,7 +41,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             if (!string.IsNullOrEmpty(operation.TimeBucketSourceColumn))
                 call.Arg("timeBucketSourceColumn", code.Literal(operation.TimeBucketSourceColumn));
 
-            // timeBucketGroupBy defaults to true — only emit when explicitly disabled.
+            if (operation.TimeBucketColumnName != "time_bucket")
+                call.Arg("timeBucketColumnName", code.Literal(operation.TimeBucketColumnName));
+
             if (!operation.TimeBucketGroupBy)
                 call.Arg("timeBucketGroupBy", code.Literal(false));
 

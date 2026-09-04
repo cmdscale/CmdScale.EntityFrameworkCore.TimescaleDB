@@ -41,15 +41,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
 
                 // Get the parent (source) entity to determine the schema
                 string? parentModelName = entityType.FindAnnotation(ContinuousAggregateAnnotations.ParentName)?.Value as string;
-                IEntityType? parentEntityType = null;
-                if (!string.IsNullOrWhiteSpace(parentModelName))
-                {
-                    parentEntityType = relationalModel.Model.GetEntityTypes()
-                        .FirstOrDefault(e =>
-                            e.ClrType?.Name == parentModelName
-                            || e.ShortName() == parentModelName
-                            || e.GetTableName() == parentModelName);
-                }
+                IEntityType? parentEntityType = ParentEntityTypeResolver.Resolve(relationalModel.Model, parentModelName);
 
                 string schema = entityType.GetViewSchema()
                     ?? entityType.GetSchema()

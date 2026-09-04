@@ -10,6 +10,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
     internal class ContinuousAggregateModelExtractor
     {
         public static IEnumerable<CreateContinuousAggregateOperation> GetContinuousAggregates(IRelationalModel? relationalModel)
+            => SortParentsFirst([.. ExtractContinuousAggregates(relationalModel)]);
+
+        private static IEnumerable<CreateContinuousAggregateOperation> ExtractContinuousAggregates(IRelationalModel? relationalModel)
         {
             if (relationalModel == null)
             {
@@ -39,8 +42,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     continue;
                 }
 
+                // A parent mapped to a view is itself a continuous aggregate (hierarchical aggregation),
+                // so the relational name and store identifier must come from the view mapping.
                 string? parentTableName = parentEntityType.GetTableName();
-                if (string.IsNullOrWhiteSpace(parentTableName))
+                string? parentRelationalName = parentTableName ?? parentEntityType.GetViewName();
+                if (string.IsNullOrWhiteSpace(parentRelationalName))
                 {
                     continue;
                 }
@@ -52,13 +58,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 // Get time bucket configuration
                 string? timeBucketWidth = entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth)?.Value as string;
                 string? timeBucketSourceColumnModelName = entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn)?.Value as string;
+                string? timeBucketTargetPropertyName = entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketTargetProperty)?.Value as string;
                 if (!useRawDefinition && (string.IsNullOrWhiteSpace(timeBucketWidth) || string.IsNullOrWhiteSpace(timeBucketSourceColumnModelName)))
                 {
                     continue;
                 }
 
-                // Get convention-aware store identifier for the parent table
-                StoreObjectIdentifier parentStoreIdentifier = StoreObjectIdentifier.Table(parentTableName, parentEntityType.GetSchema());
+                // Get convention-aware store identifier for the parent table or view
+                StoreObjectIdentifier parentStoreIdentifier = parentTableName != null
+                    ? StoreObjectIdentifier.Table(parentTableName, parentEntityType.GetSchema())
+                    : StoreObjectIdentifier.View(parentRelationalName, parentEntityType.GetViewSchema() ?? parentEntityType.GetSchema());
 
                 string? viewName = entityType.GetViewName() ?? materializedViewName;
                 StoreObjectIdentifier aggregateStoreIdentifier = StoreObjectIdentifier.View(viewName, entityType.GetViewSchema() ?? entityType.GetSchema());
@@ -71,6 +80,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 if (!useRawDefinition && string.IsNullOrWhiteSpace(timeBucketSourceColumn))
                 {
                     continue;
+                }
+
+                // Resolve the bucket output column alias from the designated target property.
+                string timeBucketColumnName = DefaultValues.ContinuousAggregateTimeBucketColumnName;
+                if (!useRawDefinition && !string.IsNullOrWhiteSpace(timeBucketTargetPropertyName))
+                {
+                    string? resolvedBucketColumn = ColumnNameResolver.Resolve(entityType, timeBucketTargetPropertyName, aggregateStoreIdentifier);
+                    if (!string.IsNullOrWhiteSpace(resolvedBucketColumn))
+                    {
+                        timeBucketColumnName = resolvedBucketColumn;
+                    }
                 }
 
                 // Get optional configuration
@@ -88,6 +108,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 // or by the scaffolder), fall back to the parent's schema, finally default.
                 string schema = entityType.GetViewSchema()
                     ?? entityType.GetSchema()
+                    ?? parentEntityType.GetViewSchema()
                     ?? parentEntityType.GetSchema()
                     ?? DefaultValues.DefaultSchema;
 
@@ -99,13 +120,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 {
                     Schema = schema,
                     MaterializedViewName = materializedViewName,
-                    ParentName = parentTableName,
+                    ParentName = parentRelationalName,
                     ChunkInterval = chunkInterval,
                     WithNoData = withNoData,
                     CreateGroupIndexes = createGroupIndexes,
                     MaterializedOnly = materializedOnly,
                     TimeBucketWidth = timeBucketWidth ?? string.Empty,
                     TimeBucketSourceColumn = timeBucketSourceColumn ?? string.Empty,
+                    TimeBucketColumnName = timeBucketColumnName,
                     TimeBucketGroupBy = timeBucketGroupBy,
                     AggregateFunctions = aggregateFunctions,
                     GroupByColumns = groupByColumns,
@@ -164,6 +186,45 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             }
 
             return aggregateFunctions;
+        }
+
+        /// <summary>
+        /// Orders operations so that a continuous aggregate precedes any aggregate built on top of it
+        /// (hierarchical aggregation). Aggregates are matched by <c>MaterializedViewName</c>, mirroring
+        /// how the differ pairs source and target aggregates.
+        /// </summary>
+        private static List<CreateContinuousAggregateOperation> SortParentsFirst(List<CreateContinuousAggregateOperation> operations)
+        {
+            Dictionary<string, CreateContinuousAggregateOperation> byViewName = [];
+            foreach (CreateContinuousAggregateOperation operation in operations)
+            {
+                byViewName.TryAdd(operation.MaterializedViewName, operation);
+            }
+
+            List<CreateContinuousAggregateOperation> sorted = [];
+            HashSet<string> visited = [];
+
+            void Visit(CreateContinuousAggregateOperation operation)
+            {
+                if (!visited.Add(operation.MaterializedViewName))
+                {
+                    return;
+                }
+
+                if (byViewName.TryGetValue(operation.ParentName, out CreateContinuousAggregateOperation? parent))
+                {
+                    Visit(parent);
+                }
+
+                sorted.Add(operation);
+            }
+
+            foreach (CreateContinuousAggregateOperation operation in operations)
+            {
+                Visit(operation);
+            }
+
+            return sorted;
         }
 
         private static List<string> ResolveGroupByColumns(

@@ -16,6 +16,7 @@
         public const string TimeBucketWidth = "TimescaleDB:TimeBucket:BucketWidth";
         public const string TimeBucketSourceColumn = "TimescaleDB:TimeBucket:SourceColumn";
         public const string TimeBucketGroupBy = "TimescaleDB:TimeBucket:GroupBy";
+        public const string TimeBucketTargetProperty = "TimescaleDB:TimeBucket:TargetProperty";
 
         public const string AggregateFunctions = "TimescaleDB:AggregateFunctions";
         public const string WhereClause = "TimescaleDB:WhereClause";

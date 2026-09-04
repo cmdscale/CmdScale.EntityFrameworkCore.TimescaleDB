@@ -5,8 +5,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
 {
     /// <summary>
     /// Resolves a continuous aggregate's parent entity type from its <c>ParentName</c> annotation value.
-    /// The value may hold the CLR class name (code-first), the EF Core short name, or the database table
-    /// name (scaffolding), so all three are matched.
+    /// The value may hold the CLR class name (code-first), the EF Core short name, the database table
+    /// name (scaffolding), or the view name (hierarchical aggregates whose parent is itself a
+    /// continuous aggregate).
     /// </summary>
     internal static class ParentEntityTypeResolver
     {
@@ -16,6 +17,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
                 : model.GetEntityTypes().FirstOrDefault(e =>
                     e.ClrType?.Name == parentName
                     || e.ShortName() == parentName
-                    || e.GetTableName() == parentName);
+                    || e.GetTableName() == parentName
+                    || e.GetViewName() == parentName);
     }
 }

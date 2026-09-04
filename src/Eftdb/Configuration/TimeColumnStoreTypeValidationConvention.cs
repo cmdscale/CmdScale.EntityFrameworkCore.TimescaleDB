@@ -82,11 +82,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
                 return;
             }
 
-            IEntityType? parentEntityType = model.GetEntityTypes()
-                .FirstOrDefault(e =>
-                    e.ClrType?.Name == parentName
-                    || e.ShortName() == parentName
-                    || e.GetTableName() == parentName);
+            IEntityType? parentEntityType = ParentEntityTypeResolver.Resolve(model, parentName);
             if (parentEntityType == null)
             {
                 return;

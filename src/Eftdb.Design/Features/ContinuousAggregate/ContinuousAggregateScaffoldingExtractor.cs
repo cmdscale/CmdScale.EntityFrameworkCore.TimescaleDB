@@ -92,6 +92,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                         }
                     }
 
+                    RewriteHierarchicalSources(continuousAggregates);
                     GetCompressionConfiguration(connection, continuousAggregates);
 
                     // Convert to object dictionary to match interface
@@ -108,6 +109,28 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
         }
 
         private readonly Dictionary<(string, string), (string ViewSchema, string ViewName)> _matHypertableToView = [];
+
+        /// <summary>
+        /// The catalog reports a hierarchical aggregate's source as the parent aggregate's internal
+        /// materialization hypertable (<c>_timescaledb_internal._materialized_hypertable_N</c>).
+        /// Rewrites such sources to the parent's user-facing view so the scaffolded model references
+        /// the parent continuous aggregate entity.
+        /// </summary>
+        private void RewriteHierarchicalSources(Dictionary<(string, string), ContinuousAggregateInfo> continuousAggregates)
+        {
+            foreach ((string, string) key in continuousAggregates.Keys.ToList())
+            {
+                ContinuousAggregateInfo info = continuousAggregates[key];
+                if (_matHypertableToView.TryGetValue((info.SourceSchema, info.SourceHypertableName), out (string ViewSchema, string ViewName) parentView))
+                {
+                    continuousAggregates[key] = info with
+                    {
+                        SourceHypertableName = parentView.ViewName,
+                        SourceSchema = parentView.ViewSchema,
+                    };
+                }
+            }
+        }
 
         private void GetCompressionConfiguration(
             DbConnection connection,

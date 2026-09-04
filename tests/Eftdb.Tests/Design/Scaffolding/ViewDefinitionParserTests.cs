@@ -1159,4 +1159,168 @@ public class ViewDefinitionParserTests
     }
 
     #endregion
+
+    // ── ParseTimeBucketAlias ────────────────────────────────────────────────
+
+    #region ParseTimeBucketAlias_Extracts_PlainAlias
+
+    [Fact]
+    public void ParseTimeBucketAlias_Extracts_PlainAlias()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.\"timestamp\") AS hour_start," +
+            " avg(t.value) AS avg_value" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseTimeBucketAlias(sql);
+
+        // Assert
+        Assert.Equal("hour_start", result);
+    }
+
+    #endregion
+
+    #region ParseTimeBucketAlias_Extracts_QuotedAlias_StripsQuotes
+
+    [Fact]
+    public void ParseTimeBucketAlias_Extracts_QuotedAlias_StripsQuotes()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.\"timestamp\") AS \"hour_start\"," +
+            " avg(t.value) AS avg_value" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseTimeBucketAlias(sql);
+
+        // Assert
+        Assert.Equal("hour_start", result);
+    }
+
+    #endregion
+
+    #region ParseTimeBucketAlias_ReturnsDefaultAlias_Verbatim
+
+    [Fact]
+    public void ParseTimeBucketAlias_ReturnsDefaultAlias_Verbatim()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.\"timestamp\") AS time_bucket," +
+            " avg(t.value) AS avg_value" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseTimeBucketAlias(sql);
+
+        // Assert
+        Assert.Equal("time_bucket", result);
+    }
+
+    #endregion
+
+    #region ParseTimeBucketAlias_ReturnsNull_WhenNoAlias
+
+    [Fact]
+    public void ParseTimeBucketAlias_ReturnsNull_WhenNoAlias()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.\"timestamp\")," +
+            " avg(t.value) AS avg_value" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseTimeBucketAlias(sql);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region ParseTimeBucketAlias_IsCaseInsensitive_ForAsKeyword
+
+    [Fact]
+    public void ParseTimeBucketAlias_IsCaseInsensitive_ForAsKeyword()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.\"timestamp\") as hour_start," +
+            " avg(t.value) as avg_value" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseTimeBucketAlias(sql);
+
+        // Assert
+        Assert.Equal("hour_start", result);
+    }
+
+    #endregion
+
+    #region ParseTimeBucketAlias_IgnoresAliasesOnOtherFunctions
+
+    [Fact]
+    public void ParseTimeBucketAlias_IgnoresAliasesOnOtherFunctions()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.\"timestamp\")," +
+            " avg(t.value) AS foo" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseTimeBucketAlias(sql);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
+    #region ParseTimeBucketAlias_RealisticViewDefinition_QualifiedQuotedColumns
+
+    [Fact]
+    public void ParseTimeBucketAlias_RealisticViewDefinition_QualifiedQuotedColumns()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('01:00:00'::interval, \"custom_schema\".\"power_meter_readings\".\"timestamp\") AS hour_start," +
+            " avg(\"custom_schema\".\"power_meter_readings\".\"power_kw\") AS avg_power_kw," +
+            " max(\"custom_schema\".\"power_meter_readings\".\"power_kw\") AS max_power_kw" +
+            " FROM \"custom_schema\".\"power_meter_readings\"" +
+            " GROUP BY time_bucket('01:00:00'::interval, \"custom_schema\".\"power_meter_readings\".\"timestamp\")";
+
+        // Act
+        string? result = ViewDefinitionParser.ParseTimeBucketAlias(sql);
+
+        // Assert
+        Assert.Equal("hour_start", result);
+    }
+
+    #endregion
+
+    #region ParseTimeBucketAlias_Parse_Populates_TimeBucketAlias
+
+    [Fact]
+    public void ParseTimeBucketAlias_Parse_Populates_TimeBucketAlias()
+    {
+        // Arrange
+        const string sql =
+            "SELECT time_bucket('1 hour'::interval, t.\"timestamp\") AS hour_start," +
+            " avg(t.value) AS avg_value" +
+            " FROM t GROUP BY 1";
+
+        // Act
+        ViewDefinitionParser.ParsedViewDefinition parsed = ViewDefinitionParser.Parse(sql);
+
+        // Assert
+        Assert.Equal("hour_start", parsed.TimeBucketAlias);
+    }
+
+    #endregion
 }

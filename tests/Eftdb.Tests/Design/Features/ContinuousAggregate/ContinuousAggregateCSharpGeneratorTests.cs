@@ -239,6 +239,42 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Features.Continu
 
         #endregion
 
+        #region CreateContinuousAggregate_TimeBucketColumnName_OnlyEmittedWhenCustom
+
+        [Fact]
+        public void CreateContinuousAggregate_TimeBucketColumnName_OnlyEmittedWhenCustom()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation defaultName = new()
+            {
+                MaterializedViewName = "hourly",
+                ParentName = "sensor_data",
+                TimeBucketColumnName = "time_bucket",
+            };
+
+            // Act
+            string defaultResult = Generate(defaultName);
+
+            // Assert
+            Assert.DoesNotContain("timeBucketColumnName:", defaultResult);
+
+            // Arrange
+            CreateContinuousAggregateOperation customName = new()
+            {
+                MaterializedViewName = "hourly",
+                ParentName = "sensor_data",
+                TimeBucketColumnName = "hour_start",
+            };
+
+            // Act
+            string customResult = Generate(customName);
+
+            // Assert
+            Assert.Contains("timeBucketColumnName: \"hour_start\"", customResult);
+        }
+
+        #endregion
+
         #region CreateContinuousAggregate_NullAggregateFunctions_Omits_AggregateFunctionsArg
 
         [Fact]

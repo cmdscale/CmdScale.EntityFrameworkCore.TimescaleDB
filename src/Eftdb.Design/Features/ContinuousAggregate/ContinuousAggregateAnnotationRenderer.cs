@@ -43,6 +43,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
         private static readonly MethodInfo WithCompressionMethod = BuilderMethod("WithCompression");
         private static readonly MethodInfo WithCompressionSegmentByMethod = BuilderMethod("WithCompressionSegmentBy");
         private static readonly MethodInfo WithCompressionOrderByMethod = BuilderMethod("WithCompressionOrderBy");
+        private static readonly MethodInfo WithTimeBucketPropertyMethod = BuilderMethod("WithTimeBucketProperty");
 
         public IReadOnlyList<MethodCallCodeFragment> GenerateFluentApiCalls(
             IEntityType entityType, IDictionary<string, IAnnotation> annotations)
@@ -83,6 +84,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
 
             MethodCallCodeFragment call = new(IsContinuousAggregateMethod, materializedViewName, parentNameArg, humanizedWidth, timeBucketArg);
 
+            string caEntityClrName = entityType.ShortName();
+            if (TryResolveTimeBucketProperty(entityType, parsed.TimeBucketAlias, out string bucketProperty))
+            {
+                call = call.Chain(WithTimeBucketPropertyMethod, new NameOfCodeFragment($"{caEntityClrName}.{bucketProperty}"));
+            }
+
             if (materializedOnly)
             {
                 call = call.Chain(MaterializedOnlyMethod, true);
@@ -97,8 +104,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             {
                 call = call.Chain(CreateGroupIndexesMethod, false);
             }
-
-            string caEntityClrName = entityType.ShortName();
 
             foreach (ViewDefinitionParser.ParsedAggregate agg in parsed.Aggregates)
             {
@@ -248,6 +253,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                     ToArgumentArray([.. SplitColumns(compressionOrderBy).Select(entry => OrderByReference(entityType, entry))]);
             }
 
+            if (TryResolveTimeBucketProperty(entityType, parsed.TimeBucketAlias, out _))
+            {
+                return [new AttributeCodeFragment(typeof(ContinuousAggregateAttribute), [], caNamedArgs)];
+            }
+
             return [
                 new AttributeCodeFragment(typeof(ContinuousAggregateAttribute), [], caNamedArgs),
                 new AttributeCodeFragment(typeof(TimeBucketAttribute), humanizedWidth, timeBucketArg),
@@ -284,6 +294,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
         private static bool IsDerivedDefaultChunkInterval(string chunkInterval, IEntityType? parentEntityType)
         {
             string parentChunkInterval = parentEntityType?.FindAnnotation(HypertableAnnotations.ChunkTimeInterval)?.Value as string
+                ?? parentEntityType?.FindAnnotation(ContinuousAggregateAnnotations.ChunkInterval)?.Value as string
                 ?? DefaultValues.ChunkTimeInterval;
 
             return IntervalParsingHelper.TryGetTotalMicroseconds(chunkInterval, out long caMicroseconds)
@@ -314,6 +325,24 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                         "configure it manually via AddGroupByColumn(...).");
                 }
             }
+        }
+
+        /// <summary>
+        /// Resolves the view's bucket alias to the CLR property whose mapped column matches it, when the
+        /// alias differs from the default <c>time_bucket</c>. The default alias needs no designation, so it
+        /// yields <c>false</c> and undesignated aggregates keep rendering without a
+        /// <c>WithTimeBucketProperty</c> call.
+        /// </summary>
+        private static bool TryResolveTimeBucketProperty(IEntityType entityType, string? bucketAlias, out string propertyName)
+        {
+            propertyName = string.Empty;
+            if (string.IsNullOrWhiteSpace(bucketAlias)
+                || string.Equals(bucketAlias, DefaultValues.ContinuousAggregateTimeBucketColumnName, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return TryResolvePropertyName(entityType, bucketAlias, out propertyName);
         }
 
         private static object ResolveParentColumnArg(IEntityType? parentEntityType, string parentClrName, string columnName)
@@ -357,6 +386,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 ContinuousAggregateAnnotations.TimeBucketWidth,
                 ContinuousAggregateAnnotations.TimeBucketSourceColumn,
                 ContinuousAggregateAnnotations.TimeBucketGroupBy,
+                ContinuousAggregateAnnotations.TimeBucketTargetProperty,
                 ContinuousAggregateAnnotations.AggregateFunctions,
                 ContinuousAggregateAnnotations.GroupByColumns,
                 ContinuousAggregateAnnotations.WhereClause,

@@ -180,6 +180,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
             StoreObjectIdentifier caStoreId = StoreObjectIdentifier.View(viewName, viewSchema);
             string columnName = property.GetColumnName(caStoreId) ?? property.Name;
 
+            if (parsed.TimeBucketWidth is not null
+                && parsed.TimeBucketSourceColumn is not null
+                && parsed.TimeBucketAlias is not null
+                && parsed.TimeBucketAlias != DefaultValues.ContinuousAggregateTimeBucketColumnName
+                && parsed.TimeBucketAlias == columnName)
+            {
+                return [new AttributeCodeFragment(typeof(TimeBucketAttribute),
+                    IntervalParsingHelper.NormalizeInterval(parsed.TimeBucketWidth),
+                    ResolveSourceArgByColumnName(parsed.TimeBucketSourceColumn, parentEntityType))];
+            }
+
             ViewDefinitionParser.ParsedAggregate? agg = parsed.Aggregates.FirstOrDefault(a => a.Alias == columnName);
             if (agg is not null)
             {

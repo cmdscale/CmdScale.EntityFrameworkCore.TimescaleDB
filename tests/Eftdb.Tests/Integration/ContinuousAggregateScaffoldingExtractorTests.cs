@@ -715,4 +715,57 @@ public class ContinuousAggregateScaffoldingExtractorTests : MigrationTestBase, I
     }
 
     #endregion
+
+    #region Should_Rewrite_Hierarchical_Source_To_Parent_View
+
+    [Fact]
+    public async Task Should_Rewrite_Hierarchical_Source_To_Parent_View()
+    {
+        string testConnectionString = await GetTestConnectionStringAsync();
+
+        await using NpgsqlConnection setupConnection = new(testConnectionString);
+        await setupConnection.OpenAsync(TestContext.Current.CancellationToken);
+
+        await ExecuteAsync(setupConnection, @"
+            CREATE TABLE hier_scaffold_raw (
+                ""Timestamp"" timestamptz NOT NULL,
+                ""Value"" double precision NOT NULL
+            );");
+        await ExecuteAsync(setupConnection, "SELECT create_hypertable('hier_scaffold_raw', 'Timestamp');");
+
+        await ExecuteAsync(setupConnection, @"
+            CREATE MATERIALIZED VIEW hier_scaffold_hourly
+            WITH (timescaledb.continuous) AS
+            SELECT time_bucket('1 hour', ""Timestamp"") AS time_bucket, avg(""Value"") AS avg_value
+            FROM hier_scaffold_raw
+            GROUP BY time_bucket
+            WITH NO DATA;");
+
+        await ExecuteAsync(setupConnection, @"
+            CREATE MATERIALIZED VIEW hier_scaffold_daily
+            WITH (timescaledb.continuous) AS
+            SELECT time_bucket('1 day', time_bucket) AS time_bucket, avg(avg_value) AS avg_value
+            FROM hier_scaffold_hourly
+            GROUP BY 1
+            WITH NO DATA;");
+
+        ContinuousAggregateScaffoldingExtractor extractor = new();
+        await using NpgsqlConnection connection = new(testConnectionString);
+        Dictionary<(string Schema, string TableName), object> result = extractor.Extract(connection);
+
+        Assert.True(result.ContainsKey(("public", "hier_scaffold_daily")));
+        ContinuousAggregateScaffoldingExtractor.ContinuousAggregateInfo dailyInfo =
+            (ContinuousAggregateScaffoldingExtractor.ContinuousAggregateInfo)result[("public", "hier_scaffold_daily")];
+
+        Assert.Equal("hier_scaffold_hourly", dailyInfo.SourceHypertableName);
+        Assert.Equal("public", dailyInfo.SourceSchema);
+    }
+
+    private static async Task ExecuteAsync(NpgsqlConnection connection, string sql)
+    {
+        await using NpgsqlCommand command = new(sql, connection);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    #endregion
 }

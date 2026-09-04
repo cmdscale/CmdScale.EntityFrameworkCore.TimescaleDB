@@ -148,6 +148,150 @@ public void Configure(EntityTypeBuilder<TradeAggregate> builder)
 
 > :warning: **Note:** The WHERE clause should be a valid SQL expression without the "WHERE" keyword. Use double quotes for column identifiers if needed.
 
+## Naming the Time-Bucket Column
+
+The materialized view's bucket column is named `time_bucket` by default, matching the TimescaleDB `time_bucket()` function-name default. Querying the aggregate entity requires a property mapped to that column — either explicitly via `.HasColumnName("time_bucket")`, or implicitly through a naming convention on a property named `TimeBucket`.
+
+`.WithTimeBucketProperty(agg => agg.Prop)` designates a property as the bucket target. The generated view then aliases the bucket column to that property's mapped column name, so no `.HasColumnName("time_bucket")` magic string is needed, and custom names such as `hour_start` work. Resolution respects the active naming convention: a `HourStart` property under snake_case maps to `hour_start`, and the view's bucket is aliased accordingly.
+
+```csharp
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+public class PowerUsageHourlyConfiguration : IEntityTypeConfiguration<PowerUsageHourly>
+{
+    public void Configure(EntityTypeBuilder<PowerUsageHourly> builder)
+    {
+        builder.HasNoKey();
+
+        builder.IsContinuousAggregate<PowerUsageHourly, PowerMeterReading>(
+                "power_usage_hourly",
+                "1 hour",
+                x => x.Timestamp)
+            // The view aliases its bucket column to HourStart's mapped column name
+            // (hour_start under snake_case) instead of the default "time_bucket".
+            .WithTimeBucketProperty(x => x.HourStart)
+            .AddAggregateFunction(x => x.AvgPowerKw, x => x.PowerKw, EAggregateFunction.Avg);
+    }
+}
+
+public class PowerMeterReading
+{
+    public string MeterId { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+    public double PowerKw { get; set; }
+}
+
+public class PowerUsageHourly
+{
+    public DateTime HourStart { get; set; }
+    public double AvgPowerKw { get; set; }
+}
+```
+
+The string-based builder used by scaffolded code exposes an equivalent `.WithTimeBucketProperty("HourStart")` overload.
+
+> :warning: **Note:** The bucket column name is part of the view's structural definition. Designating a property whose mapped column differs from `time_bucket` on an **existing** aggregate changes that column name, which forces a drop and recreate of the aggregate (materialized data is rebuilt). In a hierarchy the drop cascades to every descendant aggregate. See [Migration Ordering](#migration-ordering).
+
+> :warning: **Note:** Undesignated aggregates are unaffected: without `.WithTimeBucketProperty(...)` the bucket column stays `time_bucket`, byte-for-byte identical to earlier versions.
+
+## Model Validation
+
+Structured aggregates (those configured through the builders rather than a raw view definition) are validated at model finalization:
+
+- Duplicate output column names are rejected with an `InvalidOperationException`. The check compares the bucket column, all GROUP BY columns, and every aggregate alias after resolving them to database column names. A source column that collides with the bucket column name is caught at model build.
+- A property designated via `.WithTimeBucketProperty(...)` that does not exist on the entity raises an `InvalidOperationException`.
+
+> :warning: **Note:** Entities scaffolded with a raw view definition are exempt from both checks, because the structured projection fields are unused on that path.
+
+## Hierarchical Continuous Aggregates
+
+A continuous aggregate can aggregate from another continuous aggregate rather than from the raw hypertable, forming a rollup chain (for example hourly &rarr; daily). This reduces the work of coarse-grained rollups: the daily aggregate reads pre-computed hourly buckets instead of every raw row.
+
+The child is configured with the ordinary `.IsContinuousAggregate<TChild, TParentAggregate>()` overload. The source type parameter is the **parent aggregate entity** (not the raw hypertable), and the time-bucket selector picks the parent aggregate's bucket property.
+
+The child's `time_bucket()` call references the parent's bucket column by name, so the parent's bucket property must resolve to a known column. Two equivalent options exist:
+
+- Designate the parent's bucket property with `.WithTimeBucketProperty(x => x.HourStart)` (see [Naming the Time-Bucket Column](#naming-the-time-bucket-column)). The designated name flows through resolution automatically: the child's `propertyExpression: parent => parent.HourStart` selector picks the same property, and the generated SQL agrees on the column name.
+- Map the bucket property to the default column explicitly via `.Property(x => x.TimeBucket).HasColumnName("time_bucket")`. The view exposes its bucket under `time_bucket`, and the child references it by that name.
+
+Either mapping is also what makes LINQ queries against an aggregate's bucket column work.
+
+```csharp
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using Microsoft.EntityFrameworkCore;
+
+public class MarketDataContext : DbContext
+{
+    public DbSet<Trade> Trades => Set<Trade>();
+    public DbSet<TradeHourly> TradesHourly => Set<TradeHourly>();
+    public DbSet<TradeDaily> TradesDaily => Set<TradeDaily>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // Source hypertable
+        modelBuilder.Entity<Trade>(entity =>
+        {
+            entity.HasKey(x => new { x.Ticker, x.Timestamp });
+            entity.IsHypertable(x => x.Timestamp);
+        });
+
+        // Level 1: hourly aggregate over the raw hypertable
+        modelBuilder.Entity<TradeHourly>(entity =>
+        {
+            entity.HasNoKey();
+            entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+            entity.IsContinuousAggregate<TradeHourly, Trade>("trade_hourly", "1 hour", x => x.Timestamp)
+                .AddAggregateFunction(x => x.AvgPrice, x => x.Price, EAggregateFunction.Avg);
+        });
+
+        // Level 2: daily aggregate whose source is the hourly aggregate
+        modelBuilder.Entity<TradeDaily>(entity =>
+        {
+            entity.HasNoKey();
+            entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+            entity.IsContinuousAggregate<TradeDaily, TradeHourly>("trade_daily", "1 day", x => x.TimeBucket)
+                .AddAggregateFunction(x => x.AvgPrice, x => x.AvgPrice, EAggregateFunction.Avg);
+        });
+    }
+}
+
+public class Trade
+{
+    public string Ticker { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+    public decimal Price { get; set; }
+}
+
+public class TradeHourly
+{
+    public DateTime TimeBucket { get; set; }
+    public decimal AvgPrice { get; set; }
+}
+
+public class TradeDaily
+{
+    public DateTime TimeBucket { get; set; }
+    public decimal AvgPrice { get; set; }
+}
+```
+
+### Migration Ordering
+
+Ordering across the chain is handled automatically:
+
+- Parents are created before their children; children are dropped before their parents.
+- A structural change to a parent (bucket width, bucket column name, aggregate functions, GROUP BY, or WHERE) drops and recreates all of its descendants as well, and their refresh policies are re-added afterwards.
+
+### Scaffolding
+
+Database-first scaffolding of hierarchical aggregates is supported. The scaffolder resolves the child's parent to the parent aggregate's view (not the internal `_materialized_hypertable_N` table), so the generated `ParentName` refers to the parent aggregate entity.
+
+> :warning: **Note:** TimescaleDB imposes server-side constraints on the child bucket width: it must be greater than, and an integer multiple of, the parent's bucket width. Calendar-based buckets (months, years, time zones) have additional rules. See the [TimescaleDB documentation on hierarchical continuous aggregates](https://docs.tigerdata.com/use-timescale/latest/continuous-aggregates/hierarchical-continuous-aggregates/) for the exact rules.
+
 ## Configuration Options
 
 ### WithNoData
@@ -452,7 +596,7 @@ public class TradeAggregate
 - The source entity must be a TimescaleDB hypertable.
 - The time bucket width determines the aggregation granularity (e.g., "1 hour", "1 day", "15 minutes").
 - Chunk interval for the aggregate's underlying materialized hypertable defaults to 10 times the source hypertable's chunk interval if not specified.
-- Continuous aggregates support hierarchical aggregation (aggregating from another continuous aggregate).
+- Continuous aggregates support [hierarchical aggregation](#hierarchical-continuous-aggregates) (aggregating from another continuous aggregate).
 - Refresh policies can be configured to automatically keep the aggregate up-to-date.
 
 ## Common Use Cases

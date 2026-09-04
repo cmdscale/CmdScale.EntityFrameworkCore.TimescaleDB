@@ -58,6 +58,7 @@ Runtime (`src/Eftdb/`):
 - `Configuration/ConventionValidationHelper` — `ValidateExclusiveFields` (XOR constraints like `After`/`CreatedBefore`), `ParseInitialStart`
 - `Configuration/PolicyJobBuilderCore` — base class for reorder/retention/CA-policy builder cores (ScheduleInterval, MaxRuntime, MaxRetries, RetryPeriod, InitialStart annotations)
 - `Configuration/TimeColumnStoreTypeValidationConvention` + `Internals/TimeColumnStoreTypeValidator` — model-finalized validation that time columns resolve to timestamp/timestamptz/date/integer store types
+- `Configuration/ContinuousAggregateViewColumnValidationConvention` — model-finalized validation of structured CA views: rejects duplicate output columns (bucket + group-by + aggregate aliases, resolved to store column names) and a `WithTimeBucketProperty` target that does not exist; raw-view-definition aggregates are exempt
 - `Internals/ColumnNameResolver` — **single resolution authority** for column names: accepts CLR property name, dot-separated complex-type path, or the column name itself; recursive complex-type traversal both directions; complex collections skipped
 - `Internals/ExpressionHelper` — `GetPropertyName` from selector lambdas; chained member access yields dot-paths for `ColumnNameResolver`
 - `Internals/ParentEntityTypeResolver` — resolves a CA's parent entity by CLR name, EF short name, or table name
@@ -120,3 +121,5 @@ Drops negative (before EF table drops, reverse dependency order); adds/alters po
 - Operation properties: `MaterializedViewName`, `ParentName` (entity name, resolved via EF metadata), `TimeBucketWidth`, `TimeBucketSourceColumn`, `AggregateFunctions` (colon-delimited wire format, see patterns.md), `GroupByColumns`, `WhereClause` (raw SQL, emitted verbatim — quoted identifiers must match resolved column names)
 - `first()`/`last()` take the time-bucket column as second argument: `last("price", "timestamp")`
 - Aggregate column aliases must match property names for EF mapping
+- **Bucket column naming**: `WithTimeBucketProperty` designates the property whose mapped column becomes the view's bucket alias; without it the alias falls back to `time_bucket` (snapshot compatibility). Renaming the bucket column is a structural change (drop + recreate).
+- **Hierarchical CAs** (CA-on-CA): the extractor (`ContinuousAggregateModelExtractor.SortParentsFirst`) is the single source of parent-first topological order; the differ's `TopologicalIndexByViewName` relies on it. `ContinuousAggregateDiffer` cascades drop+recreate to descendants on a parent structural change. `ParentEntityTypeResolver` is the single parent-resolution authority (CLR name, EF short name, or table name).

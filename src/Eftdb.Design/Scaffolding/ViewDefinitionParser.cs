@@ -21,6 +21,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
         internal sealed record ParsedViewDefinition(
             string? TimeBucketWidth,
             string? TimeBucketSourceColumn,
+            string? TimeBucketAlias,
             IReadOnlyList<ParsedAggregate> Aggregates,
             IReadOnlyList<string> GroupByColumns,
             string? WhereClause);
@@ -35,6 +36,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             => Cache.GetOrAdd(viewDefinition, static vd => new ParsedViewDefinition(
                 ParseTimeBucketWidth(vd),
                 ParseTimeBucketSourceColumn(vd),
+                ParseTimeBucketAlias(vd),
                 ParseAggregates(vd),
                 ParseGroupByColumns(vd),
                 ParseWhereClause(vd)));
@@ -57,6 +59,18 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
         public static string? ParseTimeBucketSourceColumn(string viewDefinition)
         {
             Match m = TimeBucketSourceColumnRegex().Match(viewDefinition);
+            return m.Success ? StripQuotes(m.Groups[1].Value) : null;
+        }
+
+        /// <summary>
+        /// Extracts the alias the view assigns to the <c>time_bucket(...)</c> expression
+        /// (the <c>AS &lt;alias&gt;</c> that becomes the view's bucket column name). Table-alias
+        /// qualifiers and double-quote delimiters are stripped. Returns <c>null</c> when the
+        /// bucket expression carries no explicit alias.
+        /// </summary>
+        public static string? ParseTimeBucketAlias(string viewDefinition)
+        {
+            Match m = TimeBucketAliasRegex().Match(viewDefinition);
             return m.Success ? StripQuotes(m.Groups[1].Value) : null;
         }
 
@@ -242,6 +256,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
         [GeneratedRegex(@"time_bucket\s*\([^,]+,\s*(?:(?:""[^""]+""|\w+)\.)*(""[^""]+""|\w+)\s*(?:::\w+(?:\s+\w+)*)?\s*[,)]", RegexOptions.IgnoreCase)]
         private static partial Regex TimeBucketSourceColumnRegex();
+
+        [GeneratedRegex(@"time_bucket\s*\([^)]*\)\s+AS\s+(""[^""]+""|\w+)", RegexOptions.IgnoreCase)]
+        private static partial Regex TimeBucketAliasRegex();
 
         [GeneratedRegex(@"\b(avg|sum|min|max|count|first|last)\s*\((\*|[^)]*?)\)\s+AS\s+(""[^""]+""|\w+)", RegexOptions.IgnoreCase)]
         private static partial Regex AggregateRegex();
