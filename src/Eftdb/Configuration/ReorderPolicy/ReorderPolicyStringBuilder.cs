@@ -24,7 +24,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy
         /// <returns>The builder for method chaining.</returns>
         public ReorderPolicyStringBuilder<TEntity> WithInitialStart(DateTime initialStart)
         {
-            _builder.HasAnnotation(ReorderPolicyAnnotations.InitialStart, initialStart);
+            PolicyJobBuilderCore.WithInitialStart(_builder, ReorderPolicyAnnotations.InitialStart, initialStart);
             return this;
         }
     }

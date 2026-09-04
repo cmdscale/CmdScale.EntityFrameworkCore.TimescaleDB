@@ -47,7 +47,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy
             entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.IndexName, indexName);
 
             if (initialStart.HasValue)
-                entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.InitialStart, initialStart);
+                PolicyJobBuilderCore.WithInitialStart(entityTypeBuilder, ReorderPolicyAnnotations.InitialStart, initialStart.Value);
 
             if (!string.IsNullOrWhiteSpace(scheduleInterval))
                 entityTypeBuilder.HasAnnotation(ReorderPolicyAnnotations.ScheduleInterval, scheduleInterval);

@@ -26,7 +26,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
         /// <returns>The builder for method chaining.</returns>
         public RetentionPolicyStringBuilder<TEntity> WithInitialStart(DateTime initialStart)
         {
-            _builder.HasAnnotation(RetentionPolicyAnnotations.InitialStart, initialStart);
+            PolicyJobBuilderCore.WithInitialStart(_builder, RetentionPolicyAnnotations.InitialStart, initialStart);
             return this;
         }
     }

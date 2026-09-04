@@ -63,7 +63,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.RetentionPolicy
                 entityTypeBuilder.HasAnnotation(RetentionPolicyAnnotations.DropCreatedBefore, dropCreatedBefore!);
 
             if (initialStart.HasValue)
-                entityTypeBuilder.HasAnnotation(RetentionPolicyAnnotations.InitialStart, initialStart);
+                PolicyJobBuilderCore.WithInitialStart(entityTypeBuilder, RetentionPolicyAnnotations.InitialStart, initialStart.Value);
 
             if (!string.IsNullOrWhiteSpace(scheduleInterval))
                 entityTypeBuilder.HasAnnotation(RetentionPolicyAnnotations.ScheduleInterval, scheduleInterval);

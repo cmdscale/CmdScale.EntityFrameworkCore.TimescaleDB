@@ -40,10 +40,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
     internal static class PolicyJobBuilderCore
     {
         /// <summary>
-        /// Writes the initial-start annotation.
+        /// Writes the initial-start annotation, normalizing the value to a machine-independent
+        /// UTC instant (see <see cref="ConventionValidationHelper.NormalizeInitialStartToUtc(DateTime)"/>).
         /// </summary>
         public static void WithInitialStart(EntityTypeBuilder builder, string annotationKey, DateTime initialStart)
-            => builder.HasAnnotation(annotationKey, initialStart);
+            => builder.HasAnnotation(annotationKey, ConventionValidationHelper.NormalizeInitialStartToUtc(initialStart));
 
         /// <summary>
         /// Writes the if-not-exists annotation.

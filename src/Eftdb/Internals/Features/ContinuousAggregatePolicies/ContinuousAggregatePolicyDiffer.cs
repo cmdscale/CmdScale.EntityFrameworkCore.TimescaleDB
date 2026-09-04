@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -86,7 +87,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             return source.StartOffset == target.StartOffset &&
                    source.EndOffset == target.EndOffset &&
                    source.ScheduleInterval == target.ScheduleInterval &&
-                   source.InitialStart == target.InitialStart &&
+                   ConventionValidationHelper.NormalizeInitialStartToUtc(source.InitialStart) == ConventionValidationHelper.NormalizeInitialStartToUtc(target.InitialStart) &&
                    source.IncludeTieredData == target.IncludeTieredData &&
                    source.BucketsPerBatch == target.BucketsPerBatch &&
                    source.MaxBatchesPerExecution == target.MaxBatchesPerExecution &&

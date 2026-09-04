@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
@@ -40,7 +41,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.RetentionP
                 .Where(x =>
                     x.Target.DropAfter != x.Source.DropAfter ||
                     x.Target.DropCreatedBefore != x.Source.DropCreatedBefore ||
-                    x.Target.InitialStart != x.Source.InitialStart ||
+                    ConventionValidationHelper.NormalizeInitialStartToUtc(x.Target.InitialStart) != ConventionValidationHelper.NormalizeInitialStartToUtc(x.Source.InitialStart) ||
                     x.Target.ScheduleInterval != x.Source.ScheduleInterval ||
                     x.Target.MaxRuntime != x.Source.MaxRuntime ||
                     x.Target.MaxRetries != x.Source.MaxRetries ||

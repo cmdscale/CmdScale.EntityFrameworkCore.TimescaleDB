@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
 {
     /// <summary>
@@ -54,13 +56,23 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
         }
 
         /// <summary>
-        /// Parses a <see cref="DateTime"/> from an attribute string value, throwing when
-        /// the value is present but cannot be parsed.
+        /// Parses a policy <c>InitialStart</c> <see cref="DateTime"/> from an attribute string value,
+        /// throwing when the value is present but cannot be parsed. The result is always
+        /// <see cref="DateTimeKind.Utc"/>.
         /// </summary>
+        /// <remarks>
+        /// Parsing uses <see cref="CultureInfo.InvariantCulture"/> with
+        /// <see cref="DateTimeStyles.AssumeUniversal"/> | <see cref="DateTimeStyles.AdjustToUniversal"/>
+        /// so the produced instant does not depend on the machine's local time zone. Strings carrying an
+        /// explicit designator ("Z" or an offset) convert to UTC correctly; strings without a designator
+        /// are interpreted as already being UTC. Treating unsuffixed values as UTC is the only
+        /// machine-independent interpretation: the alternative (local time) would render a different
+        /// literal into migrations on every machine and produce phantom alter-policy operations.
+        /// </remarks>
         /// <param name="rawValue">The raw attribute string to parse.</param>
         /// <param name="entityName">The CLR type name of the entity, for use in exception messages.</param>
         /// <param name="attributeName">The attribute name shown in the exception message prefix.</param>
-        /// <returns>The parsed <see cref="DateTime"/>, or <see langword="null"/> when <paramref name="rawValue"/> is null or whitespace.</returns>
+        /// <returns>The parsed UTC <see cref="DateTime"/>, or <see langword="null"/> when <paramref name="rawValue"/> is null or whitespace.</returns>
         internal static DateTime? ParseInitialStart(string? rawValue, string? entityName, string attributeName)
         {
             if (string.IsNullOrWhiteSpace(rawValue))
@@ -68,7 +80,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
                 return null;
             }
 
-            if (DateTime.TryParse(rawValue, out DateTime parsed))
+            if (DateTime.TryParse(
+                    rawValue,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out DateTime parsed))
             {
                 return parsed;
             }
@@ -76,5 +92,39 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
             throw new InvalidOperationException(
                 $"{attributeName} on '{entityName}': InitialStart '{rawValue}' is not a valid DateTime format. Use an ISO 8601 string.");
         }
+
+        /// <summary>
+        /// Normalizes a policy <c>InitialStart</c> value to a machine-independent UTC instant so that
+        /// values written by the fluent API, parsed from attributes, and read back from snapshots all
+        /// compare on the same footing.
+        /// </summary>
+        /// <remarks>
+        /// Kind handling:
+        /// <list type="bullet">
+        /// <item><see cref="DateTimeKind.Utc"/>: returned unchanged.</item>
+        /// <item><see cref="DateTimeKind.Local"/>: converted via <see cref="DateTime.ToUniversalTime"/>.</item>
+        /// <item><see cref="DateTimeKind.Unspecified"/>: reinterpreted as UTC via
+        /// <see cref="DateTime.SpecifyKind"/> (NOT <see cref="DateTime.ToUniversalTime"/>, which would
+        /// treat it as local and reintroduce a machine dependency). This matches the attribute path's
+        /// "unsuffixed = UTC" rule.</item>
+        /// </list>
+        /// </remarks>
+        /// <param name="value">The value to normalize.</param>
+        /// <returns>The equivalent UTC <see cref="DateTime"/>.</returns>
+        internal static DateTime NormalizeInitialStartToUtc(DateTime value) => value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+        };
+
+        /// <summary>
+        /// Nullable overload of <see cref="NormalizeInitialStartToUtc(DateTime)"/>; returns
+        /// <see langword="null"/> unchanged.
+        /// </summary>
+        /// <param name="value">The value to normalize, or <see langword="null"/>.</param>
+        /// <returns>The equivalent UTC <see cref="DateTime"/>, or <see langword="null"/>.</returns>
+        internal static DateTime? NormalizeInitialStartToUtc(DateTime? value)
+            => value.HasValue ? NormalizeInitialStartToUtc(value.Value) : null;
     }
 }

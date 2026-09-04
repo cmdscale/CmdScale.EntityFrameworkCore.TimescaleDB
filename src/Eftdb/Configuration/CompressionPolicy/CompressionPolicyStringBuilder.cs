@@ -26,7 +26,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
         /// <returns>The builder for method chaining.</returns>
         public CompressionPolicyStringBuilder<TEntity> WithInitialStart(DateTime initialStart)
         {
-            _builder.HasAnnotation(CompressionPolicyAnnotations.InitialStart, initialStart);
+            PolicyJobBuilderCore.WithInitialStart(_builder, CompressionPolicyAnnotations.InitialStart, initialStart);
             return this;
         }
     }

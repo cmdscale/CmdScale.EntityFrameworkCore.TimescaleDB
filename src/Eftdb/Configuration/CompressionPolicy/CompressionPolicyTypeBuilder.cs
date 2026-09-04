@@ -48,7 +48,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPoli
             WriteCompressionPolicy(entityTypeBuilder, after, createdBefore, scheduleInterval, timezone, ifNotExists);
 
             if (initialStart.HasValue)
-                entityTypeBuilder.HasAnnotation(CompressionPolicyAnnotations.InitialStart, initialStart.Value);
+                PolicyJobBuilderCore.WithInitialStart(entityTypeBuilder, CompressionPolicyAnnotations.InitialStart, initialStart.Value);
 
             return entityTypeBuilder;
         }
