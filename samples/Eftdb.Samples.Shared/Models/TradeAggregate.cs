@@ -2,6 +2,11 @@
 {
     public class TradeAggregate
     {
+        /// <summary>
+        /// Start of the hour-wide bucket this row summarizes.
+        /// </summary>
+        public DateTime TimeBucket { get; set; }
+
         public decimal AveragePrice { get; set; }
         public decimal MaxPrice { get; set; }
         public decimal MinPrice { get; set; }

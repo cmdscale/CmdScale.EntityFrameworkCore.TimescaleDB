@@ -44,7 +44,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
                 return;
             }
 
-            StoreObjectIdentifier? aggregateStoreIdentifier = GetStoreObjectIdentifier(entityType);
+            StoreObjectIdentifier? aggregateStoreIdentifier = EntityStoreObjectResolver.GetStoreObjectIdentifier(entityType);
             if (aggregateStoreIdentifier == null)
             {
                 return;
@@ -53,7 +53,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
             string bucketColumnName = ResolveBucketColumnName(entityType, aggregateStoreIdentifier.Value, materializedViewName);
 
             IEntityType? parentEntityType = ResolveParent(model, entityType);
-            StoreObjectIdentifier? parentStoreIdentifier = parentEntityType == null ? null : GetStoreObjectIdentifier(parentEntityType);
+            StoreObjectIdentifier? parentStoreIdentifier = parentEntityType == null ? null : EntityStoreObjectResolver.GetStoreObjectIdentifier(parentEntityType);
 
             List<string> outputColumns = [bucketColumnName];
             outputColumns.AddRange(ResolveGroupByColumns(entityType, parentEntityType, parentStoreIdentifier));
@@ -65,7 +65,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
                 if (!seen.Add(column))
                 {
                     throw new InvalidOperationException(
-                        $"The continuous aggregate '{DisplayName(entityType)}' (materialized view '{materializedViewName}') " +
+                        $"The continuous aggregate '{EntityStoreObjectResolver.DisplayName(entityType)}' (materialized view '{materializedViewName}') " +
                         $"produces the output column '{column}' more than once. Rename the conflicting property or use " +
                         $"WithTimeBucketProperty to map the bucket column to a distinct property.");
                 }
@@ -88,7 +88,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
             if (property == null)
             {
                 throw new InvalidOperationException(
-                    $"The continuous aggregate '{DisplayName(entityType)}' (materialized view '{materializedViewName}') " +
+                    $"The continuous aggregate '{EntityStoreObjectResolver.DisplayName(entityType)}' (materialized view '{materializedViewName}') " +
                     $"designates '{targetPropertyName}' as its time-bucket property, but no such property exists on the entity.");
             }
 
@@ -154,24 +154,5 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
             string? parentName = entityType.FindAnnotation(ContinuousAggregateAnnotations.ParentName)?.Value as string;
             return string.IsNullOrWhiteSpace(parentName) ? null : ParentEntityTypeResolver.Resolve(model, parentName);
         }
-
-        private static StoreObjectIdentifier? GetStoreObjectIdentifier(IEntityType entityType)
-        {
-            string? tableName = entityType.GetTableName();
-            if (!string.IsNullOrWhiteSpace(tableName))
-            {
-                return StoreObjectIdentifier.Table(tableName, entityType.GetSchema());
-            }
-
-            string? viewName = entityType.GetViewName();
-            if (!string.IsNullOrWhiteSpace(viewName))
-            {
-                return StoreObjectIdentifier.View(viewName, entityType.GetViewSchema() ?? entityType.GetSchema());
-            }
-
-            return null;
-        }
-
-        private static string DisplayName(IEntityType entityType) => entityType.ClrType?.Name ?? entityType.Name;
     }
 }

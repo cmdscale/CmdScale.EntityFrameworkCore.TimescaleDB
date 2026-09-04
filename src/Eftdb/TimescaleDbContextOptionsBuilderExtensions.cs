@@ -104,6 +104,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 services.AddSingleton<IConventionSetPlugin, TimescaleDbConventionSetPlugin>();
                 services.AddScoped<IMigrationsModelDiffer, TimescaleMigrationsModelDiffer>();
                 services.Replace(ServiceDescriptor.Scoped<IMigrationsSqlGenerator, TimescaleDbMigrationsSqlGenerator>());
+                services.Replace(ServiceDescriptor.Singleton<IModelValidator, TimescaleModelValidator>());
                 services.TryAddEnumerable(
                     ServiceDescriptor.Scoped<IMethodCallTranslatorPlugin, TimescaleDbMethodCallTranslatorPlugin>());
             }

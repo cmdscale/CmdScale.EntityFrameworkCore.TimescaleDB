@@ -31,6 +31,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Models
     [CompressionPolicy(After = "90 days", ScheduleInterval = "1 day")]
     public class WeatherAggregate
     {
+        /// <summary>
+        /// Start of the day-wide bucket this row summarizes.
+        /// </summary>
+        public DateTime TimeBucket { get; set; }
+
         // Avg aggregate function
         [Aggregate(EAggregateFunction.Avg, nameof(WeatherData.Temperature))]
         public double AverageTemperature { get; set; }

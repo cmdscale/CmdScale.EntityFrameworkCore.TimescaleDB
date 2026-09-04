@@ -22,6 +22,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
                     propertyExpression: source => source.RecordedAt,
                     timeBucketGroupBy: true)
 
+                .WithTimeBucketProperty(x => x.Bucket)
                 .AddAggregateFunction(
                     agg => agg.AvgLatitude,
                     source => source.Location.Coordinates.Latitude,

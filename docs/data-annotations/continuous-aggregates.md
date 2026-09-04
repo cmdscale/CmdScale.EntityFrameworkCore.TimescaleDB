@@ -159,8 +159,9 @@ Structured aggregates (those configured through attributes rather than a raw vie
 
 - Duplicate output column names are rejected with an `InvalidOperationException`. The check compares the bucket column, all `[GroupByColumn]` columns, and every `[Aggregate]` alias after resolving them to database column names. A source column that collides with the bucket column name — previously surfacing only at `migrate` time — is now caught at model build.
 - A property designated by a property-level `[TimeBucket]` that does not exist on the entity raises an `InvalidOperationException` (this cannot occur through attributes alone, but the same check guards Fluent-configured models).
+- An aggregate with no time-bucket designation (property-level `[TimeBucket]`) and no property mapping to the default bucket column `time_bucket` emits a warning through the configured EF logger. The view still exposes a `time_bucket` column, but it cannot be queried through the entity; previously this surfaced only at query time as an opaque Postgres "column does not exist" error. Remedy by designating a property or mapping one to `time_bucket`. This is a warning rather than an exception because deliberately not exposing the bucket is legal.
 
-> :warning: **Note:** Entities scaffolded with a raw view definition are exempt from both checks, because the structured projection fields are unused on that path.
+> :warning: **Note:** Entities scaffolded with a raw view definition are exempt from all checks, because the structured projection fields are unused on that path.
 
 ## Configuration Options
 
