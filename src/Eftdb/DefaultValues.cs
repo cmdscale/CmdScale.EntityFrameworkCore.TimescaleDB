@@ -6,6 +6,8 @@
     public static class DefaultValues
     {
         public const string DefaultSchema = "public";
+        public const string ContinuousAggregateTimeBucketColumnName = "time_bucket";
+
         public const string ChunkTimeInterval = "7 days";
         public const long ChunkTimeIntervalLong = 604_800_000_000L;
         public const string ReorderPolicyScheduleInterval = "1 day";

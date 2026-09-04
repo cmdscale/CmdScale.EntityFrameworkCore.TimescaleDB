@@ -29,6 +29,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             => builder.HasAnnotation(ContinuousAggregateAnnotations.WhereClause, whereClause);
 
         /// <summary>
+        /// Designates the model property that represents the bucket column, so the view's
+        /// bucket alias derives from that property's mapped column name rather than the
+        /// hard-coded <c>time_bucket</c>.
+        /// </summary>
+        public static void WithTimeBucketProperty(EntityTypeBuilder builder, string propertyName)
+            => builder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketTargetProperty, propertyName);
+
+        /// <summary>
         /// Enables or disables columnstore (compression) on the continuous aggregate materialized view.
         /// Maps to <c>ALTER MATERIALIZED VIEW ... SET (timescaledb.compress = true)</c>.
         /// Enabling compression is a prerequisite for adding a compression policy to a continuous aggregate.

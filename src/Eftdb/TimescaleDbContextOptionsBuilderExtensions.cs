@@ -151,6 +151,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 conventionSet.EntityTypeAddedConventions.Add(new RetentionPolicyConvention());
                 conventionSet.EntityTypeAddedConventions.Add(new CompressionPolicyConvention());
                 conventionSet.ModelFinalizedConventions.Add(new TimeColumnStoreTypeValidationConvention());
+                conventionSet.ModelFinalizedConventions.Add(new ContinuousAggregateViewColumnValidationConvention());
                 conventionSet.ModelFinalizedConventions.Add(new CompressionPolicyPrerequisiteValidationConvention());
                 conventionSet.ModelFinalizedConventions.Add(new SparseIndexValidationConvention());
                 return conventionSet;

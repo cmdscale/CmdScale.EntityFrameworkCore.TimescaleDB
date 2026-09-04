@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.PostgreSql;
@@ -1206,6 +1207,534 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             CountStarAggregate aggregate = Assert.Single(aggregates);
             Assert.Equal(3L, aggregate.TotalCount);
             Assert.Equal(2L, aggregate.CategoryCount);
+        }
+
+        #endregion
+
+        #region Should_Create_Hierarchical_ContinuousAggregate
+
+        private class HierProbeRaw
+        {
+            public DateTime Timestamp { get; set; }
+            public double Value { get; set; }
+        }
+
+        private class HierProbeHourly
+        {
+            public DateTime TimeBucket { get; set; }
+            public double AvgValue { get; set; }
+        }
+
+        private class HierProbeDaily
+        {
+            public DateTime TimeBucket { get; set; }
+            public double AvgValue { get; set; }
+        }
+
+        private class HierarchicalContext(string connectionString) : DbContext
+        {
+            public DbSet<HierProbeRaw> ProbeRaw => Set<HierProbeRaw>();
+            public DbSet<HierProbeHourly> ProbeHourly => Set<HierProbeHourly>();
+            public DbSet<HierProbeDaily> ProbeDaily => Set<HierProbeDaily>();
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                modelBuilder.Entity<HierProbeRaw>(entity =>
+                {
+                    entity.ToTable("hier_probe_raw");
+                    entity.HasNoKey();
+                    entity.IsHypertable(x => x.Timestamp);
+                });
+
+                modelBuilder.Entity<HierProbeHourly>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                    entity.IsContinuousAggregate<HierProbeHourly, HierProbeRaw>(
+                            "hier_probe_hourly",
+                            "1 hour",
+                            x => x.Timestamp)
+                        .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                        .WithNoData(true);
+                });
+
+                modelBuilder.Entity<HierProbeDaily>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                    entity.IsContinuousAggregate<HierProbeDaily, HierProbeHourly>(
+                            "hier_probe_daily",
+                            "1 day",
+                            x => x.TimeBucket)
+                        .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg)
+                        .WithNoData(true);
+                });
+            }
+        }
+
+        [Fact]
+        public async Task Should_Create_Hierarchical_ContinuousAggregate()
+        {
+            await using HierarchicalContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
+
+            List<string> viewNames = await context.Database
+                .SqlQuery<string>($@"
+                    SELECT view_name AS ""Value""
+                    FROM timescaledb_information.continuous_aggregates
+                    WHERE view_name IN ('hier_probe_hourly', 'hier_probe_daily')
+                    ORDER BY view_name")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            Assert.Contains("hier_probe_hourly", viewNames);
+            Assert.Contains("hier_probe_daily", viewNames);
+
+            List<string> dailyParents = await context.Database
+                .SqlQuery<string>($@"
+                    SELECT parent.user_view_name AS ""Value""
+                    FROM _timescaledb_catalog.continuous_agg child
+                    JOIN _timescaledb_catalog.continuous_agg parent
+                        ON child.parent_mat_hypertable_id = parent.mat_hypertable_id
+                    WHERE child.user_view_name = 'hier_probe_daily'")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("hier_probe_hourly", Assert.Single(dailyParents));
+        }
+
+        #endregion
+
+        #region Should_Create_Five_Level_Hierarchical_ContinuousAggregate_Chain
+
+        private class AChainDaily
+        {
+            public DateTime TimeBucket { get; set; }
+            public double AvgValue { get; set; }
+        }
+
+        private class BChainFourHourly
+        {
+            public DateTime TimeBucket { get; set; }
+            public double AvgValue { get; set; }
+        }
+
+        private class CChainHourly
+        {
+            public DateTime TimeBucket { get; set; }
+            public double AvgValue { get; set; }
+        }
+
+        private class DChainQuarterHourly
+        {
+            public DateTime TimeBucket { get; set; }
+            public double AvgValue { get; set; }
+        }
+
+        private class EChainFiveMinutely
+        {
+            public DateTime TimeBucket { get; set; }
+            public double AvgValue { get; set; }
+        }
+
+        private class FChainRawMetric
+        {
+            public DateTime Timestamp { get; set; }
+            public double Value { get; set; }
+        }
+
+        private class FiveLevelChainContext(string connectionString) : DbContext
+        {
+            public DbSet<FChainRawMetric> RawMetrics => Set<FChainRawMetric>();
+            public DbSet<AChainDaily> DailyAggregates => Set<AChainDaily>();
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                modelBuilder.Entity<FChainRawMetric>(entity =>
+                {
+                    entity.ToTable("hier_chain_raw");
+                    entity.HasNoKey();
+                    entity.IsHypertable(x => x.Timestamp);
+                });
+
+                modelBuilder.Entity<EChainFiveMinutely>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                    entity.IsContinuousAggregate<EChainFiveMinutely, FChainRawMetric>(
+                            "hier_chain_5m",
+                            "5 minutes",
+                            x => x.Timestamp)
+                        .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                        .WithNoData(true);
+                });
+
+                modelBuilder.Entity<DChainQuarterHourly>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                    entity.IsContinuousAggregate<DChainQuarterHourly, EChainFiveMinutely>(
+                            "hier_chain_15m",
+                            "15 minutes",
+                            x => x.TimeBucket)
+                        .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg)
+                        .WithNoData(true);
+                });
+
+                modelBuilder.Entity<CChainHourly>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                    entity.IsContinuousAggregate<CChainHourly, DChainQuarterHourly>(
+                            "hier_chain_1h",
+                            "1 hour",
+                            x => x.TimeBucket)
+                        .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg)
+                        .WithNoData(true);
+                });
+
+                modelBuilder.Entity<BChainFourHourly>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                    entity.IsContinuousAggregate<BChainFourHourly, CChainHourly>(
+                            "hier_chain_4h",
+                            "4 hours",
+                            x => x.TimeBucket)
+                        .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg)
+                        .WithNoData(true);
+                });
+
+                modelBuilder.Entity<AChainDaily>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                    entity.IsContinuousAggregate<AChainDaily, BChainFourHourly>(
+                            "hier_chain_1d",
+                            "1 day",
+                            x => x.TimeBucket)
+                        .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg)
+                        .WithNoData(true);
+                });
+            }
+        }
+
+        [Fact]
+        public async Task Should_Create_Five_Level_Hierarchical_ContinuousAggregate_Chain()
+        {
+            // Arrange
+            await using FiveLevelChainContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
+
+            // Act
+            List<string> viewNames = await context.Database
+                .SqlQuery<string>($@"
+                    SELECT view_name AS ""Value""
+                    FROM timescaledb_information.continuous_aggregates
+                    WHERE view_name LIKE 'hier_chain_%'")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            List<string> parentLinks = await context.Database
+                .SqlQuery<string>($@"
+                    SELECT child.user_view_name || '<-' || parent.user_view_name AS ""Value""
+                    FROM _timescaledb_catalog.continuous_agg child
+                    JOIN _timescaledb_catalog.continuous_agg parent
+                        ON child.parent_mat_hypertable_id = parent.mat_hypertable_id
+                    WHERE child.user_view_name LIKE 'hier_chain_%'")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            // Assert
+            Assert.Equal(5, viewNames.Count);
+            Assert.Contains("hier_chain_5m", viewNames);
+            Assert.Contains("hier_chain_15m", viewNames);
+            Assert.Contains("hier_chain_1h", viewNames);
+            Assert.Contains("hier_chain_4h", viewNames);
+            Assert.Contains("hier_chain_1d", viewNames);
+
+            Assert.Equal(4, parentLinks.Count);
+            Assert.Contains("hier_chain_15m<-hier_chain_5m", parentLinks);
+            Assert.Contains("hier_chain_1h<-hier_chain_15m", parentLinks);
+            Assert.Contains("hier_chain_4h<-hier_chain_1h", parentLinks);
+            Assert.Contains("hier_chain_1d<-hier_chain_4h", parentLinks);
+
+            // Act
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO hier_chain_raw (""Timestamp"", ""Value"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {10.0}),
+                    ({new DateTime(2025, 1, 6, 10, 7, 0, DateTimeKind.Utc)}, {20.0}),
+                    ({new DateTime(2025, 1, 6, 10, 20, 0, DateTimeKind.Utc)}, {30.0})",
+                TestContext.Current.CancellationToken);
+
+            foreach (string refreshSql in (string[])
+            [
+                "CALL refresh_continuous_aggregate('public.hier_chain_5m', NULL, NULL);",
+                "CALL refresh_continuous_aggregate('public.hier_chain_15m', NULL, NULL);",
+                "CALL refresh_continuous_aggregate('public.hier_chain_1h', NULL, NULL);",
+                "CALL refresh_continuous_aggregate('public.hier_chain_4h', NULL, NULL);",
+                "CALL refresh_continuous_aggregate('public.hier_chain_1d', NULL, NULL);",
+            ])
+            {
+                await context.Database.ExecuteSqlRawAsync(refreshSql, [], TestContext.Current.CancellationToken);
+            }
+
+            List<AChainDaily> dailyAggregates = await context.DailyAggregates
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            // Assert
+            AChainDaily dailyAggregate = Assert.Single(dailyAggregates);
+            Assert.Equal(22.5, dailyAggregate.AvgValue);
+        }
+
+        #endregion
+
+        #region Should_Create_Hierarchical_ContinuousAggregate_With_GroupBy_And_RefreshPolicies
+
+        private class ComboMeterReading
+        {
+            public DateTime Timestamp { get; set; }
+            public string MeterId { get; set; } = string.Empty;
+            public double PowerKw { get; set; }
+        }
+
+        private class ComboHourlyUsage
+        {
+            public DateTime TimeBucket { get; set; }
+            public string MeterId { get; set; } = string.Empty;
+            public double MinPowerKw { get; set; }
+            public double MaxPowerKw { get; set; }
+            public double TotalPowerKw { get; set; }
+            public long ReadingCount { get; set; }
+        }
+
+        private class ComboDailyUsage
+        {
+            public DateTime TimeBucket { get; set; }
+            public string MeterId { get; set; } = string.Empty;
+            public double MinPowerKw { get; set; }
+            public double MaxPowerKw { get; set; }
+            public double TotalPowerKw { get; set; }
+            public long ReadingCount { get; set; }
+        }
+
+        private class ComboHierarchicalContext(string connectionString) : DbContext
+        {
+            public DbSet<ComboMeterReading> Readings => Set<ComboMeterReading>();
+            public DbSet<ComboDailyUsage> DailyUsages => Set<ComboDailyUsage>();
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                modelBuilder.Entity<ComboMeterReading>(entity =>
+                {
+                    entity.ToTable("hier_combo_readings");
+                    entity.HasNoKey();
+                    entity.IsHypertable(x => x.Timestamp);
+                });
+
+                modelBuilder.Entity<ComboHourlyUsage>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                    entity.IsContinuousAggregate<ComboHourlyUsage, ComboMeterReading>(
+                            "hier_combo_hourly",
+                            "1 hour",
+                            x => x.Timestamp)
+                        .AddAggregateFunction(x => x.MinPowerKw, x => x.PowerKw, EAggregateFunction.Min)
+                        .AddAggregateFunction(x => x.MaxPowerKw, x => x.PowerKw, EAggregateFunction.Max)
+                        .AddAggregateFunction(x => x.TotalPowerKw, x => x.PowerKw, EAggregateFunction.Sum)
+                        .AddAggregateFunction(x => x.ReadingCount, x => x.Timestamp, EAggregateFunction.Count)
+                        .AddGroupByColumn(x => x.MeterId)
+                        .WithRefreshPolicy(startOffset: "3 days", endOffset: "1 hour", scheduleInterval: "1 hour");
+                });
+
+                modelBuilder.Entity<ComboDailyUsage>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                    entity.IsContinuousAggregate<ComboDailyUsage, ComboHourlyUsage>(
+                            "hier_combo_daily",
+                            "1 day",
+                            x => x.TimeBucket)
+                        .AddAggregateFunction(x => x.MinPowerKw, x => x.MinPowerKw, EAggregateFunction.Min)
+                        .AddAggregateFunction(x => x.MaxPowerKw, x => x.MaxPowerKw, EAggregateFunction.Max)
+                        .AddAggregateFunction(x => x.TotalPowerKw, x => x.TotalPowerKw, EAggregateFunction.Sum)
+                        .AddAggregateFunction(x => x.ReadingCount, x => x.ReadingCount, EAggregateFunction.Sum)
+                        .AddGroupByColumn(x => x.MeterId)
+                        .WithRefreshPolicy(startOffset: "30 days", endOffset: "1 day", scheduleInterval: "1 hour");
+                });
+            }
+        }
+
+        [Fact]
+        public async Task Should_Create_Hierarchical_ContinuousAggregate_With_GroupBy_And_RefreshPolicies()
+        {
+            // Arrange
+            await using ComboHierarchicalContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
+
+            // Act
+            List<string> policyTargets = await context.Database
+                .SqlQuery<string>($@"
+                    SELECT j.hypertable_name AS ""Value""
+                    FROM timescaledb_information.jobs j
+                    WHERE j.proc_name = 'policy_refresh_continuous_aggregate'
+                        AND j.hypertable_name LIKE 'hier_combo_%'")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            // Assert
+            Assert.Equal(2, policyTargets.Count);
+            Assert.Contains("hier_combo_hourly", policyTargets);
+            Assert.Contains("hier_combo_daily", policyTargets);
+
+            // Act
+            await context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO hier_combo_readings (""Timestamp"", ""MeterId"", ""PowerKw"")
+                VALUES
+                    ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"meter-a"}, {1.0}),
+                    ({new DateTime(2025, 1, 6, 10, 30, 0, DateTimeKind.Utc)}, {"meter-a"}, {3.0}),
+                    ({new DateTime(2025, 1, 6, 11, 15, 0, DateTimeKind.Utc)}, {"meter-a"}, {5.0}),
+                    ({new DateTime(2025, 1, 6, 10, 15, 0, DateTimeKind.Utc)}, {"meter-b"}, {10.0})",
+                TestContext.Current.CancellationToken);
+
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.hier_combo_hourly', NULL, NULL);",
+                [], TestContext.Current.CancellationToken);
+            await context.Database.ExecuteSqlRawAsync(
+                "CALL refresh_continuous_aggregate('public.hier_combo_daily', NULL, NULL);",
+                [], TestContext.Current.CancellationToken);
+
+            List<ComboDailyUsage> dailyUsages = await context.DailyUsages
+                .OrderBy(x => x.MeterId)
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            // Assert
+            Assert.Equal(2, dailyUsages.Count);
+
+            Assert.Equal("meter-a", dailyUsages[0].MeterId);
+            Assert.Equal(1.0, dailyUsages[0].MinPowerKw);
+            Assert.Equal(5.0, dailyUsages[0].MaxPowerKw);
+            Assert.Equal(9.0, dailyUsages[0].TotalPowerKw);
+            Assert.Equal(3L, dailyUsages[0].ReadingCount);
+
+            Assert.Equal("meter-b", dailyUsages[1].MeterId);
+            Assert.Equal(10.0, dailyUsages[1].MinPowerKw);
+            Assert.Equal(10.0, dailyUsages[1].MaxPowerKw);
+            Assert.Equal(10.0, dailyUsages[1].TotalPowerKw);
+            Assert.Equal(1L, dailyUsages[1].ReadingCount);
+        }
+
+        #endregion
+
+        #region Should_Create_Hierarchical_ContinuousAggregate_With_Designated_BucketColumn
+
+        private class DesignatedBucketRaw
+        {
+            public DateTime Timestamp { get; set; }
+            public double Value { get; set; }
+        }
+
+        private class DesignatedBucketHourly
+        {
+            public DateTime HourStart { get; set; }
+            public double AvgValue { get; set; }
+        }
+
+        private class DesignatedBucketDaily
+        {
+            public DateTime DayStart { get; set; }
+            public double AvgValue { get; set; }
+        }
+
+        private class DesignatedBucketContext(string connectionString) : DbContext
+        {
+            public DbSet<DesignatedBucketRaw> Raw => Set<DesignatedBucketRaw>();
+            public DbSet<DesignatedBucketHourly> Hourly => Set<DesignatedBucketHourly>();
+            public DbSet<DesignatedBucketDaily> Daily => Set<DesignatedBucketDaily>();
+
+            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+                => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
+
+            protected override void OnModelCreating(ModelBuilder modelBuilder)
+            {
+                modelBuilder.Entity<DesignatedBucketRaw>(entity =>
+                {
+                    entity.ToTable("designated_bucket_raw");
+                    entity.HasNoKey();
+                    entity.IsHypertable(x => x.Timestamp);
+                });
+
+                modelBuilder.Entity<DesignatedBucketHourly>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.HourStart).HasColumnName("hour_start");
+                    entity.IsContinuousAggregate<DesignatedBucketHourly, DesignatedBucketRaw>(
+                            "designated_bucket_hourly",
+                            "1 hour",
+                            x => x.Timestamp)
+                        .WithTimeBucketProperty(x => x.HourStart)
+                        .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                        .WithNoData(true);
+                });
+
+                modelBuilder.Entity<DesignatedBucketDaily>(entity =>
+                {
+                    entity.HasNoKey();
+                    entity.Property(x => x.DayStart).HasColumnName("day_start");
+                    entity.IsContinuousAggregate<DesignatedBucketDaily, DesignatedBucketHourly>(
+                            "designated_bucket_daily",
+                            "1 day",
+                            x => x.HourStart)
+                        .WithTimeBucketProperty(x => x.DayStart)
+                        .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg)
+                        .WithNoData(true);
+                });
+            }
+        }
+
+        [Fact]
+        public async Task Should_Create_Hierarchical_ContinuousAggregate_With_Designated_BucketColumn()
+        {
+            await using DesignatedBucketContext context = new(_connectionString!);
+            await CreateDatabaseViaMigrationAsync(context);
+
+            List<string> hourlyColumns = await context.Database
+                .SqlQuery<string>($@"
+                    SELECT column_name AS ""Value""
+                    FROM information_schema.columns
+                    WHERE table_name = 'designated_bucket_hourly'
+                    ORDER BY column_name")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            Assert.Contains("hour_start", hourlyColumns);
+            Assert.DoesNotContain("time_bucket", hourlyColumns);
+
+            List<string> dailyColumns = await context.Database
+                .SqlQuery<string>($@"
+                    SELECT column_name AS ""Value""
+                    FROM information_schema.columns
+                    WHERE table_name = 'designated_bucket_daily'
+                    ORDER BY column_name")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            Assert.Contains("day_start", dailyColumns);
+
+            List<string> dailyParents = await context.Database
+                .SqlQuery<string>($@"
+                    SELECT parent.user_view_name AS ""Value""
+                    FROM _timescaledb_catalog.continuous_agg child
+                    JOIN _timescaledb_catalog.continuous_agg parent
+                        ON child.parent_mat_hypertable_id = parent.mat_hypertable_id
+                    WHERE child.user_view_name = 'designated_bucket_daily'")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("designated_bucket_hourly", Assert.Single(dailyParents));
         }
 
         #endregion

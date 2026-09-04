@@ -3344,4 +3344,774 @@ public class ContinuousAggregateDifferTests
     }
 
     #endregion
+
+    // ── Hierarchical continuous aggregates ──
+
+    #region Should_Add_Child_Aggregate_To_Unchanged_Parent
+
+    private class HierAddRaw
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class HierAddHourly
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class HierAddDaily
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class HierAddParentOnlyContext : DbContext
+    {
+        public DbSet<HierAddRaw> Raw => Set<HierAddRaw>();
+        public DbSet<HierAddHourly> Hourly => Set<HierAddHourly>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierAddRaw>(entity =>
+            {
+                entity.ToTable("hier_add_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<HierAddHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierAddHourly, HierAddRaw>(
+                        "hier_add_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class HierAddParentAndChildContext : DbContext
+    {
+        public DbSet<HierAddRaw> Raw => Set<HierAddRaw>();
+        public DbSet<HierAddHourly> Hourly => Set<HierAddHourly>();
+        public DbSet<HierAddDaily> Daily => Set<HierAddDaily>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierAddRaw>(entity =>
+            {
+                entity.ToTable("hier_add_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<HierAddHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierAddHourly, HierAddRaw>(
+                        "hier_add_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+
+            modelBuilder.Entity<HierAddDaily>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierAddDaily, HierAddHourly>(
+                        "hier_add_daily",
+                        "1 day",
+                        x => x.TimeBucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Add_Child_Aggregate_To_Unchanged_Parent()
+    {
+        using HierAddParentOnlyContext sourceContext = new();
+        using HierAddParentAndChildContext targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        CreateContinuousAggregateOperation createOp = Assert.Single(operations.OfType<CreateContinuousAggregateOperation>());
+        Assert.Equal("hier_add_daily", createOp.MaterializedViewName);
+        Assert.DoesNotContain(operations, op => op is DropContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_Child_Before_Parent_When_Both_Removed
+
+    private class HierRemoveRaw
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class HierRemoveHourly
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class HierRemoveDaily
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class HierRemoveParentAndChildContext : DbContext
+    {
+        public DbSet<HierRemoveRaw> Raw => Set<HierRemoveRaw>();
+        public DbSet<HierRemoveHourly> Hourly => Set<HierRemoveHourly>();
+        public DbSet<HierRemoveDaily> Daily => Set<HierRemoveDaily>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierRemoveRaw>(entity =>
+            {
+                entity.ToTable("hier_remove_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<HierRemoveHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierRemoveHourly, HierRemoveRaw>(
+                        "hier_remove_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+
+            modelBuilder.Entity<HierRemoveDaily>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierRemoveDaily, HierRemoveHourly>(
+                        "hier_remove_daily",
+                        "1 day",
+                        x => x.TimeBucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class HierRemoveHypertableOnlyContext : DbContext
+    {
+        public DbSet<HierRemoveRaw> Raw => Set<HierRemoveRaw>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierRemoveRaw>(entity =>
+            {
+                entity.ToTable("hier_remove_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_Child_Before_Parent_When_Both_Removed()
+    {
+        using HierRemoveParentAndChildContext sourceContext = new();
+        using HierRemoveHypertableOnlyContext targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        List<DropContinuousAggregateOperation> drops = [.. operations.OfType<DropContinuousAggregateOperation>()];
+        Assert.Equal(2, drops.Count);
+        Assert.DoesNotContain(operations, op => op is CreateContinuousAggregateOperation);
+
+        int childIndex = drops.FindIndex(op => op.MaterializedViewName == "hier_remove_daily");
+        int parentIndex = drops.FindIndex(op => op.MaterializedViewName == "hier_remove_hourly");
+        Assert.True(childIndex < parentIndex);
+    }
+
+    #endregion
+
+    #region Should_Cascade_Drop_And_Recreate_When_Parent_Structurally_Changes
+
+    private class HierCascadeRaw
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class HierCascadeHourly
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class HierCascadeDaily
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class HierCascadeInitialContext : DbContext
+    {
+        public DbSet<HierCascadeRaw> Raw => Set<HierCascadeRaw>();
+        public DbSet<HierCascadeHourly> Hourly => Set<HierCascadeHourly>();
+        public DbSet<HierCascadeDaily> Daily => Set<HierCascadeDaily>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierCascadeRaw>(entity =>
+            {
+                entity.ToTable("hier_cascade_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<HierCascadeHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierCascadeHourly, HierCascadeRaw>(
+                        "hier_cascade_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+
+            modelBuilder.Entity<HierCascadeDaily>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierCascadeDaily, HierCascadeHourly>(
+                        "hier_cascade_daily",
+                        "1 day",
+                        x => x.TimeBucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class HierCascadeChangedParentContext : DbContext
+    {
+        public DbSet<HierCascadeRaw> Raw => Set<HierCascadeRaw>();
+        public DbSet<HierCascadeHourly> Hourly => Set<HierCascadeHourly>();
+        public DbSet<HierCascadeDaily> Daily => Set<HierCascadeDaily>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierCascadeRaw>(entity =>
+            {
+                entity.ToTable("hier_cascade_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<HierCascadeHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierCascadeHourly, HierCascadeRaw>(
+                        "hier_cascade_hourly",
+                        "2 hours",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+
+            modelBuilder.Entity<HierCascadeDaily>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierCascadeDaily, HierCascadeHourly>(
+                        "hier_cascade_daily",
+                        "1 day",
+                        x => x.TimeBucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Cascade_Drop_And_Recreate_When_Parent_Structurally_Changes()
+    {
+        using HierCascadeInitialContext sourceContext = new();
+        using HierCascadeChangedParentContext targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        Assert.DoesNotContain(operations, op => op is AlterContinuousAggregateOperation);
+
+        List<DropContinuousAggregateOperation> drops = [.. operations.OfType<DropContinuousAggregateOperation>()];
+        List<CreateContinuousAggregateOperation> creates = [.. operations.OfType<CreateContinuousAggregateOperation>()];
+        Assert.Equal(2, drops.Count);
+        Assert.Equal(2, creates.Count);
+
+        int dropChildIndex = drops.FindIndex(op => op.MaterializedViewName == "hier_cascade_daily");
+        int dropParentIndex = drops.FindIndex(op => op.MaterializedViewName == "hier_cascade_hourly");
+        Assert.True(dropChildIndex < dropParentIndex);
+
+        int createParentIndex = creates.FindIndex(op => op.MaterializedViewName == "hier_cascade_hourly");
+        int createChildIndex = creates.FindIndex(op => op.MaterializedViewName == "hier_cascade_daily");
+        Assert.True(createParentIndex < createChildIndex);
+    }
+
+    #endregion
+
+    #region Should_Create_Both_Hierarchical_Aggregates_ParentFirst_From_Empty
+
+    private class HierCreateRaw
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ChildAggregateFirstAlphabetically
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ParentAggregateSecondAlphabetically
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class HierCreateHypertableOnlyContext : DbContext
+    {
+        public DbSet<HierCreateRaw> Raw => Set<HierCreateRaw>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierCreateRaw>(entity =>
+            {
+                entity.ToTable("hier_create_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    private class HierCreateFullContext : DbContext
+    {
+        public DbSet<HierCreateRaw> Raw => Set<HierCreateRaw>();
+        public DbSet<ChildAggregateFirstAlphabetically> Daily => Set<ChildAggregateFirstAlphabetically>();
+        public DbSet<ParentAggregateSecondAlphabetically> Hourly => Set<ParentAggregateSecondAlphabetically>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierCreateRaw>(entity =>
+            {
+                entity.ToTable("hier_create_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ParentAggregateSecondAlphabetically>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<ParentAggregateSecondAlphabetically, HierCreateRaw>(
+                        "hier_create_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+
+            modelBuilder.Entity<ChildAggregateFirstAlphabetically>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<ChildAggregateFirstAlphabetically, ParentAggregateSecondAlphabetically>(
+                        "hier_create_daily",
+                        "1 day",
+                        x => x.TimeBucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Create_Both_Hierarchical_Aggregates_ParentFirst_From_Empty()
+    {
+        using HierCreateHypertableOnlyContext sourceContext = new();
+        using HierCreateFullContext targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        List<CreateContinuousAggregateOperation> creates = [.. operations.OfType<CreateContinuousAggregateOperation>()];
+        Assert.Equal(2, creates.Count);
+
+        int parentIndex = creates.FindIndex(op => op.MaterializedViewName == "hier_create_hourly");
+        int childIndex = creates.FindIndex(op => op.MaterializedViewName == "hier_create_daily");
+        Assert.True(parentIndex < childIndex);
+    }
+
+    #endregion
+
+    // ── Time-bucket column name ──
+
+    #region Should_Drop_And_Recreate_When_TimeBucketColumnName_Changes
+
+    private class BucketRenameRaw
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class BucketRenameHourly
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class BucketRenameDefaultContext : DbContext
+    {
+        public DbSet<BucketRenameRaw> Metrics => Set<BucketRenameRaw>();
+        public DbSet<BucketRenameHourly> HourlyMetrics => Set<BucketRenameHourly>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BucketRenameRaw>(entity =>
+            {
+                entity.ToTable("bucket_rename_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<BucketRenameHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<BucketRenameHourly, BucketRenameRaw>(
+                        "bucket_rename_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class BucketRenameCustomContext : DbContext
+    {
+        public DbSet<BucketRenameRaw> Metrics => Set<BucketRenameRaw>();
+        public DbSet<BucketRenameHourly> HourlyMetrics => Set<BucketRenameHourly>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BucketRenameRaw>(entity =>
+            {
+                entity.ToTable("bucket_rename_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<BucketRenameHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.Bucket).HasColumnName("hour_start");
+                entity.IsContinuousAggregate<BucketRenameHourly, BucketRenameRaw>(
+                        "bucket_rename_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .WithTimeBucketProperty(x => x.Bucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_TimeBucketColumnName_Changes()
+    {
+        using BucketRenameDefaultContext sourceContext = new();
+        using BucketRenameCustomContext targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        DropContinuousAggregateOperation? dropOp = operations.OfType<DropContinuousAggregateOperation>().FirstOrDefault();
+        CreateContinuousAggregateOperation? createOp = operations.OfType<CreateContinuousAggregateOperation>().FirstOrDefault();
+
+        Assert.NotNull(dropOp);
+        Assert.NotNull(createOp);
+        Assert.Equal("bucket_rename_hourly", dropOp.MaterializedViewName);
+        Assert.Equal("bucket_rename_hourly", createOp.MaterializedViewName);
+        Assert.Equal("hour_start", createOp.TimeBucketColumnName);
+    }
+
+    #endregion
+
+    #region Should_Not_Generate_Operations_When_TimeBucketColumnName_Identical
+
+    private class BucketStableRaw
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class BucketStableHourly
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class BucketStableContext : DbContext
+    {
+        public DbSet<BucketStableRaw> Metrics => Set<BucketStableRaw>();
+        public DbSet<BucketStableHourly> HourlyMetrics => Set<BucketStableHourly>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BucketStableRaw>(entity =>
+            {
+                entity.ToTable("bucket_stable_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<BucketStableHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.Bucket).HasColumnName("hour_start");
+                entity.IsContinuousAggregate<BucketStableHourly, BucketStableRaw>(
+                        "bucket_stable_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .WithTimeBucketProperty(x => x.Bucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Generate_Operations_When_TimeBucketColumnName_Identical()
+    {
+        using BucketStableContext sourceContext = new();
+        using BucketStableContext targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Cascade_Drop_And_Recreate_When_Parent_BucketColumnName_Changes
+
+    private class BucketCascadeRaw
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class BucketCascadeHourly
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class BucketCascadeDaily
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class BucketCascadeInitialContext : DbContext
+    {
+        public DbSet<BucketCascadeRaw> Raw => Set<BucketCascadeRaw>();
+        public DbSet<BucketCascadeHourly> Hourly => Set<BucketCascadeHourly>();
+        public DbSet<BucketCascadeDaily> Daily => Set<BucketCascadeDaily>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BucketCascadeRaw>(entity =>
+            {
+                entity.ToTable("bucket_cascade_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<BucketCascadeHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.Bucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<BucketCascadeHourly, BucketCascadeRaw>(
+                        "bucket_cascade_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+
+            modelBuilder.Entity<BucketCascadeDaily>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.Bucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<BucketCascadeDaily, BucketCascadeHourly>(
+                        "bucket_cascade_daily",
+                        "1 day",
+                        x => x.Bucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class BucketCascadeRenamedParentContext : DbContext
+    {
+        public DbSet<BucketCascadeRaw> Raw => Set<BucketCascadeRaw>();
+        public DbSet<BucketCascadeHourly> Hourly => Set<BucketCascadeHourly>();
+        public DbSet<BucketCascadeDaily> Daily => Set<BucketCascadeDaily>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BucketCascadeRaw>(entity =>
+            {
+                entity.ToTable("bucket_cascade_raw");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<BucketCascadeHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.Bucket).HasColumnName("hour_start");
+                entity.IsContinuousAggregate<BucketCascadeHourly, BucketCascadeRaw>(
+                        "bucket_cascade_hourly",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .WithTimeBucketProperty(x => x.Bucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+
+            modelBuilder.Entity<BucketCascadeDaily>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.Bucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<BucketCascadeDaily, BucketCascadeHourly>(
+                        "bucket_cascade_daily",
+                        "1 day",
+                        x => x.Bucket)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Cascade_Drop_And_Recreate_When_Parent_BucketColumnName_Changes()
+    {
+        using BucketCascadeInitialContext sourceContext = new();
+        using BucketCascadeRenamedParentContext targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        List<DropContinuousAggregateOperation> drops = [.. operations.OfType<DropContinuousAggregateOperation>()];
+        List<CreateContinuousAggregateOperation> creates = [.. operations.OfType<CreateContinuousAggregateOperation>()];
+        Assert.Equal(2, drops.Count);
+        Assert.Equal(2, creates.Count);
+
+        int dropChildIndex = drops.FindIndex(op => op.MaterializedViewName == "bucket_cascade_daily");
+        int dropParentIndex = drops.FindIndex(op => op.MaterializedViewName == "bucket_cascade_hourly");
+        Assert.True(dropChildIndex < dropParentIndex);
+
+        int createParentIndex = creates.FindIndex(op => op.MaterializedViewName == "bucket_cascade_hourly");
+        int createChildIndex = creates.FindIndex(op => op.MaterializedViewName == "bucket_cascade_daily");
+        Assert.True(createParentIndex < createChildIndex);
+
+        CreateContinuousAggregateOperation parentCreate = creates[createParentIndex];
+        Assert.Equal("hour_start", parentCreate.TimeBucketColumnName);
+    }
+
+    #endregion
 }

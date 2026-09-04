@@ -110,6 +110,58 @@ public class SensorDailyAggregate
 }
 ```
 
+### Naming the Time-Bucket Column
+
+The materialized view's bucket column is named `time_bucket` by default, matching the TimescaleDB `time_bucket()` function-name default. Querying the aggregate entity requires a property mapped to that column — either explicitly via `[Column("time_bucket")]`, or implicitly through a naming convention on a property named `TimeBucket`.
+
+The `[TimeBucket]` attribute can be placed on either the class or a property:
+
+- **Class placement** configures only the bucket width, source column, and GROUP BY behavior. The bucket column keeps the default `time_bucket` name.
+- **Property placement** additionally designates that property as the bucket target. The generated view aliases its bucket column to the property's mapped column name — so custom names such as `hour_start` work — and no separate `[Column("time_bucket")]` is needed.
+
+A property-level `[TimeBucket]` wins over a class-level one if both are present.
+
+```csharp
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using Microsoft.EntityFrameworkCore;
+
+[Keyless]
+[ContinuousAggregate(
+    MaterializedViewName = "power_usage_hourly",
+    ParentName = nameof(PowerMeterReading))]
+public class PowerUsageHourly
+{
+    // Property-level [TimeBucket]: configures the bucket AND aliases the view's
+    // bucket column to HourStart's mapped column name (hour_start under snake_case).
+    [TimeBucket("1 hour", nameof(PowerMeterReading.Timestamp))]
+    public DateTime HourStart { get; set; }
+
+    [Aggregate(EAggregateFunction.Avg, nameof(PowerMeterReading.PowerKw))]
+    public double AvgPowerKw { get; set; }
+}
+
+public class PowerMeterReading
+{
+    public string MeterId { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+    public double PowerKw { get; set; }
+}
+```
+
+> :warning: **Note:** The bucket column name is part of the view's structural definition. Moving `[TimeBucket]` onto a property whose mapped column differs from `time_bucket` on an **existing** aggregate changes that column name, which forces a drop and recreate of the aggregate (materialized data is rebuilt). In a hierarchy the drop cascades to every descendant aggregate. See [Migration Ordering](../fluent-api/continuous-aggregates#migration-ordering).
+
+> :warning: **Note:** Class-level `[TimeBucket]` is unaffected: the bucket column stays `time_bucket`, byte-for-byte identical to earlier versions.
+
+### Model Validation
+
+Structured aggregates (those configured through attributes rather than a raw view definition) are validated at model finalization:
+
+- Duplicate output column names are rejected with an `InvalidOperationException`. The check compares the bucket column, all `[GroupByColumn]` columns, and every `[Aggregate]` alias after resolving them to database column names. A source column that collides with the bucket column name — previously surfacing only at `migrate` time — is now caught at model build.
+- A property designated by a property-level `[TimeBucket]` that does not exist on the entity raises an `InvalidOperationException` (this cannot occur through attributes alone, but the same check guards Fluent-configured models).
+
+> :warning: **Note:** Entities scaffolded with a raw view definition are exempt from both checks, because the structured projection fields are unused on that path.
+
 ## Configuration Options
 
 The `[ContinuousAggregate]` attribute provides several configuration properties:
@@ -241,6 +293,48 @@ public class TradeHourlyAggregate
     public decimal ClosingPrice { get; set; }
 }
 ```
+
+## Hierarchical Continuous Aggregates
+
+A continuous aggregate can aggregate from another continuous aggregate. The child sets `ParentName` to the parent aggregate entity and its `[TimeBucket]` source column references the parent's bucket column. The parent's bucket property must resolve to a known column so the child can reference it by name. Two equivalent options exist:
+
+- Place `[TimeBucket]` on the parent's bucket property (see [Naming the Time-Bucket Column](#naming-the-time-bucket-column)). The designated name flows through resolution automatically: set the child's `[TimeBucket]` source column to that property's mapped column name (for example `hour_start`).
+- Map the parent's bucket property to the default column with `[Column("time_bucket")]`, keeping a class-level `[TimeBucket]`, and set the child's source column to `"time_bucket"`.
+
+The example below uses the second option; the property-level approach mirrors [Naming the Time-Bucket Column](#naming-the-time-bucket-column).
+
+```csharp
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations.Schema;
+
+[Keyless]
+[ContinuousAggregate(MaterializedViewName = "trade_hourly", ParentName = nameof(Trade))]
+[TimeBucket("1 hour", nameof(Trade.Timestamp))]
+public class TradeHourly
+{
+    [Column("time_bucket")]
+    public DateTime TimeBucket { get; set; }
+
+    [Aggregate(EAggregateFunction.Avg, nameof(Trade.Price))]
+    public decimal AvgPrice { get; set; }
+}
+
+[Keyless]
+[ContinuousAggregate(MaterializedViewName = "trade_daily", ParentName = nameof(TradeHourly))]
+[TimeBucket("1 day", "time_bucket")]
+public class TradeDaily
+{
+    [Column("time_bucket")]
+    public DateTime TimeBucket { get; set; }
+
+    [Aggregate(EAggregateFunction.Avg, nameof(TradeHourly.AvgPrice))]
+    public decimal AvgPrice { get; set; }
+}
+```
+
+Migration ordering, descendant recreation, and scaffolding behave identically to the Fluent API. See [Hierarchical Continuous Aggregates](../fluent-api/continuous-aggregates#hierarchical-continuous-aggregates) for the shared behavior and the TimescaleDB server-side bucket-width constraints.
 
 ## Grouping by Additional Columns
 

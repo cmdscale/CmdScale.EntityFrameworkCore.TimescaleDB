@@ -45,9 +45,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string expected = @"
                 CREATE MATERIALIZED VIEW ""public"".""hourly_metrics""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
-                SELECT time_bucket('1 hour', ""timestamp"") AS time_bucket, AVG(""value"") AS ""avg_value""
+                SELECT time_bucket('1 hour', ""timestamp"") AS ""time_bucket"", AVG(""value"") AS ""avg_value""
                 FROM ""public"".""metrics""
-                GROUP BY time_bucket;
+                GROUP BY 1;
             ";
 
             // Act
@@ -86,9 +86,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string expected = @"
                 CREATE MATERIALIZED VIEW ""analytics"".""daily_stats""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = true, timescaledb.materialized_only = true) AS
-                SELECT time_bucket('1 day', ""time"") AS time_bucket, AVG(""temperature"") AS ""avg_temp"", MAX(""temperature"") AS ""max_temp"", MIN(""temperature"") AS ""min_temp"", COUNT(""id"") AS ""total_readings"", SUM(""voltage"") AS ""sum_voltage""
+                SELECT time_bucket('1 day', ""time"") AS ""time_bucket"", AVG(""temperature"") AS ""avg_temp"", MAX(""temperature"") AS ""max_temp"", MIN(""temperature"") AS ""min_temp"", COUNT(""id"") AS ""total_readings"", SUM(""voltage"") AS ""sum_voltage""
                 FROM ""analytics"".""sensor_data""
-                GROUP BY time_bucket
+                GROUP BY 1
                 WITH NO DATA;
             ";
 
@@ -121,9 +121,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string expected = @"
                 CREATE MATERIALIZED VIEW ""public"".""hourly_counts""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
-                SELECT time_bucket('1 hour', ""event_time"") AS time_bucket, COUNT(*) AS ""record_count""
+                SELECT time_bucket('1 hour', ""event_time"") AS ""time_bucket"", COUNT(*) AS ""record_count""
                 FROM ""public"".""events""
-                GROUP BY time_bucket;
+                GROUP BY 1;
             ";
 
             // Act
@@ -159,9 +159,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string expected = @"
                 CREATE MATERIALIZED VIEW ""public"".""price_aggregates""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
-                SELECT time_bucket('5 minutes', ""timestamp"") AS time_bucket, first(""price"", ""timestamp"") AS ""first_price"", last(""price"", ""timestamp"") AS ""last_price""
+                SELECT time_bucket('5 minutes', ""timestamp"") AS ""time_bucket"", first(""price"", ""timestamp"") AS ""first_price"", last(""price"", ""timestamp"") AS ""last_price""
                 FROM ""public"".""trades""
-                GROUP BY time_bucket;
+                GROUP BY 1;
             ";
 
             // Act
@@ -193,9 +193,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string expected = @"
                 CREATE MATERIALIZED VIEW ""public"".""sales_by_region""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
-                SELECT time_bucket('1 hour', ""sale_time"") AS time_bucket, ""region"", ""store_id"", SUM(""amount"") AS ""total_amount""
+                SELECT time_bucket('1 hour', ""sale_time"") AS ""time_bucket"", ""region"", ""store_id"", SUM(""amount"") AS ""total_amount""
                 FROM ""public"".""sales""
-                GROUP BY time_bucket, ""region"", ""store_id"";
+                GROUP BY 1, ""region"", ""store_id"";
             ";
 
             // Act
@@ -228,10 +228,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string expected = @"
                 CREATE MATERIALIZED VIEW ""public"".""high_value_trades""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false) AS
-                SELECT time_bucket('1 hour', ""timestamp"") AS time_bucket, AVG(""price"") AS ""avg_price""
+                SELECT time_bucket('1 hour', ""timestamp"") AS ""time_bucket"", AVG(""price"") AS ""avg_price""
                 FROM ""public"".""trades""
                 WHERE ""price"" > 100 AND ""volume"" > 1000
-                GROUP BY time_bucket;
+                GROUP BY 1;
             ";
 
             // Act
@@ -264,9 +264,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string expected = @"
                 CREATE MATERIALIZED VIEW ""public"".""monthly_summary""
                 WITH (timescaledb.continuous, timescaledb.create_group_indexes = false, timescaledb.materialized_only = false, timescaledb.chunk_interval = '7 days') AS
-                SELECT time_bucket('1 month', ""event_time"") AS time_bucket, COUNT(""id"") AS ""event_count""
+                SELECT time_bucket('1 month', ""event_time"") AS ""time_bucket"", COUNT(""id"") AS ""event_count""
                 FROM ""public"".""events""
-                GROUP BY time_bucket;
+                GROUP BY 1;
             ";
 
             // Act
@@ -308,7 +308,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Contains("time_bucket('1 hour', \"timestamp\")", result);
             Assert.Contains("AVG(\"value\") AS \"avg_value\"", result);
             Assert.Contains("FROM \"public\".\"metrics\"", result);
-            Assert.Contains("GROUP BY time_bucket", result);
+            Assert.Contains("GROUP BY 1", result);
             Assert.DoesNotContain("WITH NO DATA", result);
         }
 
@@ -381,7 +381,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Contains("timescaledb.create_group_indexes = true", result);
             Assert.Contains("timescaledb.materialized_only = true", result);
             Assert.Contains("timescaledb.chunk_interval = '1 day'", result);
-            Assert.Contains("time_bucket('30 minutes', \"recorded_at\") AS time_bucket", result);
+            Assert.Contains("time_bucket('30 minutes', \"recorded_at\") AS \"time_bucket\"", result);
             Assert.Contains("\"sensor_id\"", result);
             Assert.Contains("\"location\"", result);
             Assert.Contains("AVG(\"temperature\") AS \"avg_temp\"", result);
@@ -391,7 +391,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Contains("first(\"temperature\", \"recorded_at\") AS \"first_reading\"", result);
             Assert.Contains("last(\"temperature\", \"recorded_at\") AS \"last_reading\"", result);
             Assert.Contains("WHERE \"temperature\" IS NOT NULL", result);
-            Assert.Contains("GROUP BY time_bucket, \"sensor_id\", \"location\"", result);
+            Assert.Contains("GROUP BY 1, \"sensor_id\", \"location\"", result);
             Assert.Contains("WITH NO DATA", result);
         }
 
@@ -705,9 +705,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("time_bucket('1 hour', \"time\") AS time_bucket", result);
+            Assert.Contains("time_bucket('1 hour', \"time\") AS \"time_bucket\"", result);
             Assert.Contains("GROUP BY \"region\"", result);
-            Assert.DoesNotContain("GROUP BY time_bucket", result);
+            Assert.DoesNotContain("GROUP BY 1", result);
         }
 
         [Fact]
@@ -786,8 +786,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("GROUP BY time_bucket", result);
-            Assert.DoesNotContain("GROUP BY time_bucket,", result);
+            Assert.Contains("GROUP BY 1", result);
+            Assert.DoesNotContain("GROUP BY 1,", result);
         }
 
         [Fact]
@@ -1119,7 +1119,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             Assert.Contains("time_bucket(", result);
-            Assert.Contains("AS time_bucket", result);
+            Assert.Contains("AS \"time_bucket\"", result);
         }
 
         [Fact]
@@ -1145,7 +1145,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("GROUP BY time_bucket", result);
+            Assert.Contains("GROUP BY 1", result);
         }
 
         [Fact]
@@ -1329,9 +1329,65 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("time_bucket('1 hour', \"ts\") AS time_bucket", result);
+            Assert.Contains("time_bucket('1 hour', \"ts\") AS \"time_bucket\"", result);
             Assert.Contains("SUM(\"amount\") AS \"total\"", result);
             Assert.DoesNotContain("GROUP BY", result);
+        }
+
+        #endregion
+
+        #region Create_CustomTimeBucketColumnName_EmitsQuotedAlias
+
+        [Fact]
+        public void Create_CustomTimeBucketColumnName_EmitsQuotedAlias()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "hourly_usage",
+                Schema = "public",
+                ParentName = "readings",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "recorded_at",
+                TimeBucketColumnName = "hour_start",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["avg_value:Avg:value"],
+                GroupByColumns = []
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("time_bucket('1 hour', \"recorded_at\") AS \"hour_start\"", result);
+            Assert.DoesNotContain("AS \"time_bucket\"", result);
+        }
+
+        #endregion
+
+        #region Create_DefaultTimeBucketColumnName_EmitsQuotedTimeBucketAlias
+
+        [Fact]
+        public void Create_DefaultTimeBucketColumnName_EmitsQuotedTimeBucketAlias()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "hourly_usage",
+                Schema = "public",
+                ParentName = "readings",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "recorded_at",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["avg_value:Avg:value"],
+                GroupByColumns = []
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("time_bucket('1 hour', \"recorded_at\") AS \"time_bucket\"", result);
         }
 
         #endregion

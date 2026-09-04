@@ -1832,22 +1832,22 @@ public class ContinuousAggregateModelExtractorTests
 
     #endregion
 
-    #region Should_Skip_When_ParentTableName_Is_Null
+    #region Should_Skip_When_Parent_Has_No_Relational_Name
 
-    private class NoTableNameSourceMetric
+    private class NoRelationalNameSourceMetric
     {
         public DateTime Timestamp { get; set; }
     }
 
-    private class NoTableNameHourlyMetric
+    private class NoRelationalNameHourlyMetric
     {
         public DateTime Bucket { get; set; }
     }
 
-    private class NoTableNameContext : DbContext
+    private class NoRelationalNameContext : DbContext
     {
-        public DbSet<NoTableNameSourceMetric> Metrics => Set<NoTableNameSourceMetric>();
-        public DbSet<NoTableNameHourlyMetric> HourlyMetrics => Set<NoTableNameHourlyMetric>();
+        public DbSet<NoRelationalNameSourceMetric> Metrics => Set<NoRelationalNameSourceMetric>();
+        public DbSet<NoRelationalNameHourlyMetric> HourlyMetrics => Set<NoRelationalNameHourlyMetric>();
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
@@ -1855,17 +1855,16 @@ public class ContinuousAggregateModelExtractorTests
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<NoTableNameSourceMetric>(entity =>
+            modelBuilder.Entity<NoRelationalNameSourceMetric>(entity =>
             {
                 entity.HasNoKey();
-                entity.ToView("metrics_view");
-                entity.IsHypertable(x => x.Timestamp);
+                entity.ToTable((string?)null);
             });
 
-            modelBuilder.Entity<NoTableNameHourlyMetric>(entity =>
+            modelBuilder.Entity<NoRelationalNameHourlyMetric>(entity =>
             {
                 entity.HasNoKey();
-                entity.IsContinuousAggregate<NoTableNameHourlyMetric, NoTableNameSourceMetric>(
+                entity.IsContinuousAggregate<NoRelationalNameHourlyMetric, NoRelationalNameSourceMetric>(
                     "hourly_metrics",
                     "1 hour",
                     x => x.Timestamp
@@ -1875,10 +1874,10 @@ public class ContinuousAggregateModelExtractorTests
     }
 
     [Fact]
-    public void Should_Skip_When_ParentTableName_Is_Null()
+    public void Should_Skip_When_Parent_Has_No_Relational_Name()
     {
         // Arrange
-        using NoTableNameContext context = new();
+        using NoRelationalNameContext context = new();
         IRelationalModel relationalModel = GetRelationalModel(context);
 
         // Act
@@ -2906,6 +2905,463 @@ public class ContinuousAggregateModelExtractorTests
         // Assert
         CreateContinuousAggregateOperation operation = Assert.Single(operations);
         Assert.Equal("Meta_Timestamp", operation.TimeBucketSourceColumn);
+    }
+
+    #endregion
+
+    // ── Hierarchical continuous aggregates ──
+
+    #region Should_Extract_Hierarchical_ContinuousAggregate
+
+    private class HierarchicalProbeRaw
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class HierarchicalProbeHourly
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class HierarchicalProbeDaily
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class HierarchicalContext : DbContext
+    {
+        public DbSet<HierarchicalProbeRaw> ProbeRaw => Set<HierarchicalProbeRaw>();
+        public DbSet<HierarchicalProbeHourly> ProbeHourly => Set<HierarchicalProbeHourly>();
+        public DbSet<HierarchicalProbeDaily> ProbeDaily => Set<HierarchicalProbeDaily>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierarchicalProbeRaw>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("probe_raw");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<HierarchicalProbeHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierarchicalProbeHourly, HierarchicalProbeRaw>(
+                    "probe_hourly",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+
+            modelBuilder.Entity<HierarchicalProbeDaily>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<HierarchicalProbeDaily, HierarchicalProbeHourly>(
+                    "probe_daily",
+                    "1 day",
+                    x => x.TimeBucket
+                ).AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Hierarchical_ContinuousAggregate()
+    {
+        using HierarchicalContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Equal(2, operations.Count);
+
+        CreateContinuousAggregateOperation daily = Assert.Single(operations, op => op.MaterializedViewName == "probe_daily");
+        Assert.Equal("probe_hourly", daily.ParentName);
+        Assert.Equal("time_bucket", daily.TimeBucketSourceColumn);
+        Assert.Equal("1 day", daily.TimeBucketWidth);
+        Assert.Single(daily.AggregateFunctions);
+        Assert.Equal("AvgValue:Avg:AvgValue", daily.AggregateFunctions[0]);
+    }
+
+    #endregion
+
+    #region Should_Order_Hierarchical_ContinuousAggregates_ParentFirst
+
+    private class AlphaChildDaily
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class BetaMiddleHourly
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class GammaRoot
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OrderingContext : DbContext
+    {
+        public DbSet<AlphaChildDaily> Daily => Set<AlphaChildDaily>();
+        public DbSet<BetaMiddleHourly> Hourly => Set<BetaMiddleHourly>();
+        public DbSet<GammaRoot> Raw => Set<GammaRoot>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<GammaRoot>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("gamma_raw");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<BetaMiddleHourly>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<BetaMiddleHourly, GammaRoot>(
+                    "beta_hourly",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+
+            modelBuilder.Entity<AlphaChildDaily>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                entity.IsContinuousAggregate<AlphaChildDaily, BetaMiddleHourly>(
+                    "alpha_daily",
+                    "1 day",
+                    x => x.TimeBucket
+                ).AddAggregateFunction(x => x.AvgValue, x => x.AvgValue, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Order_Hierarchical_ContinuousAggregates_ParentFirst()
+    {
+        using OrderingContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        int hourlyIndex = operations.FindIndex(op => op.MaterializedViewName == "beta_hourly");
+        int dailyIndex = operations.FindIndex(op => op.MaterializedViewName == "alpha_daily");
+
+        Assert.True(hourlyIndex >= 0);
+        Assert.True(dailyIndex >= 0);
+        Assert.True(hourlyIndex < dailyIndex);
+    }
+
+    #endregion
+
+    // ── Time-bucket target property ──
+
+    #region Should_Default_TimeBucketColumnName_When_Undesignated
+
+    private class UndesignatedBucketSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class UndesignatedBucketAggregate
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class UndesignatedBucketContext : DbContext
+    {
+        public DbSet<UndesignatedBucketSource> Metrics => Set<UndesignatedBucketSource>();
+        public DbSet<UndesignatedBucketAggregate> HourlyMetrics => Set<UndesignatedBucketAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UndesignatedBucketSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<UndesignatedBucketAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<UndesignatedBucketAggregate, UndesignatedBucketSource>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Default_TimeBucketColumnName_When_Undesignated()
+    {
+        using UndesignatedBucketContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Equal("time_bucket", Assert.Single(operations).TimeBucketColumnName);
+    }
+
+    #endregion
+
+    #region Should_Resolve_Designated_BucketProperty_To_Explicit_ColumnName
+
+    private class ExplicitBucketSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ExplicitBucketAggregate
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ExplicitBucketContext : DbContext
+    {
+        public DbSet<ExplicitBucketSource> Metrics => Set<ExplicitBucketSource>();
+        public DbSet<ExplicitBucketAggregate> HourlyMetrics => Set<ExplicitBucketAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ExplicitBucketSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ExplicitBucketAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.Bucket).HasColumnName("hour_start");
+                entity.IsContinuousAggregate<ExplicitBucketAggregate, ExplicitBucketSource>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).WithTimeBucketProperty(x => x.Bucket)
+                 .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_Designated_BucketProperty_To_Explicit_ColumnName()
+    {
+        using ExplicitBucketContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Equal("hour_start", Assert.Single(operations).TimeBucketColumnName);
+    }
+
+    #endregion
+
+    #region Should_Resolve_Designated_BucketProperty_With_Naming_Convention
+
+    private class ConventionBucketSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ConventionBucketAggregate
+    {
+        public DateTime HourStart { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class ConventionBucketContext : DbContext
+    {
+        public DbSet<ConventionBucketSource> Metrics => Set<ConventionBucketSource>();
+        public DbSet<ConventionBucketAggregate> HourlyMetrics => Set<ConventionBucketAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseSnakeCaseNamingConvention()
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ConventionBucketSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<ConventionBucketAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<ConventionBucketAggregate, ConventionBucketSource>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).WithTimeBucketProperty(x => x.HourStart)
+                 .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Resolve_Designated_BucketProperty_With_Naming_Convention()
+    {
+        using ConventionBucketContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Equal("hour_start", Assert.Single(operations).TimeBucketColumnName);
+    }
+
+    #endregion
+
+    #region Should_Designate_BucketProperty_Via_Property_Attribute
+
+    private class AttributeBucketSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_attr_metrics", ParentName = nameof(AttributeBucketSource))]
+    private class AttributeBucketAggregate
+    {
+        [TimeBucket("1 hour", nameof(AttributeBucketSource.Timestamp))]
+        [Column("hour_start")]
+        public DateTime Bucket { get; set; }
+
+        [Aggregate(EAggregateFunction.Avg, nameof(AttributeBucketSource.Value))]
+        public double AvgValue { get; set; }
+    }
+
+    private class AttributeBucketContext : DbContext
+    {
+        public DbSet<AttributeBucketSource> Metrics => Set<AttributeBucketSource>();
+        public DbSet<AttributeBucketAggregate> HourlyMetrics => Set<AttributeBucketAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<AttributeBucketSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("attr_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<AttributeBucketAggregate>(entity => entity.HasNoKey());
+        }
+    }
+
+    [Fact]
+    public void Should_Designate_BucketProperty_Via_Property_Attribute()
+    {
+        using AttributeBucketContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Equal("hour_start", Assert.Single(operations).TimeBucketColumnName);
+    }
+
+    #endregion
+
+    #region Should_Designate_BucketProperty_Via_StringBuilder
+
+    private class StringBuilderBucketSource
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class StringBuilderBucketAggregate
+    {
+        public DateTime Bucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class StringBuilderBucketContext : DbContext
+    {
+        public DbSet<StringBuilderBucketSource> Metrics => Set<StringBuilderBucketSource>();
+        public DbSet<StringBuilderBucketAggregate> HourlyMetrics => Set<StringBuilderBucketAggregate>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringBuilderBucketSource>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<StringBuilderBucketAggregate>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.Bucket).HasColumnName("hour_start");
+                entity.IsContinuousAggregate<StringBuilderBucketAggregate>(
+                    "hourly_metrics",
+                    "Metrics",
+                    "1 hour",
+                    "Timestamp"
+                ).WithTimeBucketProperty("Bucket")
+                 .AddAggregateFunction("avg_value", "Value", EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Designate_BucketProperty_Via_StringBuilder()
+    {
+        using StringBuilderBucketContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Equal("hour_start", Assert.Single(operations).TimeBucketColumnName);
     }
 
     #endregion

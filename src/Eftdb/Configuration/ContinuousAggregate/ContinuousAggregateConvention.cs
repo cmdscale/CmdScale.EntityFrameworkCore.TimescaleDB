@@ -84,6 +84,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
                 {
                     groupByColumns.Add(groupByAttr.SourceColumn ?? property.Name);
                 }
+
+                TimeBucketAttribute? propertyTimeBucketAttr = propertyInfo.GetCustomAttribute<TimeBucketAttribute>();
+                if (propertyTimeBucketAttr != null)
+                {
+                    entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketWidth, propertyTimeBucketAttr.BucketWidth);
+                    entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketSourceColumn, propertyTimeBucketAttr.SourceColumn);
+                    entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketGroupBy, propertyTimeBucketAttr.GroupBy);
+                    entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.TimeBucketTargetProperty, property.Name);
+                }
             }
 
             // Apply the discovered property-level annotations

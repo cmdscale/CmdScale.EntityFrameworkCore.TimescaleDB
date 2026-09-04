@@ -92,7 +92,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             // Add time_bucket column
             string timeBucketColumn = $"{SqlBuilderHelper.QuoteIdentifier(operation.TimeBucketSourceColumn)}";
             string timeBucketWidthSql = $"'{SqlBuilderHelper.EscapeStringLiteral(operation.TimeBucketWidth)}'";
-            selectList.Add($"time_bucket({timeBucketWidthSql}, {timeBucketColumn}) AS time_bucket");
+            string timeBucketAlias = SqlBuilderHelper.QuoteIdentifier(operation.TimeBucketColumnName);
+            selectList.Add($"time_bucket({timeBucketWidthSql}, {timeBucketColumn}) AS {timeBucketAlias}");
 
             // Add GROUP BY columns to SELECT (only actual columns, not SQL expressions)
             foreach (string groupByColumn in operation.GroupByColumns)
@@ -141,7 +142,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             List<string> groupByList = [];
             if (operation.TimeBucketGroupBy)
             {
-                groupByList.Add("time_bucket");
+                groupByList.Add("1");
             }
 
             foreach (string groupByColumn in operation.GroupByColumns)

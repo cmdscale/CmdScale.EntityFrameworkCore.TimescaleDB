@@ -3423,4 +3423,496 @@ public class ContinuousAggregateAnnotationRendererTests
     }
 
     #endregion
+
+    // ── Time bucket property designation (custom bucket alias) ─────────────────
+
+    private class BucketAliasSourceEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double PowerKw { get; set; }
+    }
+
+    private class BucketAliasCaEntity
+    {
+        public DateTime HourStart { get; set; }
+        public double AvgPowerKw { get; set; }
+    }
+
+    private class BucketAliasContext : DbContext
+    {
+        public DbSet<BucketAliasSourceEntity> Sources => Set<BucketAliasSourceEntity>();
+        public DbSet<BucketAliasCaEntity> Stats => Set<BucketAliasCaEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BucketAliasSourceEntity>(e =>
+            {
+                e.HasKey(x => x.Timestamp);
+                e.ToTable("power_meter_readings");
+                e.Property(x => x.Timestamp).HasColumnName("timestamp");
+                e.Property(x => x.PowerKw).HasColumnName("power_kw");
+            });
+            modelBuilder.Entity<BucketAliasCaEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("power_usage_hourly");
+                e.Property(x => x.HourStart).HasColumnName("hour_start");
+                e.Property(x => x.AvgPowerKw).HasColumnName("avg_power_kw");
+            });
+        }
+    }
+
+    private const string CustomBucketAliasViewDef =
+        "SELECT time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\") AS hour_start," +
+        " avg(power_meter_readings.power_kw) AS avg_power_kw" +
+        " FROM power_meter_readings" +
+        " GROUP BY time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\")";
+
+    private const string DefaultBucketAliasViewDef =
+        "SELECT time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\") AS time_bucket," +
+        " avg(power_meter_readings.power_kw) AS avg_power_kw" +
+        " FROM power_meter_readings" +
+        " GROUP BY time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\")";
+
+    #region GenerateFluentApiCalls_CustomBucketAlias_ChainsWithTimeBucketProperty
+
+    [Fact]
+    public void GenerateFluentApiCalls_CustomBucketAlias_ChainsWithTimeBucketProperty()
+    {
+        // Arrange
+        using BucketAliasContext context = new();
+        IEntityType entityType = GetEntityType<BucketAliasCaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly"),
+            (ContinuousAggregateAnnotations.ParentName, "power_meter_readings"),
+            (ContinuousAggregateAnnotations.ViewDefinition, CustomBucketAliasViewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        MethodCallCodeFragment bucketCall = Assert.Single(
+            EnumerateChain(root), f => f.Method == "WithTimeBucketProperty");
+        NameOfCodeFragment nameOf = Assert.IsType<NameOfCodeFragment>(Assert.Single(bucketCall.Arguments));
+        Assert.Equal($"{nameof(BucketAliasCaEntity)}.{nameof(BucketAliasCaEntity.HourStart)}", nameOf.PropertyName);
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_CustomBucketAlias_WithTimeBucketProperty_FollowsIsContinuousAggregate
+
+    [Fact]
+    public void GenerateFluentApiCalls_CustomBucketAlias_WithTimeBucketProperty_FollowsIsContinuousAggregate()
+    {
+        // Arrange
+        using BucketAliasContext context = new();
+        IEntityType entityType = GetEntityType<BucketAliasCaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly"),
+            (ContinuousAggregateAnnotations.ParentName, "power_meter_readings"),
+            (ContinuousAggregateAnnotations.ViewDefinition, CustomBucketAliasViewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        List<string> chain = CollectMethodChain(root);
+        Assert.Equal(nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate), chain[0]);
+        Assert.Equal("WithTimeBucketProperty", chain[1]);
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_DefaultBucketAlias_NoWithTimeBucketProperty
+
+    [Fact]
+    public void GenerateFluentApiCalls_DefaultBucketAlias_NoWithTimeBucketProperty()
+    {
+        // Arrange
+        using BucketAliasContext context = new();
+        IEntityType entityType = GetEntityType<BucketAliasCaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly"),
+            (ContinuousAggregateAnnotations.ParentName, "power_meter_readings"),
+            (ContinuousAggregateAnnotations.ViewDefinition, DefaultBucketAliasViewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        Assert.DoesNotContain(CollectMethodChain(root), m => m == "WithTimeBucketProperty");
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_BucketAlias_MatchesNoProperty_NoWithTimeBucketProperty
+
+    [Fact]
+    public void GenerateFluentApiCalls_BucketAlias_MatchesNoProperty_NoWithTimeBucketProperty()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\") AS unmapped_bucket," +
+            " avg(power_meter_readings.power_kw) AS avg_power_kw" +
+            " FROM power_meter_readings" +
+            " GROUP BY time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\")";
+
+        using BucketAliasContext context = new();
+        IEntityType entityType = GetEntityType<BucketAliasCaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly"),
+            (ContinuousAggregateAnnotations.ParentName, "power_meter_readings"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        Assert.DoesNotContain(CollectMethodChain(root), m => m == "WithTimeBucketProperty");
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_NullBucketAlias_NoWithTimeBucketProperty
+
+    [Fact]
+    public void GenerateFluentApiCalls_NullBucketAlias_NoWithTimeBucketProperty()
+    {
+        // Arrange
+        const string viewDef =
+            "SELECT time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\")," +
+            " avg(power_meter_readings.power_kw) AS avg_power_kw" +
+            " FROM power_meter_readings" +
+            " GROUP BY time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\")";
+
+        using BucketAliasContext context = new();
+        IEntityType entityType = GetEntityType<BucketAliasCaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly"),
+            (ContinuousAggregateAnnotations.ParentName, "power_meter_readings"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment root = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        Assert.DoesNotContain(CollectMethodChain(root), m => m == "WithTimeBucketProperty");
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_CustomBucketAlias_ConsumesTimeBucketTargetProperty
+
+    [Fact]
+    public void GenerateFluentApiCalls_CustomBucketAlias_ConsumesTimeBucketTargetProperty()
+    {
+        // Arrange
+        using BucketAliasContext context = new();
+        IEntityType entityType = GetEntityType<BucketAliasCaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly"),
+            (ContinuousAggregateAnnotations.ParentName, "power_meter_readings"),
+            (ContinuousAggregateAnnotations.TimeBucketTargetProperty, "HourStart"),
+            (ContinuousAggregateAnnotations.ViewDefinition, CustomBucketAliasViewDef));
+
+        // Act
+        CreateAnnotationCodeGenerator().GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        Assert.DoesNotContain(ContinuousAggregateAnnotations.TimeBucketTargetProperty, annotations.Keys);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_CustomBucketAlias_ClassLevel_OnlyContinuousAggregate
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_CustomBucketAlias_ClassLevel_OnlyContinuousAggregate()
+    {
+        // Arrange
+        using BucketAliasContext context = new();
+        IEntityType entityType = GetEntityType<BucketAliasCaEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly"),
+            (ContinuousAggregateAnnotations.ParentName, "power_meter_readings"),
+            (ContinuousAggregateAnnotations.ViewDefinition, CustomBucketAliasViewDef));
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateDataAnnotationAttributes(entityType, annotations);
+
+        // Assert
+        Assert.Single(result, a => a.Type == typeof(ContinuousAggregateAttribute));
+        Assert.DoesNotContain(result, a => a.Type == typeof(TimeBucketAttribute));
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_CustomBucketAlias_Property_EmitsTimeBucketAttribute
+
+    private class CustomAliasBucketSourceEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double PowerKw { get; set; }
+    }
+
+    private class CustomAliasBucketCaEntity
+    {
+        public DateTime HourStart { get; set; }
+        public double AvgPowerKw { get; set; }
+    }
+
+    private class CustomAliasBucketContext : DbContext
+    {
+        public DbSet<CustomAliasBucketSourceEntity> Sources => Set<CustomAliasBucketSourceEntity>();
+        public DbSet<CustomAliasBucketCaEntity> Stats => Set<CustomAliasBucketCaEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CustomAliasBucketSourceEntity>(e =>
+            {
+                e.HasKey(x => x.Timestamp);
+                e.ToTable("power_meter_readings");
+                e.Property(x => x.Timestamp).HasColumnName("timestamp");
+                e.Property(x => x.PowerKw).HasColumnName("power_kw");
+            });
+            modelBuilder.Entity<CustomAliasBucketCaEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("power_usage_hourly");
+                e.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly");
+                e.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "power_meter_readings");
+                e.HasAnnotation(ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\") AS hour_start," +
+                    " avg(power_meter_readings.power_kw) AS avg_power_kw" +
+                    " FROM power_meter_readings" +
+                    " GROUP BY time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\")");
+                e.Property(x => x.HourStart).HasColumnName("hour_start");
+                e.Property(x => x.AvgPowerKw).HasColumnName("avg_power_kw");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_CustomBucketAlias_Property_EmitsTimeBucketAttribute()
+    {
+        // Arrange
+        using CustomAliasBucketContext context = new();
+        IEntityType entityType = GetEntityType<CustomAliasBucketCaEntity>(context);
+        IProperty property = entityType.FindProperty(nameof(CustomAliasBucketCaEntity.HourStart))!;
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateDataAnnotationAttributes(property, new Dictionary<string, IAnnotation>());
+
+        // Assert
+        AttributeCodeFragment attr = Assert.Single(result, a => a.Type == typeof(TimeBucketAttribute));
+        Assert.Equal("1 hour", attr.Arguments[0]);
+    }
+
+    #endregion
+
+    #region GenerateDataAnnotationAttributes_DefaultBucketAlias_ClassLevel_HasTimeBucket_NoPropertyLevel
+
+    private class DefaultAliasBucketSourceEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double PowerKw { get; set; }
+    }
+
+    private class DefaultAliasBucketCaEntity
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgPowerKw { get; set; }
+    }
+
+    private class DefaultAliasBucketContext : DbContext
+    {
+        public DbSet<DefaultAliasBucketSourceEntity> Sources => Set<DefaultAliasBucketSourceEntity>();
+        public DbSet<DefaultAliasBucketCaEntity> Stats => Set<DefaultAliasBucketCaEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DefaultAliasBucketSourceEntity>(e =>
+            {
+                e.HasKey(x => x.Timestamp);
+                e.ToTable("power_meter_readings");
+                e.Property(x => x.Timestamp).HasColumnName("timestamp");
+                e.Property(x => x.PowerKw).HasColumnName("power_kw");
+            });
+            modelBuilder.Entity<DefaultAliasBucketCaEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("power_usage_hourly");
+                e.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly");
+                e.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "power_meter_readings");
+                e.HasAnnotation(ContinuousAggregateAnnotations.ViewDefinition,
+                    "SELECT time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\") AS time_bucket," +
+                    " avg(power_meter_readings.power_kw) AS avg_power_kw" +
+                    " FROM power_meter_readings" +
+                    " GROUP BY time_bucket('01:00:00'::interval, power_meter_readings.\"timestamp\")");
+                e.Property(x => x.TimeBucket).HasColumnName("time_bucket");
+                e.Property(x => x.AvgPowerKw).HasColumnName("avg_power_kw");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateDataAnnotationAttributes_DefaultBucketAlias_ClassLevel_HasTimeBucket_NoPropertyLevel()
+    {
+        // Arrange
+        using DefaultAliasBucketContext context = new();
+        IEntityType entityType = GetEntityType<DefaultAliasBucketCaEntity>(context);
+        Dictionary<string, IAnnotation> classAnnotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "power_usage_hourly"),
+            (ContinuousAggregateAnnotations.ParentName, "power_meter_readings"),
+            (ContinuousAggregateAnnotations.ViewDefinition, DefaultBucketAliasViewDef));
+
+        IAnnotationCodeGenerator generator = CreateAnnotationCodeGenerator();
+        IProperty property = entityType.FindProperty(nameof(DefaultAliasBucketCaEntity.TimeBucket))!;
+
+        // Act
+        IReadOnlyList<AttributeCodeFragment> classResult = generator
+            .GenerateDataAnnotationAttributes(entityType, classAnnotations);
+        IReadOnlyList<AttributeCodeFragment> propertyResult = generator
+            .GenerateDataAnnotationAttributes(property, new Dictionary<string, IAnnotation>());
+
+        // Assert
+        Assert.Single(classResult, a => a.Type == typeof(TimeBucketAttribute));
+        Assert.DoesNotContain(propertyResult, a => a.Type == typeof(TimeBucketAttribute));
+    }
+
+    #endregion
+
+    // ── Hierarchical continuous aggregate with custom bucket aliases ───────────
+
+    #region GenerateFluentApiCalls_HierarchicalCustomAlias_BothLevelsDesignateBucketProperty
+
+    private class HierRawEntity
+    {
+        public DateTime Timestamp { get; set; }
+        public double PowerKw { get; set; }
+    }
+
+    private class HierHourlyEntity
+    {
+        public DateTime HourStart { get; set; }
+        public double AvgPowerKw { get; set; }
+    }
+
+    private class HierDailyEntity
+    {
+        public DateTime DayStart { get; set; }
+        public double AvgPowerKw { get; set; }
+    }
+
+    private class HierBucketAliasContext : DbContext
+    {
+        public DbSet<HierRawEntity> Raw => Set<HierRawEntity>();
+        public DbSet<HierHourlyEntity> Hourly => Set<HierHourlyEntity>();
+        public DbSet<HierDailyEntity> Daily => Set<HierDailyEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test").UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<HierRawEntity>(e =>
+            {
+                e.HasKey(x => x.Timestamp);
+                e.ToTable("hier_raw");
+                e.Property(x => x.Timestamp).HasColumnName("timestamp");
+                e.Property(x => x.PowerKw).HasColumnName("power_kw");
+            });
+            modelBuilder.Entity<HierHourlyEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("hier_hourly");
+                e.Property(x => x.HourStart).HasColumnName("hour_start");
+                e.Property(x => x.AvgPowerKw).HasColumnName("avg_power_kw");
+            });
+            modelBuilder.Entity<HierDailyEntity>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("hier_daily");
+                e.Property(x => x.DayStart).HasColumnName("day_start");
+                e.Property(x => x.AvgPowerKw).HasColumnName("avg_power_kw");
+            });
+        }
+    }
+
+    [Fact]
+    public void GenerateFluentApiCalls_HierarchicalCustomAlias_BothLevelsDesignateBucketProperty()
+    {
+        // Arrange
+        const string hourlyViewDef =
+            "SELECT time_bucket('01:00:00'::interval, hier_raw.\"timestamp\") AS hour_start," +
+            " avg(hier_raw.power_kw) AS avg_power_kw" +
+            " FROM hier_raw" +
+            " GROUP BY time_bucket('01:00:00'::interval, hier_raw.\"timestamp\")";
+        const string dailyViewDef =
+            "SELECT time_bucket('1 day'::interval, hier_hourly.hour_start) AS day_start," +
+            " avg(hier_hourly.avg_power_kw) AS avg_power_kw" +
+            " FROM hier_hourly" +
+            " GROUP BY time_bucket('1 day'::interval, hier_hourly.hour_start)";
+
+        using HierBucketAliasContext context = new();
+        IAnnotationCodeGenerator generator = CreateAnnotationCodeGenerator();
+
+        IEntityType hourly = GetEntityType<HierHourlyEntity>(context);
+        Dictionary<string, IAnnotation> hourlyAnnotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "hier_hourly"),
+            (ContinuousAggregateAnnotations.ParentName, "hier_raw"),
+            (ContinuousAggregateAnnotations.ViewDefinition, hourlyViewDef));
+
+        IEntityType daily = GetEntityType<HierDailyEntity>(context);
+        Dictionary<string, IAnnotation> dailyAnnotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "hier_daily"),
+            (ContinuousAggregateAnnotations.ParentName, "hier_hourly"),
+            (ContinuousAggregateAnnotations.ViewDefinition, dailyViewDef));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> hourlyResult = generator.GenerateFluentApiCalls(hourly, hourlyAnnotations);
+        IReadOnlyList<MethodCallCodeFragment> dailyResult = generator.GenerateFluentApiCalls(daily, dailyAnnotations);
+
+        // Assert
+        MethodCallCodeFragment hourlyRoot = Assert.Single(hourlyResult, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        NameOfCodeFragment hourlyBucket = Assert.IsType<NameOfCodeFragment>(
+            Assert.Single(EnumerateChain(hourlyRoot).Single(f => f.Method == "WithTimeBucketProperty").Arguments));
+        Assert.Equal($"{nameof(HierHourlyEntity)}.{nameof(HierHourlyEntity.HourStart)}", hourlyBucket.PropertyName);
+
+        MethodCallCodeFragment dailyRoot = Assert.Single(dailyResult, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate));
+        NameOfCodeFragment dailyBucket = Assert.IsType<NameOfCodeFragment>(
+            Assert.Single(EnumerateChain(dailyRoot).Single(f => f.Method == "WithTimeBucketProperty").Arguments));
+        Assert.Equal($"{nameof(HierDailyEntity)}.{nameof(HierDailyEntity.DayStart)}", dailyBucket.PropertyName);
+    }
+
+    #endregion
+
+    private static IEnumerable<MethodCallCodeFragment> EnumerateChain(MethodCallCodeFragment? fragment)
+    {
+        for (MethodCallCodeFragment? current = fragment; current != null; current = current.ChainedCall)
+        {
+            yield return current;
+        }
+    }
 }

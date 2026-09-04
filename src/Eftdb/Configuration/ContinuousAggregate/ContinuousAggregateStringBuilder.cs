@@ -90,6 +90,25 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         }
 
         /// <summary>
+        /// Designates the property on the aggregate entity that represents the bucket column.
+        /// The view's bucket alias derives from that property's mapped column name, removing the
+        /// need to manually call <c>.HasColumnName("time_bucket")</c>.
+        /// </summary>
+        /// <param name="propertyName">The name of the bucket property on the continuous aggregate.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="propertyName"/> is null or whitespace.</exception>
+        public ContinuousAggregateStringBuilder<TEntity> WithTimeBucketProperty(string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                throw new ArgumentException("Property name must not be null or whitespace.", nameof(propertyName));
+            }
+
+            ContinuousAggregateBuilderCore.WithTimeBucketProperty(_builder, propertyName);
+            return this;
+        }
+
+        /// <summary>
         /// Adds a WHERE clause to filter data in the continuous aggregate.
         /// </summary>
         /// <param name="whereClause">The SQL WHERE clause expression (without the WHERE keyword).</param>

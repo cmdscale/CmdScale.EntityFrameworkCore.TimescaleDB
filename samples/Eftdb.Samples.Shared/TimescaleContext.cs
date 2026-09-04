@@ -23,6 +23,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared
         public DbSet<HourlySensorAggregate> HourlySensorAggregates { get; set; }
         public DbSet<StationReading> StationReadings { get; set; }
         public DbSet<HourlyStationAggregate> HourlyStationAggregates { get; set; }
+        public DbSet<PowerMeterReading> PowerMeterReadings { get; set; }
+        public DbSet<PowerUsageHourly> PowerUsageHourly { get; set; }
+        public DbSet<PowerUsageDaily> PowerUsageDaily { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
