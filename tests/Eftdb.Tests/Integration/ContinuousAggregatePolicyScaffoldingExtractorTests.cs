@@ -3,7 +3,6 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregatePolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Testcontainers.PostgreSql;

@@ -4,7 +4,6 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.RetentionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.CompressionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAggregatePolicy;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations.Design;
