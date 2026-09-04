@@ -1,4 +1,3 @@
-using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;

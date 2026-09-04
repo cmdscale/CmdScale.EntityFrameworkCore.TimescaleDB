@@ -1,6 +1,5 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ReorderPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ReorderPolicy;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using static CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ReorderPolicy.ReorderPolicyScaffoldingExtractor;
 

@@ -1,7 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.CompressionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.CompressionPolicy;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
-using CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using Npgsql;
