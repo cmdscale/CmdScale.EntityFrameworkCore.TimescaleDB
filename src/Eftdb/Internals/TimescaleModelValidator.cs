@@ -1,9 +1,9 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.Extensions.Logging;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure.Internal;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
@@ -72,14 +72,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
                 return;
             }
 
-            logger.Logger.LogWarning(
-                "The continuous aggregate '{Aggregate}' (materialized view '{MaterializedView}') exposes its bucket column as " +
-                "'{BucketColumn}', but no property maps to that column, so the bucket cannot be queried through the entity. " +
-                "Designate the bucket property with WithTimeBucketProperty(...), annotate a property with [TimeBucket], or map a " +
-                "property to '{BucketColumnFix}' with HasColumnName.",
+            logger.TimeBucketColumnUnmapped(
                 EntityStoreObjectResolver.DisplayName(entityType),
                 materializedViewName,
-                bucketColumn,
                 bucketColumn);
         }
     }

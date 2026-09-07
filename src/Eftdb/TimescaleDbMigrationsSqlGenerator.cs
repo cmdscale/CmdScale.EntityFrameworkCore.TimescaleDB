@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Generators;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
@@ -5,7 +6,6 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using Microsoft.Extensions.Logging;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure.Internal;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Migrations;
 
@@ -121,14 +121,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 return;
             }
 
-            ILogger logger = migrationsLogger?.Logger ?? Dependencies.Logger.Logger;
+            IDiagnosticsLogger<DbLoggerCategory.Migrations> logger = migrationsLogger ?? Dependencies.MigrationsLogger;
             foreach (string statement in statements)
             {
                 if (statement.StartsWith(SkipCommentPrefix, StringComparison.Ordinal))
                 {
-                    logger.LogWarning(
-                        "{SkippedCommunityFeature}",
-                        statement[SqlBuilderHelper.SkipCommentMarker.Length..]);
+                    logger.CommunityFeatureSkipped(statement[SqlBuilderHelper.SkipCommentMarker.Length..]);
                 }
             }
         }

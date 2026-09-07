@@ -9,7 +9,7 @@ optionsBuilder.UseNpgsql(connectionString)
     .UseTimescaleDb(o => o.UseApacheEdition());
 ```
 
-With `UseApacheEdition()`, community-only statements are omitted from generated migration SQL. Each omitted feature leaves a `-- Skipping Community Edition feature (<feature>) - not available in Apache Edition` comment in the SQL (visible in `dotnet ef migrations script` output) and raises a warning through the EF Core logger while the SQL is generated.
+With `UseApacheEdition()`, community-only statements are omitted from generated migration SQL. Each omitted feature leaves a `-- Skipping Community Edition feature (<feature>) - not available in Apache Edition` comment in the SQL (visible in `dotnet ef migrations script` output) and raises a warning through the EF Core logger while the SQL is generated. The warning is raised as `TimescaleDbEventId.CommunityFeatureSkipped` and can be suppressed with `ConfigureWarnings(w => w.Ignore(...))` or escalated to an exception with `w.Throw(...)`.
 
 Migration SQL is produced at apply/script time from the operations stored in migration files, not at `dotnet ef migrations add` time. Toggling `UseApacheEdition()` therefore changes the SQL of existing migrations without regenerating them.
 
@@ -37,3 +37,22 @@ The option describes the target server; the provider does not probe the server's
 
 - **Default (community) SQL against an Apache server:** the first community-only statement fails the migration with `functionality not supported under the current "apache" license`. Switch the context to `UseApacheEdition()`.
 - **`UseApacheEdition()` SQL against a community server:** the migration succeeds, but every community-only feature in the model is silently absent from the database. Remove the option to apply the full model.
+
+## Diagnostics event IDs
+
+Provider warnings are dispatched through EF Core's diagnostics pipeline, so they reach both `ILoggerFactory`-based logging and `LogTo(...)` sinks, and each can be controlled per event with `ConfigureWarnings`. The stable event IDs live on `TimescaleDbEventId` (namespace `CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics`).
+
+| Event ID | Value | Meaning |
+| --- | --- | --- |
+| `CommunityFeatureSkipped` | 63000 | A Community-only feature (compression, policy, or continuous aggregate) was skipped at migration SQL generation because `UseApacheEdition()` is set. |
+| `TimeBucketColumnUnmapped` | 63001 | A continuous aggregate exposes a `time_bucket` column that no property maps to. Raised at model validation. |
+
+```csharp
+using CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics;
+
+optionsBuilder.UseNpgsql(connectionString)
+    .UseTimescaleDb()
+    .ConfigureWarnings(w => w
+        .Ignore(TimescaleDbEventId.CommunityFeatureSkipped)
+        .Throw(TimescaleDbEventId.TimeBucketColumnUnmapped));
+```
