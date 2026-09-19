@@ -207,14 +207,19 @@ By default, continuous aggregates are populated with data when created. Set to `
 
 ### CreateGroupIndexes
 
-Controls whether indexes are automatically created on GROUP BY columns. Enabled by default:
+Controls whether TimescaleDB creates indexes on the GROUP BY columns when the aggregate is created. Maps to the `timescaledb.create_group_indexes` option:
+
+- **Unconfigured** — the `CreateGroupIndexes` property is never set — the option is omitted from `CREATE MATERIALIZED VIEW`, so TimescaleDB's server default applies.
+- Setting **`CreateGroupIndexes = true`** or **`CreateGroupIndexes = false`** emits the option explicitly.
 
 ```csharp
 [ContinuousAggregate(
     MaterializedViewName = "trade_stats",
     ParentName = nameof(Trade),
-    CreateGroupIndexes = true)]
+    CreateGroupIndexes = false)]
 ```
+
+> :warning: **Note:** `timescaledb.create_group_indexes` is a create-only option in TimescaleDB — `ALTER MATERIALIZED VIEW` rejects it. Only transitions to or from `false` are structural: because the server default is `true`, unconfigured and explicit `true` produce identical databases, so adding or removing a redundant `CreateGroupIndexes = true` is a no-op that never touches an existing aggregate. Changing the value to or from `false` on an **existing** aggregate drops and recreates it (see [Migration Ordering](../fluent-api/continuous-aggregates#migration-ordering)), which rematerializes it and, in a hierarchy, cascades the drop to every descendant. If the source hypertable's retention policy has already dropped the raw data covered by the aggregate, that history is lost on recreate. The flag is not recoverable from an existing database, so scaffolded aggregates never carry an explicit `CreateGroupIndexes` value.
 
 ### MaterializedOnly
 

@@ -176,6 +176,64 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Features.Continu
 
         #endregion
 
+        #region CreateContinuousAggregate_CreateGroupIndexes_TriState
+
+        [Fact]
+        public void CreateContinuousAggregate_NullCreateGroupIndexes_Omits_CreateGroupIndexesArg()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation op = new()
+            {
+                MaterializedViewName = "hourly",
+                ParentName = "sensor_data",
+                CreateGroupIndexes = null,
+            };
+
+            // Act
+            string result = Generate(op);
+
+            // Assert
+            Assert.DoesNotContain("createGroupIndexes:", result);
+        }
+
+        [Fact]
+        public void CreateContinuousAggregate_TrueCreateGroupIndexes_Emits_CreateGroupIndexesTrue()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation op = new()
+            {
+                MaterializedViewName = "hourly",
+                ParentName = "sensor_data",
+                CreateGroupIndexes = true,
+            };
+
+            // Act
+            string result = Generate(op);
+
+            // Assert
+            Assert.Contains("createGroupIndexes: true", result);
+        }
+
+        [Fact]
+        public void CreateContinuousAggregate_FalseCreateGroupIndexes_Emits_CreateGroupIndexesFalse()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation op = new()
+            {
+                MaterializedViewName = "hourly",
+                ParentName = "sensor_data",
+                CreateGroupIndexes = false,
+            };
+
+            // Act
+            string result = Generate(op);
+
+            // Assert
+            Assert.Contains("createGroupIndexes: false", result);
+        }
+
+        #endregion
+
         #region AlterContinuousAggregate_FullyPopulated_EmitsAllNewAndOldArgs
 
         [Fact]
@@ -187,10 +245,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Features.Continu
                 MaterializedViewName = "hourly",
                 Schema = "metrics",
                 ChunkInterval = "7 days",
-                CreateGroupIndexes = true,
                 MaterializedOnly = true,
                 OldChunkInterval = "1 day",
-                OldCreateGroupIndexes = true,
                 OldMaterializedOnly = true,
             };
 
@@ -200,12 +256,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Features.Continu
             // Assert
             Assert.Contains("schema: \"metrics\"", result);
             Assert.Contains("chunkInterval: \"7 days\"", result);
-            Assert.Contains("createGroupIndexes: true", result);
+            Assert.DoesNotContain("createGroupIndexes:", result);
             Assert.Contains("materializedOnly: true", result);
 
             // Assert
             Assert.Contains("oldChunkInterval: \"1 day\"", result);
-            Assert.Contains("oldCreateGroupIndexes: true", result);
+            Assert.DoesNotContain("oldCreateGroupIndexes:", result);
             Assert.Contains("oldMaterializedOnly: true", result);
         }
 
@@ -222,7 +278,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Features.Continu
                 MaterializedViewName = "hourly",
                 ChunkInterval = "7 days",
                 OldChunkInterval = "1 day",
-                OldCreateGroupIndexes = true,
                 OldMaterializedOnly = false,
             };
 
@@ -232,7 +287,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Features.Continu
             // Assert
             Assert.Contains("chunkInterval: \"7 days\"", result);
             Assert.Contains("oldChunkInterval: \"1 day\"", result);
-            Assert.Contains("oldCreateGroupIndexes: true", result);
+            Assert.DoesNotContain("oldCreateGroupIndexes:", result);
             Assert.DoesNotContain("oldMaterializedOnly:", result);
         }
 

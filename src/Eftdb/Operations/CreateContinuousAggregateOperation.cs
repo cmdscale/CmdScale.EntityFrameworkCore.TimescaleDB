@@ -10,7 +10,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
         public string? ChunkInterval { get; set; }
 
         public bool WithNoData { get; set; }
-        public bool CreateGroupIndexes { get; set; }
+
+        public bool? CreateGroupIndexes { get; set; }
+
         public bool MaterializedOnly { get; set; }
 
         public string TimeBucketWidth { get; set; } = string.Empty;

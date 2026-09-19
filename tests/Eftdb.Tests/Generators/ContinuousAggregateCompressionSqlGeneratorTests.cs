@@ -391,8 +391,8 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
         {
             MaterializedViewName = "alter_mixed_cagg",
             Schema = "public",
-            CreateGroupIndexes = true,
-            OldCreateGroupIndexes = false,
+            MaterializedOnly = true,
+            OldMaterializedOnly = false,
             EnableCompression = true,
             OldEnableCompression = false,
         };
@@ -402,7 +402,7 @@ public class ContinuousAggregateCompressionSqlGeneratorTests
 
         // Assert
         Assert.Equal(2, statements.Count);
-        Assert.Contains(statements, s => s.Contains("create_group_indexes"));
+        Assert.Contains(statements, s => s.Contains("materialized_only"));
         Assert.Contains(statements, s => s.Contains("timescaledb.enable_columnstore"));
     }
 

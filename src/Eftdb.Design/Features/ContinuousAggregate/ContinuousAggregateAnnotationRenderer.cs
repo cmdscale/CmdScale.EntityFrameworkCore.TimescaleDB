@@ -59,7 +59,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             string? chunkInterval = GetString(annotations, ContinuousAggregateAnnotations.ChunkInterval);
             bool materializedOnly = Find(annotations, ContinuousAggregateAnnotations.MaterializedOnly)?.Value is true;
             bool withNoData = Find(annotations, ContinuousAggregateAnnotations.WithNoData)?.Value is true;
-            bool createGroupIndexes = Find(annotations, ContinuousAggregateAnnotations.CreateGroupIndexes)?.Value as bool? ?? true;
+            bool? createGroupIndexes = Find(annotations, ContinuousAggregateAnnotations.CreateGroupIndexes)?.Value as bool?;
 
             ViewDefinitionParser.ParsedViewDefinition? parsed = viewDefinition is not null
                 ? ViewDefinitionParser.Parse(viewDefinition)
@@ -100,7 +100,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 call = call.Chain(WithNoDataMethod, true);
             }
 
-            if (!createGroupIndexes)
+            if (createGroupIndexes is false)
             {
                 call = call.Chain(CreateGroupIndexesMethod, false);
             }
@@ -172,7 +172,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             string? chunkInterval = GetString(annotations, ContinuousAggregateAnnotations.ChunkInterval);
             bool materializedOnly = Find(annotations, ContinuousAggregateAnnotations.MaterializedOnly)?.Value is true;
             bool withNoData = Find(annotations, ContinuousAggregateAnnotations.WithNoData)?.Value is true;
-            bool createGroupIndexes = Find(annotations, ContinuousAggregateAnnotations.CreateGroupIndexes)?.Value as bool? ?? true;
+            bool? createGroupIndexes = Find(annotations, ContinuousAggregateAnnotations.CreateGroupIndexes)?.Value as bool?;
 
             ViewDefinitionParser.ParsedViewDefinition? parsed = viewDefinition is not null
                 ? ViewDefinitionParser.Parse(viewDefinition)
@@ -223,7 +223,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 caNamedArgs[nameof(ContinuousAggregateAttribute.WithNoData)] = true;
             }
 
-            if (!createGroupIndexes)
+            if (createGroupIndexes is false)
             {
                 caNamedArgs[nameof(ContinuousAggregateAttribute.CreateGroupIndexes)] = false;
             }

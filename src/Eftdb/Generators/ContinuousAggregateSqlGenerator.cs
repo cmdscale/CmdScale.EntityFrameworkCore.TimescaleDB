@@ -20,12 +20,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             List<string> statements = [];
 
             // Build WITH options
-            List<string> withOptions =
-            [
-                "timescaledb.continuous",
-                $"timescaledb.create_group_indexes = {operation.CreateGroupIndexes.ToString().ToLower()}",
-                $"timescaledb.materialized_only = {operation.MaterializedOnly.ToString().ToLower()}"
-            ];
+            List<string> withOptions = ["timescaledb.continuous"];
+
+            if (operation.CreateGroupIndexes.HasValue)
+            {
+                withOptions.Add($"timescaledb.create_group_indexes = {operation.CreateGroupIndexes.Value.ToString().ToLower()}");
+            }
+
+            withOptions.Add($"timescaledb.materialized_only = {operation.MaterializedOnly.ToString().ToLower()}");
 
             // Add optional chunk_interval if specified
             if (!string.IsNullOrEmpty(operation.ChunkInterval))
@@ -226,12 +228,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
-            // Check for CreateGroupIndexes change
-            if (operation.CreateGroupIndexes != operation.OldCreateGroupIndexes)
-            {
-                string createGroupIndexesValue = operation.CreateGroupIndexes.ToString().ToLower();
-                statements.Add($"ALTER MATERIALIZED VIEW {qualifiedIdentifier} SET (timescaledb.create_group_indexes = {createGroupIndexesValue});");
-            }
 
             // Check for MaterializedOnly change
             if (operation.MaterializedOnly != operation.OldMaterializedOnly)

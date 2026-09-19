@@ -397,6 +397,89 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
         #endregion
 
+        #region CreateGroupIndexes Tri-State WITH Clause
+
+        [Fact]
+        public void Create_WithNullCreateGroupIndexes_OmitsCreateGroupIndexesOption()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "cgi_null",
+                Schema = "public",
+                ParentName = "metrics",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "timestamp",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["avg_value:Avg:value"],
+                GroupByColumns = [],
+                CreateGroupIndexes = null,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("WITH (timescaledb.continuous", result);
+            Assert.DoesNotContain("create_group_indexes", result);
+        }
+
+        [Fact]
+        public void Create_WithTrueCreateGroupIndexes_EmitsCreateGroupIndexesTrue()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "cgi_true",
+                Schema = "public",
+                ParentName = "metrics",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "timestamp",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["avg_value:Avg:value"],
+                GroupByColumns = [],
+                CreateGroupIndexes = true,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("timescaledb.create_group_indexes = true", result);
+        }
+
+        [Fact]
+        public void Create_WithFalseCreateGroupIndexes_EmitsCreateGroupIndexesFalse()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation operation = new()
+            {
+                MaterializedViewName = "cgi_false",
+                Schema = "public",
+                ParentName = "metrics",
+                TimeBucketWidth = "1 hour",
+                TimeBucketSourceColumn = "timestamp",
+                TimeBucketGroupBy = true,
+                AggregateFunctions = ["avg_value:Avg:value"],
+                GroupByColumns = [],
+                CreateGroupIndexes = false,
+                MaterializedOnly = false,
+                WithNoData = false
+            };
+
+            // Act
+            string result = GetRuntimeSql(operation);
+
+            // Assert
+            Assert.Contains("timescaledb.create_group_indexes = false", result);
+        }
+
+        #endregion
+
         #region AlterContinuousAggregateOperation Tests
 
         [Fact]
@@ -443,29 +526,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         [Fact]
-        public void DesignTime_Alter_CreateGroupIndexes_GeneratesCorrectCode()
-        {
-            // Arrange
-            AlterContinuousAggregateOperation operation = new()
-            {
-                MaterializedViewName = "metrics_view",
-                Schema = "public",
-                CreateGroupIndexes = true,
-                OldCreateGroupIndexes = false
-            };
-
-            string expected = @"
-                ALTER MATERIALIZED VIEW ""public"".""metrics_view"" SET (timescaledb.create_group_indexes = true);
-            ";
-
-            // Act
-            string result = GetDesignTimeCode(operation);
-
-            // Assert
-            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
-        }
-
-        [Fact]
         public void DesignTime_Alter_MaterializedOnly_GeneratesCorrectCode()
         {
             // Arrange
@@ -498,8 +558,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 Schema = "analytics",
                 ChunkInterval = "60 days",
                 OldChunkInterval = "30 days",
-                CreateGroupIndexes = true,
-                OldCreateGroupIndexes = false,
                 MaterializedOnly = false,
                 OldMaterializedOnly = true
             };
@@ -509,7 +567,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             Assert.Contains("timescaledb.chunk_interval = '60 days'", result);
-            Assert.Contains("timescaledb.create_group_indexes = true", result);
+            Assert.DoesNotContain("timescaledb.create_group_indexes", result);
             Assert.Contains("timescaledb.materialized_only = false", result);
         }
 
@@ -523,8 +581,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 Schema = "public",
                 ChunkInterval = "7 days",
                 OldChunkInterval = "7 days",
-                CreateGroupIndexes = false,
-                OldCreateGroupIndexes = false,
                 MaterializedOnly = false,
                 OldMaterializedOnly = false
             };
@@ -1013,29 +1069,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         [Fact]
-        public void Alter_OnlyCreateGroupIndexesChanged_GeneratesSingleStatement()
-        {
-            // Arrange
-            AlterContinuousAggregateOperation operation = new()
-            {
-                MaterializedViewName = "indexes_only",
-                Schema = "public",
-                CreateGroupIndexes = true,
-                OldCreateGroupIndexes = false,
-                MaterializedOnly = true,
-                OldMaterializedOnly = true
-            };
-
-            // Act
-            string result = GetRuntimeSql(operation);
-
-            // Assert
-            Assert.Contains("create_group_indexes = true", result);
-            Assert.DoesNotContain("materialized_only", result);
-            Assert.DoesNotContain("chunk_interval", result);
-        }
-
-        [Fact]
         public void Alter_OnlyMaterializedOnlyChanged_GeneratesSingleStatement()
         {
             // Arrange
@@ -1043,8 +1076,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             {
                 MaterializedViewName = "mat_only",
                 Schema = "public",
-                CreateGroupIndexes = false,
-                OldCreateGroupIndexes = false,
                 MaterializedOnly = true,
                 OldMaterializedOnly = false
             };

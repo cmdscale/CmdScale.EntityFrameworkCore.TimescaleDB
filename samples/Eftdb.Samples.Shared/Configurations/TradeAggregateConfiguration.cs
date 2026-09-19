@@ -21,6 +21,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Samples.Shared.Configurations
                 .AddGroupByColumn(x => x.Exchange)
                 .AddGroupByColumn("1, 2")
                 .Where("\"ticker\" = 'MCRS'")
+                .CreateGroupIndexes(false)
                 .MaterializedOnly()
                 .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "1 hour")
                 .WithRefreshNewestFirst(true);

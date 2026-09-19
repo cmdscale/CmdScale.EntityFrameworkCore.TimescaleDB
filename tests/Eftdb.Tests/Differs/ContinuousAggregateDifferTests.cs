@@ -300,7 +300,7 @@ public class ContinuousAggregateDifferTests
 
     #endregion
 
-    #region Should_Detect_CreateGroupIndexes_Change
+    #region Should_Detect_CreateGroupIndexes_Change_To_False
 
     private class MetricEntity4
     {
@@ -344,7 +344,7 @@ public class ContinuousAggregateDifferTests
         }
     }
 
-    private class GroupIndexesEnabledContext4 : DbContext
+    private class GroupIndexesDisabledContext4 : DbContext
     {
         public DbSet<MetricEntity4> Metrics => Set<MetricEntity4>();
         public DbSet<MetricAggregate4> HourlyMetrics => Set<MetricAggregate4>();
@@ -370,16 +370,16 @@ public class ContinuousAggregateDifferTests
                         "1 hour",
                         x => x.Timestamp)
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
-                    .CreateGroupIndexes(true);
+                    .CreateGroupIndexes(false);
             });
         }
     }
 
     [Fact]
-    public void Should_Detect_CreateGroupIndexes_Change()
+    public void Should_Detect_CreateGroupIndexes_Change_To_False()
     {
         using BasicContinuousAggregateContext4 sourceContext = new();
-        using GroupIndexesEnabledContext4 targetContext = new();
+        using GroupIndexesDisabledContext4 targetContext = new();
 
         IRelationalModel sourceModel = GetModel(sourceContext);
         IRelationalModel targetModel = GetModel(targetContext);
@@ -388,10 +388,9 @@ public class ContinuousAggregateDifferTests
 
         IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
 
-        AlterContinuousAggregateOperation? alterOp = operations.OfType<AlterContinuousAggregateOperation>().FirstOrDefault();
-        Assert.NotNull(alterOp);
-        Assert.False(alterOp.OldCreateGroupIndexes);
-        Assert.True(alterOp.CreateGroupIndexes);
+        Assert.DoesNotContain(operations, op => op is AlterContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
     }
 
     #endregion
@@ -965,7 +964,6 @@ public class ContinuousAggregateDifferTests
                         x => x.Timestamp,
                         chunkInterval: "30 days")
                     .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
-                    .CreateGroupIndexes(true)
                     .MaterializedOnly(true);
             });
         }
@@ -4111,6 +4109,609 @@ public class ContinuousAggregateDifferTests
 
         CreateContinuousAggregateOperation parentCreate = creates[createParentIndex];
         Assert.Equal("hour_start", parentCreate.TimeBucketColumnName);
+    }
+
+    #endregion
+
+    // ── CreateGroupIndexes tri-state transitions ──
+
+    #region Should_Not_Generate_Operations_When_CreateGroupIndexes_Both_Null
+
+    private class CgiRaw17
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CgiAggregate17
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CgiUnconfiguredContext17 : DbContext
+    {
+        public DbSet<CgiRaw17> Metrics => Set<CgiRaw17>();
+        public DbSet<CgiAggregate17> HourlyMetrics => Set<CgiAggregate17>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw17>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate17>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate17, CgiRaw17>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Generate_Operations_When_CreateGroupIndexes_Both_Null()
+    {
+        using CgiUnconfiguredContext17 sourceContext = new();
+        using CgiUnconfiguredContext17 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Not_Generate_Operations_When_CreateGroupIndexes_Both_False
+
+    private class CgiRaw18
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CgiAggregate18
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CgiFalseContext18 : DbContext
+    {
+        public DbSet<CgiRaw18> Metrics => Set<CgiRaw18>();
+        public DbSet<CgiAggregate18> HourlyMetrics => Set<CgiAggregate18>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw18>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate18>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate18, CgiRaw18>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .CreateGroupIndexes(false);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Generate_Operations_When_CreateGroupIndexes_Both_False()
+    {
+        using CgiFalseContext18 sourceContext = new();
+        using CgiFalseContext18 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Not_Generate_Operations_When_CreateGroupIndexes_True_To_Null
+
+    private class CgiRaw19
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CgiAggregate19
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CgiTrueContext19 : DbContext
+    {
+        public DbSet<CgiRaw19> Metrics => Set<CgiRaw19>();
+        public DbSet<CgiAggregate19> HourlyMetrics => Set<CgiAggregate19>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw19>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate19>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate19, CgiRaw19>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .CreateGroupIndexes(true);
+            });
+        }
+    }
+
+    private class CgiUnconfiguredContext19 : DbContext
+    {
+        public DbSet<CgiRaw19> Metrics => Set<CgiRaw19>();
+        public DbSet<CgiAggregate19> HourlyMetrics => Set<CgiAggregate19>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw19>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate19>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate19, CgiRaw19>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Generate_Operations_When_CreateGroupIndexes_True_To_Null()
+    {
+        using CgiTrueContext19 sourceContext = new();
+        using CgiUnconfiguredContext19 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        Assert.DoesNotContain(operations, op => op is AlterContinuousAggregateOperation);
+        Assert.DoesNotContain(operations, op => op is DropContinuousAggregateOperation);
+        Assert.DoesNotContain(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_CreateGroupIndexes_Null_To_False
+
+    private class CgiRaw20
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CgiAggregate20
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CgiUnconfiguredContext20 : DbContext
+    {
+        public DbSet<CgiRaw20> Metrics => Set<CgiRaw20>();
+        public DbSet<CgiAggregate20> HourlyMetrics => Set<CgiAggregate20>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw20>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate20>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate20, CgiRaw20>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class CgiFalseContext20 : DbContext
+    {
+        public DbSet<CgiRaw20> Metrics => Set<CgiRaw20>();
+        public DbSet<CgiAggregate20> HourlyMetrics => Set<CgiAggregate20>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw20>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate20>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate20, CgiRaw20>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .CreateGroupIndexes(false);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_CreateGroupIndexes_Null_To_False()
+    {
+        using CgiUnconfiguredContext20 sourceContext = new();
+        using CgiFalseContext20 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        Assert.DoesNotContain(operations, op => op is AlterContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Drop_And_Recreate_When_CreateGroupIndexes_True_To_False
+
+    private class CgiRaw21
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CgiAggregate21
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CgiTrueContext21 : DbContext
+    {
+        public DbSet<CgiRaw21> Metrics => Set<CgiRaw21>();
+        public DbSet<CgiAggregate21> HourlyMetrics => Set<CgiAggregate21>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw21>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate21>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate21, CgiRaw21>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .CreateGroupIndexes(true);
+            });
+        }
+    }
+
+    private class CgiFalseContext21 : DbContext
+    {
+        public DbSet<CgiRaw21> Metrics => Set<CgiRaw21>();
+        public DbSet<CgiAggregate21> HourlyMetrics => Set<CgiAggregate21>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw21>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate21>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate21, CgiRaw21>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .CreateGroupIndexes(false);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Drop_And_Recreate_When_CreateGroupIndexes_True_To_False()
+    {
+        using CgiTrueContext21 sourceContext = new();
+        using CgiFalseContext21 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        Assert.DoesNotContain(operations, op => op is AlterContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is DropContinuousAggregateOperation);
+        Assert.Contains(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Not_Generate_Operations_When_CreateGroupIndexes_Null_To_True
+
+    private class CgiRaw22
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CgiAggregate22
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CgiUnconfiguredContext22 : DbContext
+    {
+        public DbSet<CgiRaw22> Metrics => Set<CgiRaw22>();
+        public DbSet<CgiAggregate22> HourlyMetrics => Set<CgiAggregate22>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw22>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate22>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate22, CgiRaw22>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    private class CgiTrueContext22 : DbContext
+    {
+        public DbSet<CgiRaw22> Metrics => Set<CgiRaw22>();
+        public DbSet<CgiAggregate22> HourlyMetrics => Set<CgiAggregate22>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw22>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate22>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate22, CgiRaw22>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg)
+                    .CreateGroupIndexes(true);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Generate_Operations_When_CreateGroupIndexes_Null_To_True()
+    {
+        using CgiUnconfiguredContext22 sourceContext = new();
+        using CgiTrueContext22 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        Assert.DoesNotContain(operations, op => op is AlterContinuousAggregateOperation);
+        Assert.DoesNotContain(operations, op => op is DropContinuousAggregateOperation);
+        Assert.DoesNotContain(operations, op => op is CreateContinuousAggregateOperation);
+    }
+
+    #endregion
+
+    #region Should_Not_Generate_Operations_For_Legacy_True_Annotation_Vs_Unconfigured_Model
+
+    private class CgiRaw23
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CgiAggregate23
+    {
+        public DateTime TimeBucket { get; set; }
+        public double AvgValue { get; set; }
+    }
+
+    private class CgiLegacyTrueAnnotationContext23 : DbContext
+    {
+        public DbSet<CgiRaw23> Metrics => Set<CgiRaw23>();
+        public DbSet<CgiAggregate23> HourlyMetrics => Set<CgiAggregate23>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw23>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate23>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate23, CgiRaw23>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+                entity.HasAnnotation(ContinuousAggregateAnnotations.CreateGroupIndexes, true);
+            });
+        }
+    }
+
+    private class CgiUnconfiguredContext23 : DbContext
+    {
+        public DbSet<CgiRaw23> Metrics => Set<CgiRaw23>();
+        public DbSet<CgiAggregate23> HourlyMetrics => Set<CgiAggregate23>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CgiRaw23>(entity =>
+            {
+                entity.ToTable("Metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CgiAggregate23>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CgiAggregate23, CgiRaw23>(
+                        "hourly_metrics",
+                        "1 hour",
+                        x => x.Timestamp)
+                    .AddAggregateFunction(x => x.AvgValue, x => x.Value, EAggregateFunction.Avg);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Generate_Operations_For_Legacy_True_Annotation_Vs_Unconfigured_Model()
+    {
+        using CgiLegacyTrueAnnotationContext23 sourceContext = new();
+        using CgiUnconfiguredContext23 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        ContinuousAggregateDiffer differ = new();
+
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        Assert.DoesNotContain(operations, op => op is AlterContinuousAggregateOperation);
+        Assert.DoesNotContain(operations, op => op is DropContinuousAggregateOperation);
+        Assert.DoesNotContain(operations, op => op is CreateContinuousAggregateOperation);
     }
 
     #endregion

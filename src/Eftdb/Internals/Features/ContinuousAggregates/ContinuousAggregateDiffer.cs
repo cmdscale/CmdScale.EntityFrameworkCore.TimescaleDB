@@ -87,9 +87,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
 
         /// <summary>
         /// Find structural changes that require drop and recreate
-        /// Note: Only certain properties can be altered (ChunkInterval, CreateGroupIndexes,
-        /// MaterializedOnly, and compression settings).
-        /// For structural changes (time bucket, aggregates, group by, where), drop and recreate is required.     
         /// </summary>
         private static void FindStructuralChanges(
             List<CreateContinuousAggregateOperation> sourceAggregates,
@@ -113,6 +110,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     x.Target.TimeBucketColumnName != x.Source.TimeBucketColumnName ||
                     x.Target.TimeBucketGroupBy != x.Source.TimeBucketGroupBy ||
                     x.Target.WithNoData != x.Source.WithNoData ||
+                    (x.Target.CreateGroupIndexes ?? true) != (x.Source.CreateGroupIndexes ?? true) ||
                     !AreAggregateFunctionsEqual(x.Target.AggregateFunctions, x.Source.AggregateFunctions) ||
                     !AreGroupByColumnsEqual(x.Target.GroupByColumns, x.Source.GroupByColumns) ||
                     x.Target.WhereClause != x.Source.WhereClause ||
@@ -134,9 +132,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
 
         /// <summary>
         /// Find changes limited to properties that can be applied in place (ChunkInterval,
-        /// CreateGroupIndexes, MaterializedOnly, and compression settings) and emit alter operations.
-        /// Aggregates already marked for drop and recreate are skipped; their recreated definition
-        /// carries the new settings.
+        /// MaterializedOnly, and compression settings) and emit alter operations. Aggregates already
+        /// marked for drop and recreate are skipped; their recreated definition carries the new settings.
         /// </summary>
         private static void FindAlterableChanges(
             List<CreateContinuousAggregateOperation> sourceAggregates,
@@ -155,7 +152,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     !droppedNames.Contains(x.Target.MaterializedViewName) &&
                     (
                         x.Target.ChunkInterval != x.Source.ChunkInterval ||
-                        x.Target.CreateGroupIndexes != x.Source.CreateGroupIndexes ||
                         x.Target.MaterializedOnly != x.Source.MaterializedOnly ||
                         x.Target.EnableCompression != x.Source.EnableCompression ||
                         !CompressionDiffHelper.AreStringListsEqual(x.Target.CompressionSegmentBy, x.Source.CompressionSegmentBy) ||
@@ -170,13 +166,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     Schema = aggregate.Target.Schema,
                     MaterializedViewName = aggregate.Target.MaterializedViewName,
                     ChunkInterval = aggregate.Target.ChunkInterval,
-                    CreateGroupIndexes = aggregate.Target.CreateGroupIndexes,
                     MaterializedOnly = aggregate.Target.MaterializedOnly,
                     EnableCompression = aggregate.Target.EnableCompression,
                     CompressionSegmentBy = aggregate.Target.CompressionSegmentBy,
                     CompressionOrderBy = aggregate.Target.CompressionOrderBy,
                     OldChunkInterval = aggregate.Source.ChunkInterval,
-                    OldCreateGroupIndexes = aggregate.Source.CreateGroupIndexes,
                     OldMaterializedOnly = aggregate.Source.MaterializedOnly,
                     OldEnableCompression = aggregate.Source.EnableCompression,
                     OldCompressionSegmentBy = aggregate.Source.CompressionSegmentBy,

@@ -29,7 +29,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.ParentName, continuousAggregateAttribute.ParentName);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.ChunkInterval, continuousAggregateAttribute.ChunkInterval);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WithNoData, continuousAggregateAttribute.WithNoData);
-            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.CreateGroupIndexes, continuousAggregateAttribute.CreateGroupIndexes);
+            if (continuousAggregateAttribute.CreateGroupIndexesConfigured is bool createGroupIndexes)
+            {
+                entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.CreateGroupIndexes, createGroupIndexes);
+            }
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.MaterializedOnly, continuousAggregateAttribute.MaterializedOnly);
             entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.WhereClause, continuousAggregateAttribute.Where);
 
