@@ -109,10 +109,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.MigrationExtensions
             AlterContinuousAggregateOperation op = Assert.IsType<AlterContinuousAggregateOperation>(Assert.Single(mb.Operations));
             Assert.Equal("hourly", op.MaterializedViewName);
             Assert.Equal("7 days", op.ChunkInterval);
+#pragma warning disable CS0618 // Create-only option retained for source compatibility; asserts the mapping still round-trips.
             Assert.True(op.CreateGroupIndexes);
+#pragma warning restore CS0618
             Assert.True(op.MaterializedOnly);
             Assert.Equal("1 day", op.OldChunkInterval);
+#pragma warning disable CS0618 // Create-only option retained for source compatibility; asserts the mapping still round-trips.
             Assert.True(op.OldCreateGroupIndexes);
+#pragma warning restore CS0618
             Assert.False(op.OldMaterializedOnly);
         }
 

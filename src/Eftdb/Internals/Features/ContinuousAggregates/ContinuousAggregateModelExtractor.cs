@@ -97,7 +97,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                 bool timeBucketGroupBy = entityType.FindAnnotation(ContinuousAggregateAnnotations.TimeBucketGroupBy)?.Value as bool? ?? true;
                 string? chunkInterval = entityType.FindAnnotation(ContinuousAggregateAnnotations.ChunkInterval)?.Value as string;
                 bool withNoData = entityType.FindAnnotation(ContinuousAggregateAnnotations.WithNoData)?.Value as bool? ?? false;
-                bool createGroupIndexes = entityType.FindAnnotation(ContinuousAggregateAnnotations.CreateGroupIndexes)?.Value as bool? ?? false;
+                bool? createGroupIndexes = entityType.FindAnnotation(ContinuousAggregateAnnotations.CreateGroupIndexes)?.Value as bool?;
                 bool materializedOnly = entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedOnly)?.Value as bool? ?? false;
                 string? whereClause = entityType.FindAnnotation(ContinuousAggregateAnnotations.WhereClause)?.Value as string;
 

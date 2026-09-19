@@ -335,8 +335,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 Schema = "public",
                 ChunkInterval = "7 days",
                 OldChunkInterval = "1 day",
-                CreateGroupIndexes = true,
-                OldCreateGroupIndexes = true,
                 MaterializedOnly = false,
                 OldMaterializedOnly = false
             };
@@ -368,8 +366,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 Schema = "public",
                 ChunkInterval = null,
                 OldChunkInterval = null,
-                CreateGroupIndexes = true,
-                OldCreateGroupIndexes = true,
                 MaterializedOnly = true,
                 OldMaterializedOnly = false
             };
@@ -382,38 +378,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.Contains("migrationBuilder", result);
             Assert.Contains(".AlterContinuousAggregate(", result);
             Assert.Contains("materializedOnly:", result);
-            Assert.DoesNotContain(".Sql(", result);
-            Assert.DoesNotContain("migrationBuilder;", result);
-        }
-
-        [Fact]
-        public void Generate_AlterContinuousAggregate_WithCreateGroupIndexesChange_GeneratesValidCSharp()
-        {
-            // Arrange
-            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
-            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
-            IndentedStringBuilder builder = new();
-
-            AlterContinuousAggregateOperation operation = new()
-            {
-                MaterializedViewName = "hourly_stats",
-                Schema = "public",
-                ChunkInterval = null,
-                OldChunkInterval = null,
-                CreateGroupIndexes = false,
-                OldCreateGroupIndexes = true,
-                MaterializedOnly = false,
-                OldMaterializedOnly = false
-            };
-
-            // Act
-            generator.Generate("migrationBuilder", [operation], builder);
-
-            // Assert
-            string result = builder.ToString();
-            Assert.Contains("migrationBuilder", result);
-            Assert.Contains(".AlterContinuousAggregate(", result);
-            Assert.Contains("oldCreateGroupIndexes:", result);
             Assert.DoesNotContain(".Sql(", result);
             Assert.DoesNotContain("migrationBuilder;", result);
         }
@@ -432,8 +396,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
                 Schema = "public",
                 ChunkInterval = null,
                 OldChunkInterval = null,
-                CreateGroupIndexes = true,
-                OldCreateGroupIndexes = true,
                 MaterializedOnly = false,
                 OldMaterializedOnly = false
             };

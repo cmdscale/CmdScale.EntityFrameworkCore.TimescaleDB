@@ -29,8 +29,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             if (operation.WithNoData)
                 call.Arg("withNoData", code.Literal(true));
 
-            if (operation.CreateGroupIndexes)
-                call.Arg("createGroupIndexes", code.Literal(true));
+            if (operation.CreateGroupIndexes.HasValue)
+                call.Arg("createGroupIndexes", code.Literal(operation.CreateGroupIndexes.Value));
 
             if (operation.MaterializedOnly)
                 call.Arg("materializedOnly", code.Literal(true));
@@ -81,8 +81,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             if (!string.IsNullOrEmpty(operation.ChunkInterval))
                 call.Arg("chunkInterval", code.Literal(operation.ChunkInterval));
 
-            if (operation.CreateGroupIndexes)
-                call.Arg("createGroupIndexes", code.Literal(true));
 
             if (operation.MaterializedOnly)
                 call.Arg("materializedOnly", code.Literal(true));
@@ -90,9 +88,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             // Old* values — emitted for Down() reversibility, only when non-default.
             if (!string.IsNullOrEmpty(operation.OldChunkInterval))
                 call.Arg("oldChunkInterval", code.Literal(operation.OldChunkInterval));
-
-            if (operation.OldCreateGroupIndexes)
-                call.Arg("oldCreateGroupIndexes", code.Literal(true));
 
             if (operation.OldMaterializedOnly)
                 call.Arg("oldMaterializedOnly", code.Literal(true));

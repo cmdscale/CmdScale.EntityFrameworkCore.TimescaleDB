@@ -36,9 +36,20 @@
 
         /// <summary>
         /// Gets or sets a value indicating whether to automatically create indexes on the GROUP BY columns.
-        /// Defaults to true. Corresponds to the 'timescaledb.create_group_indexes' option.
+        /// Defaults to true. Corresponds to the create-only 'timescaledb.create_group_indexes' option.
+        public bool CreateGroupIndexes
+        {
+            get => _createGroupIndexes ?? true;
+            set => _createGroupIndexes = value;
+        }
+
+        private bool? _createGroupIndexes;
+
+        /// <summary>
+        /// The configured <see cref="CreateGroupIndexes"/> value, or <see langword="null"/> when the property
+        /// was never set. The convention writes the annotation only when this has a value.
         /// </summary>
-        public bool CreateGroupIndexes { get; set; } = true;
+        internal bool? CreateGroupIndexesConfigured => _createGroupIndexes;
 
         /// <summary>
         /// Gets or sets a value indicating whether queries to the view should only return materialized data.

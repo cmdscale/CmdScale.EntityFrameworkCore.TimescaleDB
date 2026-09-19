@@ -83,7 +83,7 @@ public class ContinuousAggregateModelExtractorTests
         Assert.True(operation.TimeBucketGroupBy);
         Assert.Null(operation.ChunkInterval);
         Assert.False(operation.WithNoData);
-        Assert.False(operation.CreateGroupIndexes);
+        Assert.Null(operation.CreateGroupIndexes);
         Assert.False(operation.MaterializedOnly);
         Assert.Null(operation.WhereClause);
         Assert.Empty(operation.AggregateFunctions);
@@ -417,6 +417,162 @@ public class ContinuousAggregateModelExtractorTests
     public void Should_Extract_CreateGroupIndexes_True()
     {
         using CreateGroupIndexesContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.True(Assert.Single(operations).CreateGroupIndexes);
+    }
+
+    #endregion
+
+    #region Should_Extract_CreateGroupIndexes_False
+
+    private class CreateGroupIndexesFalseSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class CreateGroupIndexesFalseHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class CreateGroupIndexesFalseContext : DbContext
+    {
+        public DbSet<CreateGroupIndexesFalseSourceMetric> Metrics => Set<CreateGroupIndexesFalseSourceMetric>();
+        public DbSet<CreateGroupIndexesFalseHourlyMetric> HourlyMetrics => Set<CreateGroupIndexesFalseHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CreateGroupIndexesFalseSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("Metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CreateGroupIndexesFalseHourlyMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.IsContinuousAggregate<CreateGroupIndexesFalseHourlyMetric, CreateGroupIndexesFalseSourceMetric>(
+                    "hourly_metrics",
+                    "1 hour",
+                    x => x.Timestamp
+                ).CreateGroupIndexes(false);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_CreateGroupIndexes_False()
+    {
+        using CreateGroupIndexesFalseContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.False(Assert.Single(operations).CreateGroupIndexes);
+    }
+
+    #endregion
+
+    #region Should_Extract_Null_CreateGroupIndexes_When_Attribute_Does_Not_Set_It
+
+    private class CreateGroupIndexesAttributeSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_attr_metrics", ParentName = nameof(CreateGroupIndexesAttributeSourceMetric))]
+    [TimeBucket("1 hour", nameof(CreateGroupIndexesAttributeSourceMetric.Timestamp))]
+    private class CreateGroupIndexesAttributeHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class CreateGroupIndexesAttributeContext : DbContext
+    {
+        public DbSet<CreateGroupIndexesAttributeSourceMetric> Metrics => Set<CreateGroupIndexesAttributeSourceMetric>();
+        public DbSet<CreateGroupIndexesAttributeHourlyMetric> HourlyMetrics => Set<CreateGroupIndexesAttributeHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CreateGroupIndexesAttributeSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("attr_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CreateGroupIndexesAttributeHourlyMetric>(entity => entity.HasNoKey());
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_Null_CreateGroupIndexes_When_Attribute_Does_Not_Set_It()
+    {
+        using CreateGroupIndexesAttributeContext context = new();
+        IRelationalModel relationalModel = GetRelationalModel(context);
+
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];
+
+        Assert.Null(Assert.Single(operations).CreateGroupIndexes);
+    }
+
+    #endregion
+
+    #region Should_Extract_CreateGroupIndexes_True_When_Attribute_Sets_It
+
+    private class CreateGroupIndexesTrueAttributeSourceMetric
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    [ContinuousAggregate(MaterializedViewName = "hourly_attr_true_metrics", ParentName = nameof(CreateGroupIndexesTrueAttributeSourceMetric), CreateGroupIndexes = true)]
+    [TimeBucket("1 hour", nameof(CreateGroupIndexesTrueAttributeSourceMetric.Timestamp))]
+    private class CreateGroupIndexesTrueAttributeHourlyMetric
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class CreateGroupIndexesTrueAttributeContext : DbContext
+    {
+        public DbSet<CreateGroupIndexesTrueAttributeSourceMetric> Metrics => Set<CreateGroupIndexesTrueAttributeSourceMetric>();
+        public DbSet<CreateGroupIndexesTrueAttributeHourlyMetric> HourlyMetrics => Set<CreateGroupIndexesTrueAttributeHourlyMetric>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CreateGroupIndexesTrueAttributeSourceMetric>(entity =>
+            {
+                entity.HasNoKey();
+                entity.ToTable("attr_true_metrics");
+                entity.IsHypertable(x => x.Timestamp);
+            });
+
+            modelBuilder.Entity<CreateGroupIndexesTrueAttributeHourlyMetric>(entity => entity.HasNoKey());
+        }
+    }
+
+    [Fact]
+    public void Should_Extract_CreateGroupIndexes_True_When_Attribute_Sets_It()
+    {
+        using CreateGroupIndexesTrueAttributeContext context = new();
         IRelationalModel relationalModel = GetRelationalModel(context);
 
         List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(relationalModel)];

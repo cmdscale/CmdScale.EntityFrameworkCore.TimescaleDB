@@ -285,7 +285,7 @@ public class TradeDaily
 Ordering across the chain is handled automatically:
 
 - Parents are created before their children; children are dropped before their parents.
-- A structural change to a parent (bucket width, bucket column name, aggregate functions, GROUP BY, or WHERE) drops and recreates all of its descendants as well, and their refresh policies are re-added afterwards.
+- A structural change to a parent (bucket width, bucket column name, aggregate functions, GROUP BY, WHERE, or the create-only create_group_indexes option) drops and recreates all of its descendants as well, and their refresh policies are re-added afterwards.
 
 ### Scaffolding
 
@@ -310,7 +310,10 @@ builder.IsContinuousAggregate<TradeAggregate, Trade>(
 
 ### CreateGroupIndexes
 
-Control whether indexes are automatically created on GROUP BY columns. Enabled by default:
+Controls whether TimescaleDB creates indexes on the GROUP BY columns when the aggregate is created. This maps to the `timescaledb.create_group_indexes` option:
+
+- **Unconfigured** — no `.CreateGroupIndexes(...)` call — the option is omitted from `CREATE MATERIALIZED VIEW`, so TimescaleDB's server default applies.
+- **`.CreateGroupIndexes(true)`** and **`.CreateGroupIndexes(false)`** emit the option explicitly.
 
 ```csharp
 builder.IsContinuousAggregate<TradeAggregate, Trade>(
@@ -319,8 +322,12 @@ builder.IsContinuousAggregate<TradeAggregate, Trade>(
         x => x.Timestamp)
     .AddAggregateFunction(x => x.AveragePrice, x => x.Price, EAggregateFunction.Avg)
     .AddGroupByColumn(x => x.Ticker)
-    .CreateGroupIndexes(true);
+    .CreateGroupIndexes(false);
 ```
+
+> :warning: **Note:** In version <= `v10.3.0` an aggregate configured without a `.CreateGroupIndexes(...)` call was created with `timescaledb.create_group_indexes = false`, contradicting the server default. Unconfigured aggregates now omit the option and inherit the server default (`true`). Aggregates that need indexes suppressed must call `.CreateGroupIndexes(false)` explicitly.
+
+> :warning: **Note:** `timescaledb.create_group_indexes` is a create-only option in TimescaleDB — `ALTER MATERIALIZED VIEW` rejects it. Only transitions to or from `false` are structural: because the server default is `true`, unconfigured and `.CreateGroupIndexes(true)` produce identical databases, so adding or removing a redundant `.CreateGroupIndexes(true)` call is a no-op that never touches an existing aggregate. Changing the value to or from `false` on an **existing** aggregate drops and recreates it (see [Migration Ordering](#migration-ordering)), which rematerializes it and, in a hierarchy, cascades the drop to every descendant. If the source hypertable's retention policy has already dropped the raw data covered by the aggregate, that history is lost on recreate. The flag is not recoverable from an existing database — it leaves only the indexes behind — so scaffolded aggregates never carry an explicit `.CreateGroupIndexes(...)` call.
 
 ### MaterializedOnly
 

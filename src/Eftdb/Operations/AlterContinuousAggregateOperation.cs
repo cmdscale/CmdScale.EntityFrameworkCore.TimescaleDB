@@ -10,7 +10,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
         public string? ChunkInterval { get; set; }
         public string? OldChunkInterval { get; set; }
 
+        [Obsolete("timescaledb.create_group_indexes is a create-only option; changing it now drops and recreates the aggregate, so changing it has no effect in an alter operation. Retained for source compatibility with previously generated migrations.")]
         public bool CreateGroupIndexes { get; set; }
+
+        [Obsolete("timescaledb.create_group_indexes is a create-only option; changing it now drops and recreates the aggregate, so changing it has no effect in an alter operation. Retained for source compatibility with previously generated migrations.")]
         public bool OldCreateGroupIndexes { get; set; }
 
         public bool MaterializedOnly { get; set; }

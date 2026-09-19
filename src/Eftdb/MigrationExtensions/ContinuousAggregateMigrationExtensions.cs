@@ -13,7 +13,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             string? schema = null,
             string? chunkInterval = null,
             bool withNoData = false,
-            bool createGroupIndexes = false,
+            bool? createGroupIndexes = null,
             bool materializedOnly = false,
             string? timeBucketWidth = null,
             string? timeBucketSourceColumn = null,
@@ -75,13 +75,17 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 MaterializedViewName = materializedViewName,
                 Schema = schema ?? string.Empty,
                 ChunkInterval = chunkInterval,
+#pragma warning disable CS0618 // Create-only option retained for source compatibility; no longer emitted as SQL.
                 CreateGroupIndexes = createGroupIndexes,
+#pragma warning restore CS0618
                 MaterializedOnly = materializedOnly,
                 EnableCompression = enableCompression,
                 CompressionSegmentBy = compressionSegmentBy,
                 CompressionOrderBy = compressionOrderBy,
                 OldChunkInterval = oldChunkInterval,
+#pragma warning disable CS0618 // Create-only option retained for source compatibility; no longer emitted as SQL.
                 OldCreateGroupIndexes = oldCreateGroupIndexes,
+#pragma warning restore CS0618
                 OldMaterializedOnly = oldMaterializedOnly,
                 OldEnableCompression = oldEnableCompression,
                 OldCompressionSegmentBy = oldCompressionSegmentBy,
