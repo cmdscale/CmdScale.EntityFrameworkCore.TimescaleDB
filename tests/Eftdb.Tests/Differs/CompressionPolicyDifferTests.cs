@@ -1367,4 +1367,191 @@ public class CompressionPolicyDifferTests
     }
 
     #endregion
+
+    #region Should_ReAdd_CompressionPolicy_When_CA_Is_Recreated
+
+    private class MetricEntity20
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ContinuousAggregateWithPolicyContext20 : DbContext
+    {
+        public DbSet<MetricEntity20> Metrics => Set<MetricEntity20>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity20>(entity =>
+            {
+                entity.ToTable("ca_recreate_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithCompressionPolicy(after: "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_ReAdd_CompressionPolicy_When_CA_Is_Recreated()
+    {
+        // Arrange
+        using ContinuousAggregateWithPolicyContext20 sourceContext = new();
+        using ContinuousAggregateWithPolicyContext20 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        FeatureDiffContext context = new()
+        {
+            RecreatedAggregates = new HashSet<(string, string)> { ("public", "ca_recreate_metrics") }
+        };
+
+        CompressionPolicyDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel, context);
+
+        // Assert
+        AddCompressionPolicyOperation addOp = Assert.Single(operations.OfType<AddCompressionPolicyOperation>());
+        Assert.Equal("ca_recreate_metrics", addOp.TableName);
+        Assert.Equal("7 days", addOp.After);
+
+        Assert.Empty(operations.OfType<AlterCompressionPolicyOperation>());
+        Assert.Empty(operations.OfType<DropCompressionPolicyOperation>());
+    }
+
+    #endregion
+
+    #region Should_Not_ReAdd_CompressionPolicy_When_CA_Is_Not_Recreated
+
+    private class MetricEntity21
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class ContinuousAggregateWithPolicyContext21 : DbContext
+    {
+        public DbSet<MetricEntity21> Metrics => Set<MetricEntity21>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity21>(entity =>
+            {
+                entity.ToTable("ca_recreate_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithCompressionPolicy(after: "7 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_ReAdd_CompressionPolicy_When_CA_Is_Not_Recreated()
+    {
+        // Arrange
+        using ContinuousAggregateWithPolicyContext21 sourceContext = new();
+        using ContinuousAggregateWithPolicyContext21 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        CompressionPolicyDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_ReAdd_CompressionPolicy_With_New_Settings_When_Changed_And_Recreated
+
+    private class MetricEntity22
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class OldCompressionPolicyContext22 : DbContext
+    {
+        public DbSet<MetricEntity22> Metrics => Set<MetricEntity22>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity22>(entity =>
+            {
+                entity.ToTable("ca_recreate_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithCompressionPolicy(after: "7 days");
+            });
+        }
+    }
+
+    private class NewCompressionPolicyContext22 : DbContext
+    {
+        public DbSet<MetricEntity22> Metrics => Set<MetricEntity22>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity22>(entity =>
+            {
+                entity.ToTable("ca_recreate_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+                entity.WithCompressionPolicy(after: "14 days");
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_ReAdd_CompressionPolicy_With_New_Settings_When_Changed_And_Recreated()
+    {
+        // Arrange
+        using OldCompressionPolicyContext22 sourceContext = new();
+        using NewCompressionPolicyContext22 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        FeatureDiffContext context = new()
+        {
+            RecreatedAggregates = new HashSet<(string, string)> { ("public", "ca_recreate_metrics") }
+        };
+
+        CompressionPolicyDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel, context);
+
+        // Assert
+        AddCompressionPolicyOperation addOp = Assert.Single(operations.OfType<AddCompressionPolicyOperation>());
+        Assert.Equal("ca_recreate_metrics", addOp.TableName);
+        Assert.Equal("14 days", addOp.After);
+
+        Assert.Empty(operations.OfType<AlterCompressionPolicyOperation>());
+        Assert.Empty(operations.OfType<DropCompressionPolicyOperation>());
+    }
+
+    #endregion
 }
