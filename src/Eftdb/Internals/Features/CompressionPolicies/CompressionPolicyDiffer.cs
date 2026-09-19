@@ -25,10 +25,21 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Compressio
             List<MigrationOperation> operations = [];
 
             // Apply table renames to the source so a rename isn't seen as a drop-and-add.
-            List<CompressionPolicyModelExtractor.CompressionPolicyEntry> sourceEntries =
+            List<CompressionPolicyModelExtractor.CompressionPolicyEntry> allSourceEntries =
                 [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(source).Select(e => RewriteSourceEntry(e, context))];
-            List<CompressionPolicyModelExtractor.CompressionPolicyEntry> targetEntries =
+            List<CompressionPolicyModelExtractor.CompressionPolicyEntry> allTargetEntries =
                 [.. CompressionPolicyModelExtractor.GetCompressionPolicyEntries(target)];
+
+            // Recreating an aggregate drops its compression policy, so re-add it and skip the normal diff.
+            foreach (CompressionPolicyModelExtractor.CompressionPolicyEntry entry in allTargetEntries.Where(t => context.RecreatedAggregates.Contains((t.Operation.Schema, t.Operation.TableName))))
+            {
+                operations.Add(entry.Operation);
+            }
+
+            List<CompressionPolicyModelExtractor.CompressionPolicyEntry> sourceEntries =
+                [.. allSourceEntries.Where(s => !context.RecreatedAggregates.Contains((s.Operation.Schema, s.Operation.TableName)))];
+            List<CompressionPolicyModelExtractor.CompressionPolicyEntry> targetEntries =
+                [.. allTargetEntries.Where(t => !context.RecreatedAggregates.Contains((t.Operation.Schema, t.Operation.TableName)))];
 
             // Identify new compression policies
             IEnumerable<AddCompressionPolicyOperation> newPolicies = targetEntries
