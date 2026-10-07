@@ -53,6 +53,8 @@ public class WeatherDataConfiguration : IEntityTypeConfiguration<WeatherData>
 }
 ```
 
+Changing the settings of an existing dimension is applied in place: a changed partition count on a hash dimension migrates as `set_number_partitions`, and a changed interval on a secondary range dimension migrates as `set_chunk_time_interval` with the dimension name. Both only affect chunks created after the migration; existing chunks keep their layout. Changing a dimension's *type* (hash to range or vice versa) on the same column is not supported by TimescaleDB and is skipped with the dimension-removal warning described below.
+
 ## Unsupported Model Changes
 
 Three model changes cannot be applied to an existing hypertable because TimescaleDB has no operation for them. The migration is still generated, but the affected change is **skipped**: no SQL is emitted for it, the database keeps its current shape, and the model and database intentionally diverge until the change is resolved manually (typically by recreating the table). Each skipped change surfaces in two places:
@@ -63,7 +65,7 @@ Three model changes cannot be applied to an existing hypertable because Timescal
 The three changes are:
 
 - **Re-designating the time column** of an existing hypertable — TimescaleDB cannot repartition onto a different time column. Every *other* change carried by the same migration (chunk interval, compression, dimensions) still emits SQL normally. A pure column *rename* is not affected: it is applied as an ordinary rename and produces no warning.
-- **Removing a dimension** — TimescaleDB provides no `remove_dimension`. The dimension stays in the database.
+- **Removing a dimension** — TimescaleDB provides no `remove_dimension`. The dimension stays in the database. Note that changing an existing dimension's *settings* (hash partition count, range interval) is **not** affected: those changes are applied in place (see [Advanced Partitioning with Dimensions](#advanced-partitioning-with-dimensions)).
 - **Removing the hypertable designation** while keeping the entity — TimescaleDB cannot convert a hypertable back to a plain table. This is distinct from deleting the entity entirely, which remains a normal EF `DropTable`. The scaffolded migration contains a `RemoveHypertable(...)` call annotated with a comment stating that it only emits the warning and leaves the database unchanged.
 
 > :warning: **Note:** Because the warning honors `ConfigureWarnings`, it can be silenced with `w.Ignore(TimescaleDbEventId.UnsupportedHypertableChangeSkipped)` or promoted to a hard failure with `w.Throw(...)` — the latter is useful in CI to reject a migration that would silently drift from the model. See [Diagnostics event IDs](../05-apache-edition.md#diagnostics-event-ids).

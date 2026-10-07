@@ -533,6 +533,151 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         [Fact]
+        public void DesignTime_Alter_ChangingHashPartitions_GeneratesSetNumberPartitions()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "tuned",
+                Schema = "public",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateHash("user_id", 8)
+                ],
+                OldAdditionalDimensions =
+                [
+                    Dimension.CreateHash("user_id", 4)
+                ]
+            };
+
+            string expected = @"
+                SELECT set_number_partitions('public.""tuned""', 8, 'user_id');
+            ";
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void DesignTime_Alter_ChangingRangeDimensionInterval_GeneratesSetChunkTimeInterval()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "ranged_tuned",
+                Schema = "public",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateRange("secondary_time", "14 days")
+                ],
+                OldAdditionalDimensions =
+                [
+                    Dimension.CreateRange("secondary_time", "7 days")
+                ]
+            };
+
+            string expected = @"
+                SELECT set_chunk_time_interval('public.""ranged_tuned""', INTERVAL '14 days', 'secondary_time');
+            ";
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void DesignTime_Alter_ChangingRangeDimensionIntegerInterval_GeneratesBigintCast()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "int_ranged_tuned",
+                Schema = "public",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateRange("sensor_id", "5000")
+                ],
+                OldAdditionalDimensions =
+                [
+                    Dimension.CreateRange("sensor_id", "1000")
+                ]
+            };
+
+            string expected = @"
+                SELECT set_chunk_time_interval('public.""int_ranged_tuned""', 5000::bigint, 'sensor_id');
+            ";
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(SqlHelper.NormalizeSql(expected), SqlHelper.NormalizeSql(result));
+        }
+
+        [Fact]
+        public void DesignTime_Alter_ChangingDimensionType_EmitsWarningAndNoTuningSql()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "type_changed",
+                Schema = "public",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateRange("user_id", "1 day")
+                ],
+                OldAdditionalDimensions =
+                [
+                    Dimension.CreateHash("user_id", 4)
+                ]
+            };
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Contains("add_dimension('public.\"type_changed\"', by_range('user_id', INTERVAL '1 day'), if_not_exists => true)", result);
+            Assert.Contains("does not support removing dimensions", result);
+            Assert.DoesNotContain("set_number_partitions", result);
+            Assert.DoesNotContain("set_chunk_time_interval", result);
+        }
+
+        [Fact]
+        public void DesignTime_Alter_UnchangedDimensions_GenerateNothing()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "steady",
+                Schema = "public",
+                AdditionalDimensions =
+                [
+                    Dimension.CreateHash("user_id", 4),
+                    Dimension.CreateRange("secondary_time", "7 days")
+                ],
+                OldAdditionalDimensions =
+                [
+                    Dimension.CreateHash("user_id", 4),
+                    Dimension.CreateRange("secondary_time", "7 days")
+                ]
+            };
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.DoesNotContain("add_dimension", result);
+            Assert.DoesNotContain("set_number_partitions", result);
+            Assert.DoesNotContain("set_chunk_time_interval", result);
+            Assert.DoesNotContain("WARNING", result);
+        }
+
+        [Fact]
         public void DesignTime_Alter_ChangingTimeColumn_EmitsWarningAndNoTimeColumnSql()
         {
             // Arrange
@@ -619,7 +764,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
         }
 
         [Fact]
-        public void DesignTime_Alter_ModifyingDimension_GeneratesAddForNew()
+        public void DesignTime_Alter_ModifyingDimension_GeneratesTuningCallInsteadOfAdd()
         {
             // Arrange
             AlterHypertableOperation operation = new()
@@ -640,7 +785,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetDesignTimeCode(operation);
 
             // Assert
-            Assert.Contains("by_hash('location', 8)", result);
+            Assert.Contains("set_number_partitions('public.\"modified_dims\"', 8, 'location')", result);
+            Assert.DoesNotContain("add_dimension", result);
         }
 
         [Fact]

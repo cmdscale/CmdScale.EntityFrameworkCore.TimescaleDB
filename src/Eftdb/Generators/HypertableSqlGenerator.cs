@@ -248,20 +248,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             string qualifiedTableName,
             List<string> statements)
         {
-            // TimescaleDB does NOT support removing dimensions from hypertables.
-            // Once added, a dimension cannot be removed, so only additions are generated.
             IReadOnlyList<Dimension> newDimensions = operation.AdditionalDimensions ?? [];
             IReadOnlyList<Dimension> oldDimensions = operation.OldAdditionalDimensions ?? [];
 
             foreach (Dimension newDim in newDimensions)
             {
-                bool exists = oldDimensions.Any(oldDim =>
+                Dimension? previous = oldDimensions.FirstOrDefault(oldDim =>
                     oldDim.ColumnName == newDim.ColumnName &&
-                    oldDim.Type == newDim.Type &&
-                    oldDim.Interval == newDim.Interval &&
-                    oldDim.NumberOfPartitions == newDim.NumberOfPartitions);
+                    oldDim.Type == newDim.Type);
 
-                if (!exists)
+                if (previous == null)
                 {
                     if (newDim.Type == EDimensionType.Range)
                     {
@@ -273,6 +269,21 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                     {
                         statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}', {newDim.NumberOfPartitions}), if_not_exists => true);");
                     }
+
+                    continue;
+                }
+
+                if (newDim.Type == EDimensionType.Range
+                    && newDim.Interval != previous.Interval
+                    && !string.IsNullOrEmpty(newDim.Interval))
+                {
+                    statements.Add($"SELECT set_chunk_time_interval({qualifiedTableName}, {SqlBuilderHelper.IntervalOrBigint(newDim.Interval)}, '{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}');");
+                }
+                else if (newDim.Type == EDimensionType.Hash
+                    && newDim.NumberOfPartitions != previous.NumberOfPartitions
+                    && newDim.NumberOfPartitions != null)
+                {
+                    statements.Add($"SELECT set_number_partitions({qualifiedTableName}, {newDim.NumberOfPartitions}, '{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}');");
                 }
             }
 
