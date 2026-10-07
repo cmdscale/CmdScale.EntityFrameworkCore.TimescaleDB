@@ -141,6 +141,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.MigrationExtensions
 
         #endregion
 
+        #region DropContinuousAggregate_IsDestructiveChange
+
+        [Fact]
+        public void DropContinuousAggregate_IsDestructiveChange()
+        {
+            // Arrange & Act
+            DropContinuousAggregateOperation op = new();
+
+            // Assert
+            Assert.True(op.IsDestructiveChange);
+        }
+
+        #endregion
+
         #region AlterContinuousAggregate_NullSchema_CoalescesToEmpty
 
         [Fact]

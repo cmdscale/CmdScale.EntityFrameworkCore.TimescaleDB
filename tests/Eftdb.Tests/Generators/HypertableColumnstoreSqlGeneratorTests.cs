@@ -35,7 +35,7 @@ public class HypertableColumnstoreSqlGeneratorTests
         };
 
         string expected = @"
-            SELECT create_hypertable('public.""sensor_data""', 'ts');
+            SELECT create_hypertable('public.""sensor_data""', 'ts', if_not_exists => true);
             ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = 'bloom(device_id)');
         ";
 
@@ -65,7 +65,7 @@ public class HypertableColumnstoreSqlGeneratorTests
         };
 
         string expected = @"
-            SELECT create_hypertable('public.""sensor_data""', 'ts');
+            SELECT create_hypertable('public.""sensor_data""', 'ts', if_not_exists => true);
             ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.compress_chunk_time_interval = '24 hours');
         ";
 
@@ -96,7 +96,7 @@ public class HypertableColumnstoreSqlGeneratorTests
         };
 
         string expected = @"
-            SELECT create_hypertable('public.""sensor_data""', 'ts');
+            SELECT create_hypertable('public.""sensor_data""', 'ts', if_not_exists => true);
             ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = 'bloom(device_id)', timescaledb.compress_chunk_time_interval = '7 days');
         ";
 
@@ -126,7 +126,7 @@ public class HypertableColumnstoreSqlGeneratorTests
         };
 
         string expected = @"
-            SELECT create_hypertable('public.""sensor_data""', 'ts');
+            SELECT create_hypertable('public.""sensor_data""', 'ts', if_not_exists => true);
             ALTER TABLE ""public"".""sensor_data"" SET (timescaledb.sparse_index = '');
         ";
 

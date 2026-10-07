@@ -53,6 +53,21 @@ public class WeatherDataConfiguration : IEntityTypeConfiguration<WeatherData>
 }
 ```
 
+## Unsupported Model Changes
+
+Three model changes cannot be applied to an existing hypertable because TimescaleDB has no operation for them. The migration is still generated, but the affected change is **skipped**: no SQL is emitted for it, the database keeps its current shape, and the model and database intentionally diverge until the change is resolved manually (typically by recreating the table). Each skipped change surfaces in two places:
+
+- A `-- WARNING: Hypertable '<table>': ...` comment in the generated migration SQL (visible in `dotnet ef migrations script` output).
+- A warning through EF Core's diagnostics pipeline as `TimescaleDbEventId.UnsupportedHypertableChangeSkipped` (event id 63002, `Migrations` category), reaching `ILogger`, `LogTo(...)`, and `DiagnosticSource`.
+
+The three changes are:
+
+- **Re-designating the time column** of an existing hypertable — TimescaleDB cannot repartition onto a different time column. Every *other* change carried by the same migration (chunk interval, compression, dimensions) still emits SQL normally. A pure column *rename* is not affected: it is applied as an ordinary rename and produces no warning.
+- **Removing a dimension** — TimescaleDB provides no `remove_dimension`. The dimension stays in the database.
+- **Removing the hypertable designation** while keeping the entity — TimescaleDB cannot convert a hypertable back to a plain table. This is distinct from deleting the entity entirely, which remains a normal EF `DropTable`. The scaffolded migration contains a `RemoveHypertable(...)` call annotated with a comment stating that it only emits the warning and leaves the database unchanged.
+
+> :warning: **Note:** Because the warning honors `ConfigureWarnings`, it can be silenced with `w.Ignore(TimescaleDbEventId.UnsupportedHypertableChangeSkipped)` or promoted to a hard failure with `w.Throw(...)` — the latter is useful in CI to reject a migration that would silently drift from the model. See [Diagnostics event IDs](../05-apache-edition.md#diagnostics-event-ids).
+
 ## Compression
 
 Time-series data can be compressed to reduce the amount of storage required, and increase the speed of some queries. This is a cornerstone feature of TimescaleDB. When new data is added to your database, it is in the form of uncompressed rows. TimescaleDB uses a built-in job scheduler to convert this data to the form of compressed columns. This occurs across chunks of TimescaleDB hypertables.

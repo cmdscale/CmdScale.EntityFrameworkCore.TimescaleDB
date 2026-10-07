@@ -46,8 +46,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""events""', 'event_time', chunk_time_interval => INTERVAL '1 day');
-                SELECT add_dimension('public.""events""', by_range('received_time', INTERVAL '7 days'));
+                SELECT create_hypertable('public.""events""', 'event_time', if_not_exists => true, chunk_time_interval => INTERVAL '1 day');
+                SELECT add_dimension('public.""events""', by_range('received_time', INTERVAL '7 days'), if_not_exists => true);
             ";
 
             // Act
@@ -74,9 +74,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""distributed_events""', 'timestamp');
-                SELECT add_dimension('public.""distributed_events""', by_hash('device_id', 4));
-                SELECT add_dimension('public.""distributed_events""', by_range('processed_time', INTERVAL '1 month'));
+                SELECT create_hypertable('public.""distributed_events""', 'timestamp', if_not_exists => true);
+                SELECT add_dimension('public.""distributed_events""', by_hash('device_id', 4), if_not_exists => true);
+                SELECT add_dimension('public.""distributed_events""', by_range('processed_time', INTERVAL '1 month'), if_not_exists => true);
             ";
 
             // Act
@@ -99,7 +99,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""high_freq_data""', 'ts', chunk_time_interval => 86400000000::bigint);
+                SELECT create_hypertable('public.""high_freq_data""', 'ts', if_not_exists => true, chunk_time_interval => 86400000000::bigint);
             ";
 
             // Act
@@ -122,7 +122,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""compressed_data""', 'time');
+                SELECT create_hypertable('public.""compressed_data""', 'time', if_not_exists => true);
                 ALTER TABLE ""public"".""compressed_data"" SET (timescaledb.enable_columnstore = true);
             ";
 
@@ -172,7 +172,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("SELECT create_hypertable('public.\"simple_table\"', 'time')", result);
+            Assert.Contains("SELECT create_hypertable('public.\"simple_table\"', 'time', if_not_exists => true)", result);
             Assert.EndsWith(";", result.Trim());
         }
 
@@ -235,7 +235,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("add_dimension('public.\"partitioned\"', by_hash('location_id', 8))", result);
+            Assert.Contains("add_dimension('public.\"partitioned\"', by_hash('location_id', 8), if_not_exists => true)", result);
         }
 
         [Fact]
@@ -257,7 +257,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("add_dimension('public.\"ranged\"', by_range('secondary_time', INTERVAL '30 days'))", result);
+            Assert.Contains("add_dimension('public.\"ranged\"', by_range('secondary_time', INTERVAL '30 days'), if_not_exists => true)", result);
         }
 
         [Fact]
@@ -279,7 +279,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("add_dimension('public.\"integer_ranged\"', by_range('sensor_id', 10000::bigint))", result);
+            Assert.Contains("add_dimension('public.\"integer_ranged\"', by_range('sensor_id', 10000::bigint), if_not_exists => true)", result);
             Assert.DoesNotContain("INTERVAL", result);
         }
 
@@ -302,7 +302,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("add_dimension('public.\"time_ranged\"', by_range('processed_time', INTERVAL '1 hour'))", result);
+            Assert.Contains("add_dimension('public.\"time_ranged\"', by_range('processed_time', INTERVAL '1 hour'), if_not_exists => true)", result);
         }
 
         [Fact]
@@ -321,8 +321,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('analytics.""integer_partitions""', 'timestamp');
-                SELECT add_dimension('analytics.""integer_partitions""', by_range('partition_key', 5000::bigint));
+                SELECT create_hypertable('analytics.""integer_partitions""', 'timestamp', if_not_exists => true);
+                SELECT add_dimension('analytics.""integer_partitions""', by_range('partition_key', 5000::bigint), if_not_exists => true);
             ";
 
             // Act
@@ -349,7 +349,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""segmented_data""', 'time');
+                SELECT create_hypertable('public.""segmented_data""', 'time', if_not_exists => true);
                 ALTER TABLE ""public"".""segmented_data"" SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = '""tenant_id"", ""device_id""');
             ";
 
@@ -373,7 +373,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""ordered_data""', 'time');
+                SELECT create_hypertable('public.""ordered_data""', 'time', if_not_exists => true);
                 ALTER TABLE ""public"".""ordered_data"" SET (timescaledb.enable_columnstore = true, timescaledb.orderby = '""time"" DESC, ""value"" ASC NULLS LAST');
             ";
 
@@ -474,7 +474,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT add_dimension('public.""expandable""', by_hash('user_id', 4));
+                SELECT add_dimension('public.""expandable""', by_hash('user_id', 4), if_not_exists => true);
             ";
 
             // Act
@@ -528,8 +528,94 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
 
             // Assert
             Assert.Contains(
-                "-- WARNING: TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: 'old_column'",
+                "-- WARNING: Hypertable 'cannot_remove': TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: 'old_column'. The change was skipped.",
                 result);
+        }
+
+        [Fact]
+        public void DesignTime_Alter_ChangingTimeColumn_EmitsWarningAndNoTimeColumnSql()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "readings",
+                Schema = "public",
+                TimeColumnName = "recorded_at",
+                OldTimeColumnName = "created_at"
+            };
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Contains(
+                "-- WARNING: Hypertable 'readings': TimescaleDB does not support changing the time column of an existing hypertable (from 'created_at' to 'recorded_at'). The change was skipped.",
+                result);
+            Assert.DoesNotContain("create_hypertable", result);
+            Assert.DoesNotContain("set_chunk_time_interval", result);
+        }
+
+        [Fact]
+        public void DesignTime_Alter_ChangingTimeColumnAndChunkInterval_EmitsWarningAndRealSql()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "readings",
+                Schema = "public",
+                TimeColumnName = "recorded_at",
+                OldTimeColumnName = "created_at",
+                ChunkTimeInterval = "1 day",
+                OldChunkTimeInterval = "7 days"
+            };
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Contains("-- WARNING: Hypertable 'readings': TimescaleDB does not support changing the time column", result);
+            Assert.Contains("SELECT set_chunk_time_interval('public.\"readings\"', INTERVAL '1 day');", result);
+        }
+
+        [Fact]
+        public void DesignTime_Remove_Hypertable_EmitsWarningCommentOnly()
+        {
+            // Arrange
+            RemoveHypertableOperation operation = new()
+            {
+                TableName = "readings",
+                Schema = "public"
+            };
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.Equal(
+                "-- WARNING: Hypertable 'readings': TimescaleDB does not support converting a hypertable back to a plain table. " +
+                "The hypertable designation was removed in the model but cannot be undone in the database. The change was skipped.",
+                result);
+        }
+
+        [Fact]
+        public void DesignTime_Alter_ChangingTimeColumn_WithNoOtherChanges_EmitsOnlyWarning()
+        {
+            // Arrange
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "readings",
+                Schema = "public",
+                TimeColumnName = "recorded_at",
+                OldTimeColumnName = "created_at"
+            };
+
+            // Act
+            string result = GetDesignTimeCode(operation);
+
+            // Assert
+            Assert.StartsWith("-- WARNING:", result.TrimStart());
+            Assert.DoesNotContain("SELECT", result);
+            Assert.DoesNotContain("ALTER TABLE", result);
         }
 
         [Fact]
@@ -728,7 +814,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("add_dimension('public.\"events\"', by_range('event_id', 1000::bigint))", result);
+            Assert.Contains("add_dimension('public.\"events\"', by_range('event_id', 1000::bigint), if_not_exists => true)", result);
             Assert.DoesNotContain("INTERVAL", result);
         }
 
@@ -751,7 +837,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             string result = GetRuntimeSql(operation);
 
             // Assert
-            Assert.Contains("add_dimension('public.\"logs\"', by_range('ingestion_time', INTERVAL '2 hours'))", result);
+            Assert.Contains("add_dimension('public.\"logs\"', by_range('ingestion_time', INTERVAL '2 hours'), if_not_exists => true)", result);
         }
 
         [Fact]
@@ -770,7 +856,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT add_dimension('analytics.""metrics""', by_range('metric_id', 50000::bigint));
+                SELECT add_dimension('analytics.""metrics""', by_range('metric_id', 50000::bigint), if_not_exists => true);
             ";
 
             // Act

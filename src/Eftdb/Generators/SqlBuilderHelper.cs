@@ -143,6 +143,22 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
         internal static string SkipComment(string skipMessage) => $"{SkipCommentMarker}{skipMessage}";
 
         /// <summary>
+        /// The comment prefix marking a hypertable change that TimescaleDB cannot apply. The migrations SQL
+        /// generator detects this prefix to raise <c>UnsupportedHypertableChangeSkipped</c>, so both the scripted
+        /// SQL and the diagnostics pipeline stay in sync.
+        /// </summary>
+        internal const string UnsupportedHypertableChangeMarker = SkipCommentMarker + "WARNING: ";
+
+        /// <summary>
+        /// Formats a warning about a hypertable change that cannot be applied to an existing hypertable as a SQL
+        /// comment statement, carrying the affected table so the change can be logged from the generated output.
+        /// </summary>
+        /// <param name="tableName">The affected hypertable's name.</param>
+        /// <param name="changeDescription">The human-readable description of the skipped change.</param>
+        internal static string UnsupportedHypertableChangeComment(string tableName, string changeDescription)
+            => $"{UnsupportedHypertableChangeMarker}Hypertable '{tableName}': {changeDescription}";
+
+        /// <summary>
         /// Applies the edition policy to Community-only statements. For the Community edition
         /// (default) the statements are returned unchanged. When the provider is configured for
         /// the Apache edition (<c>UseApacheEdition()</c>), the statements are replaced by a single

@@ -66,6 +66,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics
             }
         }
 
+        /// <summary>
+        /// Warns that a hypertable model change cannot be applied to an existing hypertable and was skipped, so a
+        /// warning comment stands in for the SQL that would otherwise fail.
+        /// </summary>
+        /// <param name="diagnostics">The migrations diagnostics logger.</param>
+        /// <param name="tableName">The affected hypertable's name.</param>
+        /// <param name="changeDescription">The human-readable description of the skipped change.</param>
+        public static void UnsupportedHypertableChangeSkipped(
+            this IDiagnosticsLogger<DbLoggerCategory.Migrations> diagnostics,
+            string tableName,
+            string changeDescription)
+        {
+            EventDefinition<string, string> definition = LogUnsupportedHypertableChangeSkipped(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, tableName, changeDescription);
+            }
+
+            if (diagnostics.NeedsEventData(definition, out bool diagnosticSourceEnabled, out bool simpleLogEnabled))
+            {
+                EventData eventData = new(
+                    definition,
+                    (d, _) => ((EventDefinition<string, string>)d).GenerateMessage(tableName, changeDescription));
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
         private static EventDefinition<string> LogCommunityFeatureSkipped(IDiagnosticsLogger diagnostics)
         {
             TimescaleDbLoggingDefinitions definitions = GetDefinitions(diagnostics);
@@ -111,6 +139,29 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics
             }
 
             return (EventDefinition<string, string, string>)definition;
+        }
+
+        private static EventDefinition<string, string> LogUnsupportedHypertableChangeSkipped(IDiagnosticsLogger diagnostics)
+        {
+            TimescaleDbLoggingDefinitions definitions = GetDefinitions(diagnostics);
+            EventDefinitionBase? definition = definitions.LogUnsupportedHypertableChangeSkipped;
+            if (definition == null)
+            {
+                EventDefinition<string, string> created = new(
+                    diagnostics.Options,
+                    TimescaleDbEventId.UnsupportedHypertableChangeSkipped,
+                    LogLevel.Warning,
+                    "TimescaleDbEventId.UnsupportedHypertableChangeSkipped",
+                    static level => LoggerMessage.Define<string, string>(
+                        level,
+                        TimescaleDbEventId.UnsupportedHypertableChangeSkipped,
+                        "The change to hypertable '{Table}' was skipped because TimescaleDB cannot apply it to an " +
+                        "existing hypertable: {ChangeDescription} The migration emits a warning comment instead of SQL."));
+
+                definition = Interlocked.CompareExchange(ref definitions.LogUnsupportedHypertableChangeSkipped, created, null) ?? created;
+            }
+
+            return (EventDefinition<string, string>)definition;
         }
 
         // Fail loud rather than fall back: EF and Npgsql hard-cast the provider's LoggingDefinitions with no

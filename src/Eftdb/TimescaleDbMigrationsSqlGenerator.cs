@@ -41,6 +41,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     statements = HypertableSqlGenerator.Generate(alterHypertableOperation, _useLegacyCompressionNames, _isApacheEdition);
                     break;
 
+                case RemoveHypertableOperation removeHypertableOperation:
+                    statements = HypertableSqlGenerator.Generate(removeHypertableOperation);
+                    break;
+
                 case AlterReorderPolicyOperation alterReorderPolicyOperation:
                     statements = ReorderPolicySqlGenerator.Generate(alterReorderPolicyOperation, _isApacheEdition);
                     break;
@@ -104,6 +108,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             }
 
             LogSkippedCommunityFeatures(statements);
+            LogSkippedHypertableChanges(statements);
 
             bool usePerform = Options.HasFlag(MigrationsSqlGenerationOptions.Idempotent);
             SqlBuilderHelper.BuildQueryString(statements, builder, suppressTransaction, usePerform);
@@ -129,6 +134,40 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                     logger.CommunityFeatureSkipped(statement[SqlBuilderHelper.SkipCommentMarker.Length..]);
                 }
             }
+        }
+
+        /// <summary>
+        /// Surfaces the warning comments for hypertable changes TimescaleDB cannot apply as generation-time diagnostics.
+        /// </summary>
+        private void LogSkippedHypertableChanges(List<string> statements)
+        {
+            IDiagnosticsLogger<DbLoggerCategory.Migrations> logger = migrationsLogger ?? Dependencies.MigrationsLogger;
+            foreach (string statement in statements)
+            {
+                if (!statement.StartsWith(SqlBuilderHelper.UnsupportedHypertableChangeMarker, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                (string table, string description) = ParseHypertableChangeComment(statement);
+                logger.UnsupportedHypertableChangeSkipped(table, description);
+            }
+        }
+
+        private static (string Table, string Description) ParseHypertableChangeComment(string statement)
+        {
+            string payload = statement[SqlBuilderHelper.UnsupportedHypertableChangeMarker.Length..];
+
+            const string tablePrefix = "Hypertable '";
+            int separatorIndex = payload.IndexOf("': ", StringComparison.Ordinal);
+            if (payload.StartsWith(tablePrefix, StringComparison.Ordinal) && separatorIndex > tablePrefix.Length)
+            {
+                string table = payload[tablePrefix.Length..separatorIndex];
+                string description = payload[(separatorIndex + 3)..];
+                return (table, description);
+            }
+
+            return (string.Empty, payload);
         }
 
         /// <summary>

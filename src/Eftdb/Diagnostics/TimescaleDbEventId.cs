@@ -26,6 +26,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics
         {
             CommunityFeatureSkipped = Base,
             TimeBucketColumnUnmapped,
+            UnsupportedHypertableChangeSkipped,
         }
 
         /// <summary>
@@ -41,6 +42,15 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics
         /// <see cref="DbLoggerCategory.Model.Validation"/> category.
         /// </summary>
         public static readonly EventId TimeBucketColumnUnmapped = MakeValidationId(Id.TimeBucketColumnUnmapped);
+
+        /// <summary>
+        /// A hypertable model change was skipped because TimescaleDB cannot apply it to an existing hypertable
+        /// (e.g. changing the time column, removing a space/range dimension, or reverting a hypertable back to a
+        /// plain table). The provider emits a warning comment into the generated migration SQL and raises this
+        /// event once per skipped change, in the <see cref="DbLoggerCategory.Migrations"/> category, instead of
+        /// producing SQL that would fail.
+        /// </summary>
+        public static readonly EventId UnsupportedHypertableChangeSkipped = MakeMigrationsId(Id.UnsupportedHypertableChangeSkipped);
 
         private static readonly string MigrationsPrefix = DbLoggerCategory.Migrations.Name + ".";
         private static readonly string ValidationPrefix = DbLoggerCategory.Model.Validation.Name + ".";

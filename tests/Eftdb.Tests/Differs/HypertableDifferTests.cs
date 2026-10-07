@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertables;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using Microsoft.EntityFrameworkCore;
@@ -2060,6 +2061,291 @@ public class HypertableDifferTests
         Assert.NotNull(alterOp);
         Assert.NotNull(alterOp.OldAdditionalDimensions);
         Assert.Null(alterOp.AdditionalDimensions);
+    }
+
+    #endregion
+
+    #region Should_Detect_TimeColumn_Redesignation
+
+    private class MetricEntity30Old
+    {
+        public DateTime CreatedAt { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricEntity30New
+    {
+        public DateTime RecordedAt { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class TimeColumnCreatedAtContext30 : DbContext
+    {
+        public DbSet<MetricEntity30Old> Metrics => Set<MetricEntity30Old>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity30Old>(entity =>
+            {
+                entity.ToTable("time_redesignation_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.CreatedAt);
+            });
+        }
+    }
+
+    private class TimeColumnRecordedAtContext30 : DbContext
+    {
+        public DbSet<MetricEntity30New> Metrics => Set<MetricEntity30New>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity30New>(entity =>
+            {
+                entity.ToTable("time_redesignation_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.RecordedAt);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Detect_TimeColumn_Redesignation()
+    {
+        // Arrange
+        using TimeColumnCreatedAtContext30 sourceContext = new();
+        using TimeColumnRecordedAtContext30 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        AlterHypertableOperation? alterOp = operations.OfType<AlterHypertableOperation>().FirstOrDefault();
+        Assert.NotNull(alterOp);
+        Assert.Equal("CreatedAt", alterOp.OldTimeColumnName);
+        Assert.Equal("RecordedAt", alterOp.TimeColumnName);
+    }
+
+    #endregion
+
+    #region Should_Not_Detect_Change_When_TimeColumn_Only_Renamed
+
+    private class MetricEntity31Old
+    {
+        public DateTime CreatedAt { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class MetricEntity31New
+    {
+        public DateTime RecordedAt { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class TimeColumnRenameSourceContext31 : DbContext
+    {
+        public DbSet<MetricEntity31Old> Metrics => Set<MetricEntity31Old>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity31Old>(entity =>
+            {
+                entity.ToTable("time_rename_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.CreatedAt);
+            });
+        }
+    }
+
+    private class TimeColumnRenameTargetContext31 : DbContext
+    {
+        public DbSet<MetricEntity31New> Metrics => Set<MetricEntity31New>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity31New>(entity =>
+            {
+                entity.ToTable("time_rename_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.RecordedAt);
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Detect_Change_When_TimeColumn_Only_Renamed()
+    {
+        // Arrange
+        using TimeColumnRenameSourceContext31 sourceContext = new();
+        using TimeColumnRenameTargetContext31 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+        FeatureDiffContext context = new()
+        {
+            ColumnRenames = new Dictionary<(string, string, string), string>
+            {
+                [("public", "time_rename_metrics", "CreatedAt")] = "RecordedAt",
+            },
+        };
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel, context);
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
+
+    #region Should_Emit_RemoveHypertable_When_Designation_Removed_But_Table_Survives
+
+    private class MetricEntity32
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class HypertableContext32 : DbContext
+    {
+        public DbSet<MetricEntity32> Metrics => Set<MetricEntity32>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity32>(entity =>
+            {
+                entity.ToTable("plain_table_survivor");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    private class PlainTableContext32 : DbContext
+    {
+        public DbSet<MetricEntity32> Metrics => Set<MetricEntity32>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity32>(entity =>
+            {
+                entity.ToTable("plain_table_survivor");
+                entity.HasNoKey();
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Emit_RemoveHypertable_When_Designation_Removed_But_Table_Survives()
+    {
+        // Arrange
+        using HypertableContext32 sourceContext = new();
+        using PlainTableContext32 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        RemoveHypertableOperation? removeOp = operations.OfType<RemoveHypertableOperation>().FirstOrDefault();
+        Assert.NotNull(removeOp);
+        Assert.Equal("plain_table_survivor", removeOp.TableName);
+        Assert.Equal("public", removeOp.Schema);
+        Assert.Empty(operations.OfType<AlterHypertableOperation>());
+    }
+
+    #endregion
+
+    #region Should_Not_Emit_RemoveHypertable_When_Entity_Removed_Entirely
+
+    private class MetricEntity33
+    {
+        public DateTime Timestamp { get; set; }
+        public double Value { get; set; }
+    }
+
+    private class HypertableContext33 : DbContext
+    {
+        public DbSet<MetricEntity33> Metrics => Set<MetricEntity33>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<MetricEntity33>(entity =>
+            {
+                entity.ToTable("removed_entirely_metrics");
+                entity.HasNoKey();
+                entity.IsHypertable(x => x.Timestamp);
+            });
+        }
+    }
+
+    private class EmptyContext33 : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=test;Username=test;Password=test")
+                            .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+        }
+    }
+
+    [Fact]
+    public void Should_Not_Emit_RemoveHypertable_When_Entity_Removed_Entirely()
+    {
+        // Arrange
+        using HypertableContext33 sourceContext = new();
+        using EmptyContext33 targetContext = new();
+
+        IRelationalModel sourceModel = GetModel(sourceContext);
+        IRelationalModel targetModel = GetModel(targetContext);
+
+        HypertableDiffer differ = new();
+
+        // Act
+        IReadOnlyList<MigrationOperation> operations = differ.GetDifferences(sourceModel, targetModel);
+
+        // Assert
+        Assert.Empty(operations.OfType<RemoveHypertableOperation>());
     }
 
     #endregion

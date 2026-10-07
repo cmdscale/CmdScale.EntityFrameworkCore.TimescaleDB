@@ -29,6 +29,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     (target, source) => new { Target = target, Source = source }
                 )
                 .Where(x =>
+                    x.Target.TimeColumnName != x.Source.TimeColumnName ||
                     x.Target.ChunkTimeInterval != x.Source.ChunkTimeInterval ||
                     x.Target.EnableCompression != x.Source.EnableCompression ||
                     !AreChunkSkipColumnsEqual(x.Target.ChunkSkipColumns, x.Source.ChunkSkipColumns) ||
@@ -47,6 +48,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     Schema = hypertable.Target.Schema,
 
                     // Current values
+                    TimeColumnName = hypertable.Target.TimeColumnName,
                     ChunkTimeInterval = hypertable.Target.ChunkTimeInterval,
                     EnableCompression = hypertable.Target.EnableCompression,
                     ChunkSkipColumns = hypertable.Target.ChunkSkipColumns,
@@ -57,6 +59,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                     CompressChunkTimeInterval = hypertable.Target.CompressChunkTimeInterval,
 
                     // Old values
+                    OldTimeColumnName = hypertable.Source.TimeColumnName,
                     OldChunkTimeInterval = hypertable.Source.ChunkTimeInterval,
                     OldEnableCompression = hypertable.Source.EnableCompression,
                     OldChunkSkipColumns = hypertable.Source.ChunkSkipColumns,
@@ -68,7 +71,38 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Hypertable
                 });
             }
 
+            IEnumerable<CreateHypertableOperation> removedHypertables = sourceHypertables
+                .Where(s => !targetHypertables.Any(t => t.Schema == s.Schema && t.TableName == s.TableName));
+
+            foreach (CreateHypertableOperation removed in removedHypertables)
+            {
+                if (TableExists(target, removed.Schema, removed.TableName))
+                {
+                    operations.Add(new RemoveHypertableOperation
+                    {
+                        Schema = removed.Schema,
+                        TableName = removed.TableName,
+                    });
+                }
+            }
+
             return operations;
+        }
+
+        /// <summary>
+        /// Determines whether a table with the given schema and name is present in the target relational model,
+        /// normalizing a missing schema to the default so the lookup matches the extractor's schema handling.
+        /// </summary>
+        private static bool TableExists(IRelationalModel? target, string schema, string tableName)
+        {
+            if (target == null)
+            {
+                return false;
+            }
+
+            return target.Tables.Any(t =>
+                t.Name == tableName &&
+                (t.Schema ?? DefaultValues.DefaultSchema) == schema);
         }
 
         /// <summary>

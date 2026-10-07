@@ -27,6 +27,10 @@ public class DeviceReading
 
 To add partitioning with dimensions, refere to the [Fluent API](../fluent-api/hypertable#advanced-partitioning-with-dimensions).
 
+## Unsupported Model Changes
+
+Changing the time column, removing a dimension, or removing the `[Hypertable]` attribute from an existing hypertable cannot be applied by TimescaleDB. Such a change is skipped, leaving a `-- WARNING: Hypertable '<table>': ...` comment in the migration SQL and raising `TimescaleDbEventId.UnsupportedHypertableChangeSkipped` (event id 63002) through the diagnostics pipeline. The behavior is identical to the Fluent API - see [Fluent API — Unsupported Model Changes](../fluent-api/hypertable.md#unsupported-model-changes).
+
 ## Compression
 
 Time-series data can be compressed to reduce the amount of storage required, and increase the speed of some queries. This is a cornerstone feature of TimescaleDB. When new data is added to your database, it is in the form of uncompressed rows. TimescaleDB uses a built-in job scheduler to convert this data to the form of compressed columns. This occurs across chunks of TimescaleDB hypertables.

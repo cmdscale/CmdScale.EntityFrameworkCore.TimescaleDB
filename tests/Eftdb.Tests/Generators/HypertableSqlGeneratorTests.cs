@@ -25,7 +25,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""MinimalTable""', 'Timestamp');
+                SELECT create_hypertable('public.""MinimalTable""', 'Timestamp', if_not_exists => true);
             ";
 
             // Act
@@ -54,8 +54,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('custom_schema.""FullTable""', 'EventTime', chunk_time_interval => INTERVAL '1 day');
-                SELECT add_dimension('custom_schema.""FullTable""', by_hash('LocationId', 4));
+                SELECT create_hypertable('custom_schema.""FullTable""', 'EventTime', if_not_exists => true, chunk_time_interval => INTERVAL '1 day');
+                SELECT add_dimension('custom_schema.""FullTable""', by_hash('LocationId', 4), if_not_exists => true);
                 ALTER TABLE ""custom_schema"".""FullTable"" SET (timescaledb.enable_columnstore = true);
                 SET timescaledb.enable_chunk_skipping = 'ON';
                 SELECT enable_chunk_skipping('custom_schema.""FullTable""', 'DeviceId');
@@ -133,7 +133,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""CompressedTable""', 'Timestamp');
+                SELECT create_hypertable('public.""CompressedTable""', 'Timestamp', if_not_exists => true);
                 ALTER TABLE ""public"".""CompressedTable"" SET (timescaledb.enable_columnstore = true, timescaledb.segmentby = '""TenantId"", ""DeviceId""', timescaledb.orderby = '""Timestamp"" DESC, ""Value"" ASC NULLS LAST');
             ";
 
@@ -303,7 +303,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""Metrics""', 'Timestamp');
+                SELECT create_hypertable('public.""Metrics""', 'Timestamp', if_not_exists => true);
             ";
 
             // Act
@@ -326,7 +326,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""Metrics""', 'Timestamp', migrate_data => true);
+                SELECT create_hypertable('public.""Metrics""', 'Timestamp', if_not_exists => true, migrate_data => true);
             ";
 
             // Act
@@ -356,8 +356,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('custom_schema.""CompleteTable""', 'EventTime', migrate_data => true, chunk_time_interval => INTERVAL '1 day');
-                SELECT add_dimension('custom_schema.""CompleteTable""', by_hash('LocationId', 4));
+                SELECT create_hypertable('custom_schema.""CompleteTable""', 'EventTime', if_not_exists => true, migrate_data => true, chunk_time_interval => INTERVAL '1 day');
+                SELECT add_dimension('custom_schema.""CompleteTable""', by_hash('LocationId', 4), if_not_exists => true);
                 ALTER TABLE ""custom_schema"".""CompleteTable"" SET (timescaledb.enable_columnstore = true);
                 SET timescaledb.enable_chunk_skipping = 'ON';
                 SELECT enable_chunk_skipping('custom_schema.""CompleteTable""', 'DeviceId');
@@ -382,7 +382,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             };
 
             string expected = @"
-                SELECT create_hypertable('public.""DefaultTable""', 'Timestamp');
+                SELECT create_hypertable('public.""DefaultTable""', 'Timestamp', if_not_exists => true);
             ";
 
             // Act

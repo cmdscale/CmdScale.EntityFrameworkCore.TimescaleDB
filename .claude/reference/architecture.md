@@ -104,7 +104,7 @@ Drops negative (before EF table drops, reverse dependency order); adds/alters po
 | -40 | DropContinuousAggregate |
 | -20 | DropReorderPolicy |
 | 0 | standard EF operations |
-| 10 / 15 | CreateHypertable / AlterHypertable |
+| 10 / 15 / 16 | CreateHypertable / AlterHypertable / RemoveHypertable |
 | 20 | Add/AlterReorderPolicy |
 | 30 / 40 | Create/AlterContinuousAggregate |
 | 45 | AddContinuousAggregatePolicy |

@@ -20,6 +20,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics
         /// Cached definition for <see cref="TimescaleDbEventId.TimeBucketColumnUnmapped"/>.
         /// </summary>
         public EventDefinitionBase? LogTimeBucketColumnUnmapped;
+
+        /// <summary>
+        /// Cached definition for <see cref="TimescaleDbEventId.UnsupportedHypertableChangeSkipped"/>.
+        /// </summary>
+        public EventDefinitionBase? LogUnsupportedHypertableChangeSkipped;
     }
 #pragma warning restore EF1001
 }

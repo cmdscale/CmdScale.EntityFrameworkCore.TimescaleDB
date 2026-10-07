@@ -7,6 +7,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
     {
         public string TableName { get; set; } = string.Empty;
         public string Schema { get; set; } = string.Empty;
+        public string TimeColumnName { get; set; } = string.Empty;
+        public string OldTimeColumnName { get; set; } = string.Empty;
         public string ChunkTimeInterval { get; set; } = string.Empty;
         public bool EnableCompression { get; set; }
 

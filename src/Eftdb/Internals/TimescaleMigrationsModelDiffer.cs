@@ -149,6 +149,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
                     return 10;
                 case AlterHypertableOperation:
                     return 15;
+                case RemoveHypertableOperation:
+                    return 16;
 
                 case AddReorderPolicyOperation:
                 case AlterReorderPolicyOperation:
