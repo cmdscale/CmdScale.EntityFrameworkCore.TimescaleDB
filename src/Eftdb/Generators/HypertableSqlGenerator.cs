@@ -19,6 +19,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             StringBuilder createHypertableCall = new();
             createHypertableCall.Append($"SELECT create_hypertable({qualifiedTableName}, '{SqlBuilderHelper.EscapeStringLiteral(operation.TimeColumnName)}'");
+            createHypertableCall.Append(", if_not_exists => true");
             createHypertableCall.Append(operation.MigrateData ? ", migrate_data => true" : "");
 
             if (!string.IsNullOrEmpty(operation.ChunkTimeInterval))
@@ -87,11 +88,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                     {
                         string intervalExpression = SqlBuilderHelper.IntervalOrBigint(dimension.Interval ?? string.Empty);
 
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(dimension.ColumnName)}', {intervalExpression}));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(dimension.ColumnName)}', {intervalExpression}), if_not_exists => true);");
                     }
                     else if (dimension.Type == EDimensionType.Hash)
                     {
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{SqlBuilderHelper.EscapeStringLiteral(dimension.ColumnName)}', {dimension.NumberOfPartitions}));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{SqlBuilderHelper.EscapeStringLiteral(dimension.ColumnName)}', {dimension.NumberOfPartitions}), if_not_exists => true);");
                     }
                 }
             }
@@ -107,6 +108,14 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             List<string> statements = [];
             List<string> communityStatements = [];
+
+            if (operation.TimeColumnName != operation.OldTimeColumnName)
+            {
+                statements.Add(SqlBuilderHelper.UnsupportedHypertableChangeComment(
+                    operation.TableName,
+                    $"TimescaleDB does not support changing the time column of an existing hypertable " +
+                    $"(from '{operation.OldTimeColumnName}' to '{operation.TimeColumnName}'). The change was skipped."));
+            }
 
             if (operation.ChunkTimeInterval != operation.OldChunkTimeInterval)
             {
@@ -125,6 +134,17 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             statements.AddRange(SqlBuilderHelper.SkipOnApacheEdition(communityStatements, CommunityWarning, isApacheEdition));
             return statements;
+        }
+
+        public static List<string> Generate(RemoveHypertableOperation operation)
+        {
+            return
+            [
+                SqlBuilderHelper.UnsupportedHypertableChangeComment(
+                    operation.TableName,
+                    "TimescaleDB does not support converting a hypertable back to a plain table. " +
+                    "The hypertable designation was removed in the model but cannot be undone in the database. The change was skipped."),
+            ];
         }
 
         private static void ApplyCompressionChanges(
@@ -247,11 +267,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                     {
                         string intervalExpression = SqlBuilderHelper.IntervalOrBigint(newDim.Interval ?? string.Empty);
 
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}', {intervalExpression}));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_range('{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}', {intervalExpression}), if_not_exists => true);");
                     }
                     else if (newDim.Type == EDimensionType.Hash)
                     {
-                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}', {newDim.NumberOfPartitions}));");
+                        statements.Add($"SELECT add_dimension({qualifiedTableName}, by_hash('{SqlBuilderHelper.EscapeStringLiteral(newDim.ColumnName)}', {newDim.NumberOfPartitions}), if_not_exists => true);");
                     }
                 }
             }
@@ -264,7 +284,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
             if (removedDimensions.Count > 0)
             {
                 string dimensionList = string.Join(", ", removedDimensions.Select(d => $"'{SqlBuilderHelper.EscapeStringLiteral(d.ColumnName)}'"));
-                statements.Add($"-- WARNING: TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: {dimensionList}");
+                statements.Add(SqlBuilderHelper.UnsupportedHypertableChangeComment(
+                    operation.TableName,
+                    $"TimescaleDB does not support removing dimensions. The following dimensions cannot be removed: {dimensionList}. The change was skipped."));
             }
         }
     }

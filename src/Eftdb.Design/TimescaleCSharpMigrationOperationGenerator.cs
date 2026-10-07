@@ -13,6 +13,34 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
 {
     public class TimescaleCSharpMigrationOperationGenerator(CSharpMigrationOperationGeneratorDependencies dependencies) : CSharpMigrationOperationGenerator(dependencies)
     {
+        public override void Generate(string builderName, IReadOnlyList<MigrationOperation> operations, IndentedStringBuilder builder)
+        {
+            ArgumentNullException.ThrowIfNull(operations);
+            ArgumentNullException.ThrowIfNull(builder);
+
+            bool first = true;
+            foreach (MigrationOperation operation in operations)
+            {
+                if (first)
+                {
+                    first = false;
+                }
+                else
+                {
+                    builder
+                        .AppendLine()
+                        .AppendLine();
+                }
+
+                if (operation is RemoveHypertableOperation)
+                {
+                    builder.AppendLine(HypertableCSharpGenerator.RemoveHypertableWarningComment);
+                }
+
+                base.Generate(builderName, [operation], builder);
+            }
+        }
+
         protected override void Generate(MigrationOperation operation, IndentedStringBuilder builder)
         {
             ArgumentNullException.ThrowIfNull(operation);
@@ -25,6 +53,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design
                     return;
                 case AlterHypertableOperation alter:
                     new HypertableCSharpGenerator(Dependencies.CSharpHelper).Generate(alter, builder);
+                    return;
+                case RemoveHypertableOperation remove:
+                    new HypertableCSharpGenerator(Dependencies.CSharpHelper).Generate(remove, builder);
                     return;
 
                 case AddReorderPolicyOperation addReorder:

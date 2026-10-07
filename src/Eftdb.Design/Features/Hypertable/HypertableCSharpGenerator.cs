@@ -11,6 +11,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.Hypertable
     /// </summary>
     internal class HypertableCSharpGenerator(ICSharpHelper code)
     {
+        internal const string RemoveHypertableWarningComment =
+            "// TimescaleDB cannot convert a hypertable back into a plain table; this call only emits a warning and leaves the database unchanged.";
+
         private readonly ICSharpHelper code = code;
 
         public void Generate(CreateHypertableOperation operation, IndentedStringBuilder builder)
@@ -60,6 +63,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.Hypertable
             if (!string.IsNullOrEmpty(operation.Schema))
                 call.Arg("schema", code.Literal(operation.Schema));
 
+            if (!string.IsNullOrEmpty(operation.TimeColumnName))
+                call.Arg("timeColumnName", code.Literal(operation.TimeColumnName));
+
             if (!string.IsNullOrEmpty(operation.ChunkTimeInterval))
                 call.Arg("chunkTimeInterval", code.Literal(operation.ChunkTimeInterval));
 
@@ -85,6 +91,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.Hypertable
                 call.Arg("compressChunkTimeInterval", code.Literal(operation.CompressChunkTimeInterval));
 
             // Old* values — emitted for Down() reversibility, only when non-default.
+            if (!string.IsNullOrEmpty(operation.OldTimeColumnName))
+                call.Arg("oldTimeColumnName", code.Literal(operation.OldTimeColumnName));
+
             if (!string.IsNullOrEmpty(operation.OldChunkTimeInterval))
                 call.Arg("oldChunkTimeInterval", code.Literal(operation.OldChunkTimeInterval));
 
@@ -108,6 +117,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.Hypertable
 
             if (!string.IsNullOrEmpty(operation.OldCompressChunkTimeInterval))
                 call.Arg("oldCompressChunkTimeInterval", code.Literal(operation.OldCompressChunkTimeInterval));
+        }
+
+        public void Generate(RemoveHypertableOperation operation, IndentedStringBuilder builder)
+        {
+            using MigrationCallWriter call = new(builder, "RemoveHypertable");
+
+            call.Arg("tableName", code.Literal(operation.TableName));
+
+            if (!string.IsNullOrEmpty(operation.Schema))
+                call.Arg("schema", code.Literal(operation.Schema));
         }
 
         // Writes the dimension list directly into the builder so each entry is on its own

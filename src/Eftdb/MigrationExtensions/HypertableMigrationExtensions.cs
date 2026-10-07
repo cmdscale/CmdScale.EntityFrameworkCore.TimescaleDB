@@ -45,6 +45,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             this MigrationBuilder migrationBuilder,
             string tableName,
             string? schema = null,
+            string? timeColumnName = null,
             string? chunkTimeInterval = null,
             bool enableCompression = false,
             IReadOnlyList<string>? chunkSkipColumns = null,
@@ -53,6 +54,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             IReadOnlyList<string>? compressionOrderBy = null,
             string? compressionSparseIndex = null,
             string? compressChunkTimeInterval = null,
+            string? oldTimeColumnName = null,
             string? oldChunkTimeInterval = null,
             bool oldEnableCompression = false,
             IReadOnlyList<string>? oldChunkSkipColumns = null,
@@ -66,6 +68,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             {
                 TableName = tableName,
                 Schema = schema ?? string.Empty,
+                TimeColumnName = timeColumnName ?? string.Empty,
+                OldTimeColumnName = oldTimeColumnName ?? string.Empty,
                 ChunkTimeInterval = chunkTimeInterval ?? string.Empty,
                 EnableCompression = enableCompression,
                 ChunkSkipColumns = chunkSkipColumns,
@@ -86,6 +90,21 @@ namespace Microsoft.EntityFrameworkCore.Migrations
 
             migrationBuilder.Operations.Add(operation);
             return new OperationBuilder<AlterHypertableOperation>(operation);
+        }
+
+        public static OperationBuilder<RemoveHypertableOperation> RemoveHypertable(
+            this MigrationBuilder migrationBuilder,
+            string tableName,
+            string? schema = null)
+        {
+            RemoveHypertableOperation operation = new()
+            {
+                TableName = tableName,
+                Schema = schema ?? string.Empty,
+            };
+
+            migrationBuilder.Operations.Add(operation);
+            return new OperationBuilder<RemoveHypertableOperation>(operation);
         }
     }
 }

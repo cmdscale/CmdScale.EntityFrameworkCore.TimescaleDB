@@ -132,6 +132,102 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.MigrationExtensions
 
         #endregion
 
+        #region AlterHypertable_MapsTimeColumnArguments
+
+        [Fact]
+        public void AlterHypertable_MapsTimeColumnArguments()
+        {
+            // Arrange
+            MigrationBuilder mb = new(activeProvider: null);
+
+            // Act
+            mb.AlterHypertable(
+                tableName: "sensor_data",
+                schema: "public",
+                timeColumnName: "new_ts",
+                oldTimeColumnName: "old_ts");
+
+            // Assert
+            AlterHypertableOperation op = Assert.IsType<AlterHypertableOperation>(Assert.Single(mb.Operations));
+            Assert.Equal("new_ts", op.TimeColumnName);
+            Assert.Equal("old_ts", op.OldTimeColumnName);
+        }
+
+        #endregion
+
+        #region AlterHypertable_NullTimeColumnNames_CoalesceToEmpty
+
+        [Fact]
+        public void AlterHypertable_NullTimeColumnNames_CoalesceToEmpty()
+        {
+            // Arrange
+            MigrationBuilder mb = new(activeProvider: null);
+
+            // Act
+            mb.AlterHypertable(tableName: "sensor_data", timeColumnName: null, oldTimeColumnName: null);
+
+            // Assert
+            AlterHypertableOperation op = Assert.IsType<AlterHypertableOperation>(Assert.Single(mb.Operations));
+            Assert.Equal(string.Empty, op.TimeColumnName);
+            Assert.Equal(string.Empty, op.OldTimeColumnName);
+        }
+
+        #endregion
+
+        #region RemoveHypertable_MapsAllArguments
+
+        [Fact]
+        public void RemoveHypertable_MapsAllArguments()
+        {
+            // Arrange
+            MigrationBuilder mb = new(activeProvider: null);
+
+            // Act
+            OperationBuilder<RemoveHypertableOperation> result = mb.RemoveHypertable(
+                tableName: "sensor_data",
+                schema: "public");
+
+            // Assert
+            RemoveHypertableOperation op = Assert.IsType<RemoveHypertableOperation>(Assert.Single(mb.Operations));
+            Assert.NotNull(result);
+            Assert.Equal("sensor_data", op.TableName);
+            Assert.Equal("public", op.Schema);
+        }
+
+        #endregion
+
+        #region RemoveHypertable_IsNotDestructiveChange
+
+        [Fact]
+        public void RemoveHypertable_IsNotDestructiveChange()
+        {
+            // Arrange & Act
+            RemoveHypertableOperation op = new();
+
+            // Assert
+            Assert.False(op.IsDestructiveChange);
+        }
+
+        #endregion
+
+        #region RemoveHypertable_NullSchema_CoalescesToEmpty
+
+        [Fact]
+        public void RemoveHypertable_NullSchema_CoalescesToEmpty()
+        {
+            // Arrange
+            MigrationBuilder mb = new(activeProvider: null);
+
+            // Act
+            mb.RemoveHypertable(tableName: "sensor_data", schema: null);
+
+            // Assert
+            RemoveHypertableOperation op = Assert.IsType<RemoveHypertableOperation>(Assert.Single(mb.Operations));
+            Assert.Equal(string.Empty, op.Schema);
+        }
+
+        #endregion
+
         #region AlterHypertable_NullOldChunkTimeInterval_CoalescesToEmpty
 
         [Fact]

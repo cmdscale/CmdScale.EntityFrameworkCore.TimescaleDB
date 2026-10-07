@@ -46,6 +46,7 @@ Provider warnings are dispatched through EF Core's diagnostics pipeline, so they
 | --- | --- | --- |
 | `CommunityFeatureSkipped` | 63000 | A Community-only feature (compression, policy, or continuous aggregate) was skipped at migration SQL generation because `UseApacheEdition()` is set. |
 | `TimeBucketColumnUnmapped` | 63001 | A continuous aggregate exposes a `time_bucket` column that no property maps to. Raised at model validation. |
+| `UnsupportedHypertableChangeSkipped` | 63002 | A model change to an existing hypertable (time-column re-designation, dimension removal, or removal of the hypertable designation) was skipped because TimescaleDB cannot apply it. Raised at migration SQL generation, in every edition. See [Hypertables — Unsupported Model Changes](fluent-api/hypertable.md#unsupported-model-changes). |
 
 ```csharp
 using CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics;
@@ -54,5 +55,6 @@ optionsBuilder.UseNpgsql(connectionString)
     .UseTimescaleDb()
     .ConfigureWarnings(w => w
         .Ignore(TimescaleDbEventId.CommunityFeatureSkipped)
-        .Throw(TimescaleDbEventId.TimeBucketColumnUnmapped));
+        .Throw(TimescaleDbEventId.TimeBucketColumnUnmapped)
+        .Throw(TimescaleDbEventId.UnsupportedHypertableChangeSkipped));
 ```

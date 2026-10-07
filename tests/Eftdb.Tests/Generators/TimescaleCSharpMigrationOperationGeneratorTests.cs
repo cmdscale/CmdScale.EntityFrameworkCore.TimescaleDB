@@ -1184,6 +1184,86 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Generators
             Assert.DoesNotContain(".Sql(", result);
         }
 
+        [Fact]
+        public void Generate_AlterHypertable_WithTimeColumnChange_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            AlterHypertableOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public",
+                TimeColumnName = "recorded_at",
+                OldTimeColumnName = "created_at"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".AlterHypertable(", result);
+            Assert.Contains("timeColumnName:", result);
+            Assert.Contains("oldTimeColumnName:", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+        }
+
+        [Fact]
+        public void Generate_RemoveHypertable_GeneratesValidCSharp()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            RemoveHypertableOperation operation = new()
+            {
+                TableName = "sensor_data",
+                Schema = "public"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains("migrationBuilder", result);
+            Assert.Contains(".RemoveHypertable(", result);
+            Assert.Contains("tableName:", result);
+            Assert.Contains("schema:", result);
+            Assert.DoesNotContain(".Sql(", result);
+            Assert.DoesNotContain("migrationBuilder;", result);
+            Assert.Matches(@"// TimescaleDB cannot convert a hypertable back into a plain table.*\r?\nmigrationBuilder\.RemoveHypertable\(", result);
+        }
+
+        [Fact]
+        public void Generate_RemoveHypertable_WithoutSchema_OmitsSchemaArgument()
+        {
+            // Arrange
+            CSharpMigrationOperationGeneratorDependencies dependencies = CreateDependencies();
+            TimescaleCSharpMigrationOperationGenerator generator = new(dependencies);
+            IndentedStringBuilder builder = new();
+
+            RemoveHypertableOperation operation = new()
+            {
+                TableName = "sensor_data"
+            };
+
+            // Act
+            generator.Generate("migrationBuilder", [operation], builder);
+
+            // Assert
+            string result = builder.ToString();
+            Assert.Contains(".RemoveHypertable(", result);
+            Assert.Contains("tableName:", result);
+            Assert.DoesNotContain("schema:", result);
+        }
+
         #endregion
 
         #region Helper Methods
