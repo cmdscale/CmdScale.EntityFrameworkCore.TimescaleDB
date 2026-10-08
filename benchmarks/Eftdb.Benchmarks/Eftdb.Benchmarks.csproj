@@ -15,8 +15,8 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
-    <PackageReference Include="Testcontainers.PostgreSql" Version="4.14.0" />
-    <PackageReference Include="Z.EntityFramework.Extensions.EFCore" Version="10.105.7" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.15.0" />
+    <PackageReference Include="Z.EntityFramework.Extensions.EFCore" Version="10.105.8.1" />
   </ItemGroup>
 
   <ItemGroup>
