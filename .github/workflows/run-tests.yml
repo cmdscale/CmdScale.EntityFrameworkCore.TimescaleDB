@@ -32,12 +32,16 @@ jobs:
       - name: Build project
         run: dotnet build --no-restore
 
-      - name: Run tests with coverage
-        run: dotnet test --no-build --verbosity normal --settings tests/Eftdb.Tests/coverlet.runsettings --collect:"XPlat Code Coverage" --results-directory ./coverage
+      - name: Run unit and integration tests with coverage
+        run: dotnet test --no-build --project tests/Eftdb.Tests -- --coverage --coverage-output-format cobertura --coverage-settings tests/coverage.config --results-directory ./coverage
+
+      - name: Run functional tests
+        working-directory: tests/Eftdb.FunctionalTests
+        run: dotnet test --no-build
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/**/coverage.cobertura.xml
+          files: ./coverage/**/*.cobertura.xml
           fail_ci_if_error: true

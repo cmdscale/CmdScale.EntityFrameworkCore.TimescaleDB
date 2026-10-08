@@ -10,12 +10,18 @@ Detailed reference: `.claude/reference/architecture.md` (structure, file-locatio
 
 ```bash
 dotnet build
-dotnet test                     # requires Docker (Testcontainers)
-dotnet test --filter "FullyQualifiedName~TestName"
 
-# Coverage (reports land in tests/Eftdb.Tests/TestResults/)
-dotnet test tests/Eftdb.Tests --settings tests/Eftdb.Tests/coverlet.runsettings --collect:"XPlat Code Coverage"
-reportgenerator -reports:"tests/Eftdb.Tests/TestResults/**/coverage.cobertura.xml" -targetdir:"tests/Eftdb.Tests/TestResults/CoverageReport" -reporttypes:Html -sourcedirs:"src/"
+# Tests run under two runners (dotnet test at solution level is intentionally blocked):
+# - Eftdb.Tests (xunit.v3) uses Microsoft.Testing.Platform (MTP), selected by the root global.json
+# - Eftdb.FunctionalTests (xunit v2, required by EF Specification.Tests) stays on VSTest,
+#   selected by its own nested global.json — it must be run from its directory
+dotnet test --project tests/Eftdb.Tests                                            # requires Docker (Testcontainers)
+dotnet test --project tests/Eftdb.Tests -- --filter-method "*TestName*"            # single test (wildcards allowed)
+cd tests/Eftdb.FunctionalTests && dotnet test                                      # functional tests (VSTest mode)
+
+# Coverage (Microsoft CodeCoverage; settings ported from the former coverlet.runsettings)
+dotnet test --project tests/Eftdb.Tests -- --coverage --coverage-output-format cobertura --coverage-settings tests/coverage.config --results-directory tests/Eftdb.Tests/TestResults
+reportgenerator -reports:"tests/Eftdb.Tests/TestResults/**/*.cobertura.xml" -targetdir:"tests/Eftdb.Tests/TestResults/CoverageReport" -reporttypes:Html -sourcedirs:"src/"
 
 docker-compose up -d            # local TimescaleDB
 docker-compose down -v          # reset database (destructive)

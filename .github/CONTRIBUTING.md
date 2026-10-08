@@ -29,10 +29,11 @@ Whether you're fixing bugs, adding new features, improving documentation, or sha
 
 4. **Run Tests**
 
-   Make sure all tests pass before submitting a pull request:
+   Make sure all tests pass before submitting a pull request. The two test projects use different test runners and run separately (see [Running Tests](#running-tests)):
 
    ```bash
-   dotnet test
+   dotnet test --project tests/Eftdb.Tests
+   cd tests/Eftdb.FunctionalTests && dotnet test
    ```
 
 5. **Submit a Pull Request**
@@ -111,27 +112,34 @@ This project uses a two-tier testing strategy to ensure code quality and correct
 
 #### Running Tests
 
-```bash
-# Run all tests
-dotnet test
+The two test projects use different test runners: `Eftdb.Tests` (xUnit v3) runs on [Microsoft.Testing.Platform](https://learn.microsoft.com/dotnet/core/testing/microsoft-testing-platform-intro), selected by the root `global.json`, while `Eftdb.FunctionalTests` must stay on xUnit v2 (required by EF Core's specification tests) and therefore runs on VSTest, selected by its own nested `global.json`. Because of this split, solution-level `dotnet test` from the repository root intentionally fails — run the projects separately:
 
-# Run a specific test by name
-dotnet test --filter "FullyQualifiedName~HypertableDifferTests"
+```bash
+# Unit and integration tests (Microsoft.Testing.Platform)
+dotnet test --project tests/Eftdb.Tests
+
+# Run specific tests by class or method name (wildcards allowed)
+dotnet test --project tests/Eftdb.Tests -- --filter-class "*HypertableDifferTests"
+dotnet test --project tests/Eftdb.Tests -- --filter-method "*Should_Detect_New_Hypertable*"
+
+# Functional tests (VSTest — must be run from inside the project directory)
+cd tests/Eftdb.FunctionalTests && dotnet test
+dotnet test --filter "FullyQualifiedName~TimeBucketQueryTests"
 ```
 
 #### Test Coverage
 
-Generate an HTML coverage report using [ReportGenerator](https://github.com/danielpalme/ReportGenerator):
+Generate an HTML coverage report using [ReportGenerator](https://github.com/danielpalme/ReportGenerator). Coverage is collected by Microsoft CodeCoverage (settings in `tests/coverage.config`):
 
 ```bash
 # Install ReportGenerator (once)
 dotnet tool install -g dotnet-reportgenerator-globaltool
 
 # Run tests with coverage collection
-dotnet test tests/Eftdb.Tests --settings tests/Eftdb.Tests/coverlet.runsettings --collect:"XPlat Code Coverage"
+dotnet test --project tests/Eftdb.Tests -- --coverage --coverage-output-format cobertura --coverage-settings tests/coverage.config --results-directory tests/Eftdb.Tests/TestResults
 
 # Generate HTML report from coverage files
-reportgenerator -reports:"tests/Eftdb.Tests/TestResults/**/coverage.cobertura.xml" -targetdir:"tests/Eftdb.Tests/TestResults/CoverageReport" -reporttypes:Html
+reportgenerator -reports:"tests/Eftdb.Tests/TestResults/**/*.cobertura.xml" -targetdir:"tests/Eftdb.Tests/TestResults/CoverageReport" -reporttypes:Html
 ```
 
 The HTML report will be generated at `tests/Eftdb.Tests/TestResults/CoverageReport/index.html`.

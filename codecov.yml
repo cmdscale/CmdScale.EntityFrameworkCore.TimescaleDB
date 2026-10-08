@@ -1,3 +1,6 @@
+fixes:
+  - ".*/CmdScale.EntityFrameworkCore.TimescaleDB/::"
+
 coverage:
   status:
     project:
