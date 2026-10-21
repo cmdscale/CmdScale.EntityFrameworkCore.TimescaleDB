@@ -102,6 +102,56 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         }
 
         /// <summary>
+        /// Adds an aggregate column computed by a SQL expression, such as a toolkit sketch
+        /// (<c>mcv_agg(500, {0})</c>) or a filtered count (<c>count(*) FILTER (WHERE {0} = 1)</c>).
+        /// Column references are <c>{0}</c>, <c>{1}</c>, … placeholders bound to <paramref name="columns"/>,
+        /// so naming conventions apply to them; literal braces are written as <c>{{</c> and <c>}}</c>.
+        /// </summary>
+        /// <typeparam name="TProperty">The type of the property on the continuous aggregate.</typeparam>
+        /// <param name="propertyExpression">Expression selecting the property that receives the result.</param>
+        /// <param name="sql">The aggregate expression template.</param>
+        /// <param name="columns">Expressions selecting the source columns bound to the placeholders, in order.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <exception cref="ArgumentException">The placeholders and <paramref name="columns"/> do not match.</exception>
+        public ContinuousAggregateBuilder<TEntity, TSourceEntity> AddAggregateExpression<TProperty>(
+            Expression<Func<TEntity, TProperty>> propertyExpression,
+            string sql,
+            params Expression<Func<TSourceEntity, object?>>[] columns)
+        {
+            ContinuousAggregateBuilderCore.AddExpression(
+                EntityTypeBuilder,
+                ContinuousAggregateAnnotations.AggregateExpressions,
+                ExpressionHelper.GetPropertyName(propertyExpression),
+                sql,
+                [.. columns.Select(ExpressionHelper.GetPropertyName<TSourceEntity, object?>)]);
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a GROUP BY expression selected as a column, such as <c>{0} IS NOT NULL</c>.
+        /// Column references are <c>{0}</c>, <c>{1}</c>, … placeholders bound to <paramref name="columns"/>.
+        /// </summary>
+        /// <typeparam name="TProperty">The type of the property on the continuous aggregate.</typeparam>
+        /// <param name="propertyExpression">Expression selecting the property that receives the grouped value.</param>
+        /// <param name="sql">The grouping expression template.</param>
+        /// <param name="columns">Expressions selecting the source columns bound to the placeholders, in order.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <exception cref="ArgumentException">The placeholders and <paramref name="columns"/> do not match.</exception>
+        public ContinuousAggregateBuilder<TEntity, TSourceEntity> AddGroupByExpression<TProperty>(
+            Expression<Func<TEntity, TProperty>> propertyExpression,
+            string sql,
+            params Expression<Func<TSourceEntity, object?>>[] columns)
+        {
+            ContinuousAggregateBuilderCore.AddExpression(
+                EntityTypeBuilder,
+                ContinuousAggregateAnnotations.GroupByExpressions,
+                ExpressionHelper.GetPropertyName(propertyExpression),
+                sql,
+                [.. columns.Select(ExpressionHelper.GetPropertyName<TSourceEntity, object?>)]);
+            return this;
+        }
+
+        /// <summary>
         /// Designates the property on the aggregate entity that represents the bucket column.
         /// The view's bucket alias derives from that property's mapped column name, removing the
         /// need to manually call <c>.HasColumnName("time_bucket")</c>.

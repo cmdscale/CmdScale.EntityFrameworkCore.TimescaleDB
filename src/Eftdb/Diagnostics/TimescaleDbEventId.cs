@@ -27,6 +27,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics
             CommunityFeatureSkipped = Base,
             TimeBucketColumnUnmapped,
             UnsupportedHypertableChangeSkipped,
+            ContinuousAggregateEntryIgnored,
         }
 
         /// <summary>
@@ -51,6 +52,13 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics
         /// producing SQL that would fail.
         /// </summary>
         public static readonly EventId UnsupportedHypertableChangeSkipped = MakeMigrationsId(Id.UnsupportedHypertableChangeSkipped);
+
+        /// <summary>
+        /// A continuous aggregate entry configured with <c>AddAggregateFunction</c> or <c>[Aggregate]</c> is left out
+        /// of the view because it is malformed or its source column does not resolve against the parent. Raised at
+        /// model validation time in the <see cref="DbLoggerCategory.Model.Validation"/> category.
+        /// </summary>
+        public static readonly EventId ContinuousAggregateEntryIgnored = MakeValidationId(Id.ContinuousAggregateEntryIgnored);
 
         private static readonly string MigrationsPrefix = DbLoggerCategory.Migrations.Name + ".";
         private static readonly string ValidationPrefix = DbLoggerCategory.Model.Validation.Name + ".";

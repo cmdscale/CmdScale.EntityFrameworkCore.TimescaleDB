@@ -23,6 +23,18 @@
         public const string GroupByColumns = "TimescaleDB:GroupByColumns";
 
         /// <summary>
+        /// JSON array of <see cref="Abstractions.ContinuousAggregateExpression"/> entries selected as
+        /// aggregate columns. Columns hold model names, resolved to database columns at extraction.
+        /// </summary>
+        public const string AggregateExpressions = "TimescaleDB:AggregateExpressions";
+
+        /// <summary>
+        /// JSON array of <see cref="Abstractions.ContinuousAggregateExpression"/> entries selected as
+        /// aliased columns and repeated in GROUP BY.
+        /// </summary>
+        public const string GroupByExpressions = "TimescaleDB:GroupByExpressions";
+
+        /// <summary>
         /// Raw SQL view body captured by the design-time scaffolder. When present, the
         /// runtime extractor and generator use it verbatim as the SELECT clause of
         /// CREATE MATERIALIZED VIEW instead of synthesising from structured fields. The

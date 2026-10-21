@@ -119,7 +119,7 @@ Drops negative (before EF table drops, reverse dependency order); adds/alters po
 
 ## Continuous Aggregate Notes
 
-- Operation properties: `MaterializedViewName`, `ParentName` (entity name, resolved via EF metadata), `TimeBucketWidth`, `TimeBucketSourceColumn`, `AggregateFunctions` (colon-delimited wire format, see patterns.md), `GroupByColumns`, `WhereClause` (raw SQL, emitted verbatim — quoted identifiers must match resolved column names)
+- Operation properties: `MaterializedViewName`, `ParentName` (entity name, resolved via EF metadata), `TimeBucketWidth`, `TimeBucketSourceColumn`, `AggregateFunctions` (colon-delimited wire format, see patterns.md), `GroupByColumns`, `WhereClause` (raw SQL, emitted verbatim — quoted identifiers must match resolved column names), `AggregateExpressions` / `GroupByExpressions` (`ContinuousAggregateExpression` lists, see patterns.md)
 - `first()`/`last()` take the time-bucket column as second argument: `last("price", "timestamp")`
 - Aggregate column aliases must match property names for EF mapping
 - **Bucket column naming**: `WithTimeBucketProperty` designates the property whose mapped column becomes the view's bucket alias; without it the alias falls back to `time_bucket` (snapshot compatibility). Renaming the bucket column is a structural change (drop + recreate).

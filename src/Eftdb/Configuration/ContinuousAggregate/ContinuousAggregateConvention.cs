@@ -1,4 +1,6 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -8,7 +10,8 @@ using System.Reflection;
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate
 {
     /// <summary>
-    /// Reads the [ContinuousAggregate], [TimeBucket], and [Aggregate] attributes
+    /// Reads the [ContinuousAggregate], [TimeBucket], [Aggregate], [AggregateExpression], [GroupByColumn]
+    /// and [GroupByExpression] attributes
     /// to configure an entity as a TimescaleDB continuous aggregate.
     /// </summary>
     internal class ContinuousAggregateConvention : IEntityTypeAddedConvention
@@ -65,6 +68,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             // Discover property-level configurations
             List<string> aggregateFunctions = [];
             List<string> groupByColumns = [];
+            List<ContinuousAggregateExpression> aggregateExpressions = [];
+            List<ContinuousAggregateExpression> groupByExpressions = [];
 
             foreach (IConventionProperty property in entityType.GetProperties())
             {
@@ -80,6 +85,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
                     // Example: "AvgTemperature:Avg:temperature"
                     string sourceColumn = aggregateAttr.SourceColumn ?? property.Name;
                     aggregateFunctions.Add($"{property.Name}:{aggregateAttr.Function}:{sourceColumn}");
+                }
+
+                AggregateExpressionAttribute? aggregateExpressionAttr = propertyInfo.GetCustomAttribute<AggregateExpressionAttribute>();
+                if (aggregateExpressionAttr != null)
+                {
+                    ContinuousAggregateExpressionJson.Validate(property.Name, aggregateExpressionAttr.Sql, aggregateExpressionAttr.Columns);
+                    aggregateExpressions.Add(new ContinuousAggregateExpression(property.Name, aggregateExpressionAttr.Sql, aggregateExpressionAttr.Columns));
+                }
+
+                GroupByExpressionAttribute? groupByExpressionAttr = propertyInfo.GetCustomAttribute<GroupByExpressionAttribute>();
+                if (groupByExpressionAttr != null)
+                {
+                    ContinuousAggregateExpressionJson.Validate(property.Name, groupByExpressionAttr.Sql, groupByExpressionAttr.Columns);
+                    groupByExpressions.Add(new ContinuousAggregateExpression(property.Name, groupByExpressionAttr.Sql, groupByExpressionAttr.Columns));
                 }
 
                 GroupByColumnAttribute? groupByAttr = propertyInfo.GetCustomAttribute<GroupByColumnAttribute>();
@@ -107,6 +126,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             if (groupByColumns.Count != 0)
             {
                 entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.GroupByColumns, groupByColumns);
+            }
+
+            if (aggregateExpressions.Count != 0)
+            {
+                entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.AggregateExpressions, ContinuousAggregateExpressionJson.Write(aggregateExpressions));
+            }
+
+            if (groupByExpressions.Count != 0)
+            {
+                entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.GroupByExpressions, ContinuousAggregateExpressionJson.Write(groupByExpressions));
             }
         }
     }

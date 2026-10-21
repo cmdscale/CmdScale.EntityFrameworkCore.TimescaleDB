@@ -378,5 +378,35 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Features.Continu
         }
 
         #endregion
+
+        #region CreateContinuousAggregate_Expressions_FullyQualifiedTypedEntries
+
+        [Fact]
+        public void CreateContinuousAggregate_Expressions_FullyQualifiedTypedEntries()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation op = new()
+            {
+                MaterializedViewName = "ranks",
+                ParentName = "events",
+                AggregateExpressions = [new("actors", "mcv_agg(500, {0})", ["actor_id"])],
+                GroupByExpressions = [new("impersonated", "{0} IS NOT NULL", ["impersonated_actor_id"])],
+            };
+
+            // Act
+            string result = Generate(op);
+
+            // Assert
+            Assert.Contains(
+                "new CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions.ContinuousAggregateExpression(\"actors\", \"mcv_agg(500, {0})\", [\"actor_id\"])",
+                result);
+            Assert.Contains("aggregateExpressions:", result);
+            Assert.Contains("groupByExpressions:", result);
+            Assert.Contains(
+                "new CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions.ContinuousAggregateExpression(\"impersonated\", \"{0} IS NOT NULL\", [\"impersonated_actor_id\"])",
+                result);
+        }
+
+        #endregion
     }
 }

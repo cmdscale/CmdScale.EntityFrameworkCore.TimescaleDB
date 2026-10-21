@@ -90,6 +90,36 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
         }
 
         /// <summary>
+        /// Adds an aggregate column computed by a SQL expression whose <c>{0}</c>, <c>{1}</c>, …
+        /// placeholders are bound to <paramref name="columns"/>.
+        /// </summary>
+        /// <param name="alias">The output column or property name on the continuous aggregate view.</param>
+        /// <param name="sql">The aggregate expression template.</param>
+        /// <param name="columns">Source property or column names bound to the placeholders, in order.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <exception cref="ArgumentException">The placeholders and <paramref name="columns"/> do not match.</exception>
+        public ContinuousAggregateStringBuilder<TEntity> AddAggregateExpression(string alias, string sql, params string[] columns)
+        {
+            ContinuousAggregateBuilderCore.AddExpression(_builder, ContinuousAggregateAnnotations.AggregateExpressions, alias, sql, columns);
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a GROUP BY expression selected as a column, whose <c>{0}</c>, <c>{1}</c>, …
+        /// placeholders are bound to <paramref name="columns"/>.
+        /// </summary>
+        /// <param name="alias">The output column or property name on the continuous aggregate view.</param>
+        /// <param name="sql">The grouping expression template.</param>
+        /// <param name="columns">Source property or column names bound to the placeholders, in order.</param>
+        /// <returns>The builder for method chaining.</returns>
+        /// <exception cref="ArgumentException">The placeholders and <paramref name="columns"/> do not match.</exception>
+        public ContinuousAggregateStringBuilder<TEntity> AddGroupByExpression(string alias, string sql, params string[] columns)
+        {
+            ContinuousAggregateBuilderCore.AddExpression(_builder, ContinuousAggregateAnnotations.GroupByExpressions, alias, sql, columns);
+            return this;
+        }
+
+        /// <summary>
         /// Designates the property on the aggregate entity that represents the bucket column.
         /// The view's bucket alias derives from that property's mapped column name, removing the
         /// need to manually call <c>.HasColumnName("time_bucket")</c>.

@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
@@ -103,6 +104,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
 
                 List<string> aggregateFunctions = ResolveAggregateFunctions(entityType, parentEntityType, parentStoreIdentifier, aggregateStoreIdentifier);
                 List<string> groupByColumns = ResolveGroupByColumns(entityType, parentEntityType, parentStoreIdentifier);
+                List<ContinuousAggregateExpression> aggregateExpressions = ResolveExpressions(
+                    ContinuousAggregateAnnotations.AggregateExpressions, entityType, parentEntityType, parentStoreIdentifier, aggregateStoreIdentifier);
+                List<ContinuousAggregateExpression> groupByExpressions = ResolveExpressions(
+                    ContinuousAggregateAnnotations.GroupByExpressions, entityType, parentEntityType, parentStoreIdentifier, aggregateStoreIdentifier);
 
                 // Schema resolution: prefer the CA's own view schema (set by .ToView(...)
                 // or by the scaffolder), fall back to the parent's schema, finally default.
@@ -132,6 +137,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     AggregateFunctions = aggregateFunctions,
                     GroupByColumns = groupByColumns,
                     WhereClause = whereClause,
+                    AggregateExpressions = aggregateExpressions,
+                    GroupByExpressions = groupByExpressions,
                     ViewDefinition = useRawDefinition ? viewDefinition : null,
                     EnableCompression = enableCompression || compressionSegmentBy?.Count > 0 || compressionOrderBy?.Count > 0,
                     CompressionSegmentBy = compressionSegmentBy,
@@ -155,37 +162,72 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
 
             foreach (string aggInfo in modelAggregateFunctions)
             {
-                string[] parts = aggInfo.Split(':');
-                if (parts.Length != 3)
+                string? resolved = ResolveAggregateFunctionEntry(aggInfo, entityType, parentEntityType, parentStoreIdentifier, aggregateStoreIdentifier, out _);
+                if (resolved != null)
                 {
-                    continue;
+                    aggregateFunctions.Add(resolved);
                 }
-
-                string aliasModelName = parts[0];
-                string functionEnumString = parts[1];
-                string sourceColumnModelName = parts[2];
-
-                // Resolve source column name from parent entity. "*" is not a column
-                // but the COUNT(*) wildcard, so it bypasses resolution.
-                string? sourceColumnDbName = sourceColumnModelName == "*"
-                    ? "*"
-                    : ColumnNameResolver.Resolve(parentEntityType, sourceColumnModelName, parentStoreIdentifier);
-                if (string.IsNullOrWhiteSpace(sourceColumnDbName))
-                {
-                    continue;
-                }
-
-                // Resolve alias column name from aggregate entity to respect naming conventions
-                string? aliasDbName = ColumnNameResolver.Resolve(entityType, aliasModelName, aggregateStoreIdentifier);
-                if (string.IsNullOrWhiteSpace(aliasDbName))
-                {
-                    aliasDbName = aliasModelName;
-                }
-
-                aggregateFunctions.Add($"{aliasDbName}:{functionEnumString}:{sourceColumnDbName}");
             }
 
             return aggregateFunctions;
+        }
+
+        /// <summary>
+        /// Resolves an <c>alias:Function:sourceColumn</c> entry to database column names, or returns
+        /// <c>null</c> with the reason the entry is left out of the view. The model validator warns with the
+        /// same reason.
+        /// </summary>
+        internal static string? ResolveAggregateFunctionEntry(
+            string entry,
+            IEntityType entityType,
+            IEntityType parentEntityType,
+            StoreObjectIdentifier parentStoreIdentifier,
+            StoreObjectIdentifier aggregateStoreIdentifier,
+            out string? ignoredReason)
+        {
+            string[] parts = entry.Split(':');
+            if (parts.Length != 3)
+            {
+                ignoredReason = "it is not in 'alias:Function:sourceColumn' form.";
+                return null;
+            }
+
+            // "*" is not a column but the COUNT(*) wildcard, so it bypasses resolution.
+            string? sourceColumnDbName = parts[2] == "*"
+                ? "*"
+                : ColumnNameResolver.Resolve(parentEntityType, parts[2], parentStoreIdentifier);
+            if (string.IsNullOrWhiteSpace(sourceColumnDbName))
+            {
+                ignoredReason = $"'{parts[2]}' is not a property or column of '{EntityStoreObjectResolver.DisplayName(parentEntityType)}'.";
+                return null;
+            }
+
+            string aliasDbName = ColumnNameResolver.Resolve(entityType, parts[0], aggregateStoreIdentifier) ?? parts[0];
+            ignoredReason = null;
+            return $"{aliasDbName}:{parts[1]}:{sourceColumnDbName}";
+        }
+
+        /// <summary>
+        /// Resolves expression aliases against the aggregate view and placeholder columns against the
+        /// parent, so naming conventions apply. Columns that do not resolve are rejected at model
+        /// finalization by <see cref="Configuration.ContinuousAggregateViewColumnValidationConvention"/>.
+        /// </summary>
+        private static List<ContinuousAggregateExpression> ResolveExpressions(
+            string annotation,
+            IEntityType entityType,
+            IEntityType parentEntityType,
+            StoreObjectIdentifier parentStoreIdentifier,
+            StoreObjectIdentifier aggregateStoreIdentifier)
+        {
+            List<ContinuousAggregateExpression> resolved = [];
+            foreach (ContinuousAggregateExpression expression in ContinuousAggregateExpressionJson.Read(entityType, annotation))
+            {
+                string alias = ColumnNameResolver.Resolve(entityType, expression.Alias, aggregateStoreIdentifier) ?? expression.Alias;
+                List<string> columns = [.. expression.Columns.Select(c => ColumnNameResolver.Resolve(parentEntityType, c, parentStoreIdentifier) ?? c)];
+                resolved.Add(new ContinuousAggregateExpression(alias, expression.Sql, columns));
+            }
+
+            return resolved;
         }
 
         /// <summary>

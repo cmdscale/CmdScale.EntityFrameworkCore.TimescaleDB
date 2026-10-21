@@ -447,7 +447,6 @@ public class ScaffoldedModelRenderingTests
                 e.Property(x => x.AvgValue).HasColumnName("avg_value");
                 e.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "render_policy_ca_view_e");
                 e.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "render_policy_source");
-                e.HasAnnotation(ContinuousAggregateAnnotations.ViewDefinition, "UNPARSEABLE SQL");
                 e.HasAnnotation(ContinuousAggregatePolicyAnnotations.HasRefreshPolicy, true);
                 e.HasAnnotation(ContinuousAggregatePolicyAnnotations.StartOffset, "7 days");
             });
@@ -1009,7 +1008,6 @@ public class ScaffoldedModelRenderingTests
                 e.Property(x => x.AvgValue).HasColumnName("avg_value");
                 e.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, "rp_guard_ca_view");
                 e.HasAnnotation(ContinuousAggregateAnnotations.ParentName, "rp_guard_ca_source");
-                e.HasAnnotation(ContinuousAggregateAnnotations.ViewDefinition, "UNPARSEABLE SQL");
                 e.HasAnnotation(RetentionPolicyAnnotations.HasRetentionPolicy, true);
                 e.HasAnnotation(RetentionPolicyAnnotations.DropAfter, "7 days");
             });

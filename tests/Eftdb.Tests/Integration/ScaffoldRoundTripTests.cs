@@ -111,6 +111,13 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
         public long CountRows { get; set; }
     }
 
+    private class CaFlagView
+    {
+        public DateTime Bucket { get; set; }
+        public bool Expensive { get; set; }
+        public bool AnyLargeVolume { get; set; }
+    }
+
     #endregion
 
     private sealed class RoundTripReferenceContext(string connectionString) : DbContext
@@ -120,6 +127,7 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
         public DbSet<DropCreatedBeforeMetric> DropCreatedBeforeMetrics => Set<DropCreatedBeforeMetric>();
         public DbSet<CaSourceMetric> CaSourceMetrics => Set<CaSourceMetric>();
         public DbSet<CaHourlyView> CaHourlyViews => Set<CaHourlyView>();
+        public DbSet<CaFlagView> CaFlagViews => Set<CaFlagView>();
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.UseNpgsql(connectionString).UseTimescaleDb();
@@ -196,6 +204,16 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
                     .WithRefreshPolicy(startOffset: "7 days", endOffset: "1 hour", scheduleInterval: "4 hours");
 
                 entity.WithRetentionPolicy(dropAfter: "90 days");
+            });
+
+            modelBuilder.Entity<CaFlagView>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(x => x.Bucket).HasColumnName("bucket");
+                entity.IsContinuousAggregate<CaFlagView, CaSourceMetric>("rrt_ca_flags", "1 day", x => x.Timestamp)
+                    .WithTimeBucketProperty(x => x.Bucket)
+                    .AddGroupByExpression(x => x.Expensive, "{0} > 100", x => x.Price)
+                    .AddAggregateExpression(x => x.AnyLargeVolume, "bool_or({0} > 1000)", x => x.Volume);
             });
         }
     }
@@ -595,6 +613,10 @@ public sealed class ScaffoldRoundTripTests : MigrationTestBase, IAsyncLifetime
         Assert.Equal(viewDefDb1, viewDefDb2);
         Assert.Equal(matOnlyDb1, matOnlyDb2);
         Assert.Equal(chunkDb1, chunkDb2);
+
+        (string flagsDb1, _, _) = await QueryContinuousAggregateInfoAsync(db1, "rrt_ca_flags");
+        (string flagsDb2, _, _) = await QueryContinuousAggregateInfoAsync(db2, "rrt_ca_flags");
+        Assert.Equal(flagsDb1, flagsDb2);
 
         (string? startDb1, string? endDb1, string schedDb1) = await QueryCaRefreshPolicyAsync(db1, "rrt_ca_hourly");
         (string? startDb2, string? endDb2, string schedDb2) = await QueryCaRefreshPolicyAsync(db2, "rrt_ca_hourly");

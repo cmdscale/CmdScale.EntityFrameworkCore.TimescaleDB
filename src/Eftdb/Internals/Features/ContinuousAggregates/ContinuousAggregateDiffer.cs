@@ -111,8 +111,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
                     x.Target.TimeBucketGroupBy != x.Source.TimeBucketGroupBy ||
                     x.Target.WithNoData != x.Source.WithNoData ||
                     (x.Target.CreateGroupIndexes ?? true) != (x.Source.CreateGroupIndexes ?? true) ||
-                    !AreAggregateFunctionsEqual(x.Target.AggregateFunctions, x.Source.AggregateFunctions) ||
-                    !AreGroupByColumnsEqual(x.Target.GroupByColumns, x.Source.GroupByColumns) ||
+                    !AreSequencesEqual(x.Target.AggregateFunctions, x.Source.AggregateFunctions) ||
+                    !AreSetsEqual(x.Target.GroupByColumns, x.Source.GroupByColumns) ||
+                    !AreSequencesEqual(x.Target.AggregateExpressions, x.Source.AggregateExpressions) ||
+                    !AreSetsEqual(x.Target.GroupByExpressions, x.Source.GroupByExpressions) ||
                     x.Target.WhereClause != x.Source.WhereClause ||
                     x.Target.ViewDefinition != x.Source.ViewDefinition
                 );
@@ -195,7 +197,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             return order;
         }
 
-        private static bool AreAggregateFunctionsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)
+        private static bool AreSequencesEqual<T>(IReadOnlyList<T>? list1, IReadOnlyList<T>? list2)
         {
             if (list1 == null && list2 == null) return true;
             if (list1 == null || list2 == null) return false;
@@ -204,7 +206,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.Continuous
             return list1.SequenceEqual(list2);
         }
 
-        private static bool AreGroupByColumnsEqual(IReadOnlyList<string>? list1, IReadOnlyList<string>? list2)
+        private static bool AreSetsEqual<T>(IReadOnlyList<T>? list1, IReadOnlyList<T>? list2)
         {
             if (list1 == null && list2 == null) return true;
             if (list1 == null || list2 == null) return false;

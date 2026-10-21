@@ -67,6 +67,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
 
             if (operation.CompressionOrderBy is { Count: > 0 })
                 call.Arg("compressionOrderBy", CSharpGeneratorHelper.LiteralStringList(code, operation.CompressionOrderBy));
+
+            if (operation.AggregateExpressions is { Count: > 0 })
+                call.Arg("aggregateExpressions", b => AppendExpressionList(b, operation.AggregateExpressions));
+
+            if (operation.GroupByExpressions is { Count: > 0 })
+                call.Arg("groupByExpressions", b => AppendExpressionList(b, operation.GroupByExpressions));
         }
 
         public void Generate(AlterContinuousAggregateOperation operation, IndentedStringBuilder builder)
@@ -121,6 +127,27 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 call.Arg("schema", code.Literal(operation.Schema));
         }
 
+        private void AppendExpressionList(IndentedStringBuilder builder, IReadOnlyList<ContinuousAggregateExpression> expressions)
+        {
+            string typeRef = typeof(ContinuousAggregateExpression).FullName!;
+            AppendCollection(builder, [.. expressions.Select(x =>
+                $"new {typeRef}({code.Literal(x.Alias)}, {code.Literal(x.Sql)}, {CSharpGeneratorHelper.LiteralStringList(code, x.Columns)})")]);
+        }
+
+        // Writes the entries as a multi-line collection expression
+        private static void AppendCollection(IndentedStringBuilder builder, IReadOnlyList<string> entries)
+        {
+            builder.AppendLine("[");
+            using (builder.Indent())
+            {
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    builder.AppendLine(i < entries.Count - 1 ? entries[i] + "," : entries[i]);
+                }
+            }
+            builder.Append("]");
+        }
+
         // Writes the aggregate functions as a collection expression
         private void AppendAggregateFunctionList(IndentedStringBuilder builder, IReadOnlyList<string> aggregateFunctions)
         {
@@ -139,15 +166,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 entries.Add($"new {typeRef}({code.Literal(parts[0])}, {enumRef}.{parts[1]}, {code.Literal(parts[2])})");
             }
 
-            builder.AppendLine("[");
-            using (builder.Indent())
-            {
-                for (int i = 0; i < entries.Count; i++)
-                {
-                    builder.AppendLine(i < entries.Count - 1 ? entries[i] + "," : entries[i]);
-                }
-            }
-            builder.Append("]");
+            AppendCollection(builder, entries);
         }
     }
 }

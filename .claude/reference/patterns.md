@@ -77,7 +77,9 @@ SqlBuilderHelper.QuoteIdentifier("my_column");                     // "my_column
 
 ## 7. Continuous Aggregate Function Encoding
 
-Typed API: `ContinuousAggregateFunction(Alias, Function, SourceColumn)`. Wire format on the operation: `"alias:Function:sourceColumn"` — always exactly three parts; malformed entries are skipped on parse. `First`/`Last` take no time column in the wire format; the SQL generator supplies the time-bucket column as second argument (`last("price", "timestamp")`).
+Typed API: `ContinuousAggregateFunction(Alias, Function, SourceColumn)`. Wire format on the operation: `"alias:Function:sourceColumn"` — always exactly three parts; malformed entries are skipped on parse and raise the `ContinuousAggregateEntryIgnored` warning at model validation. `First`/`Last` take no time column in the wire format; the SQL generator supplies the time-bucket column as second argument (`last("price", "timestamp")`).
+
+Expressions: `ContinuousAggregateExpression(Alias, Sql, Columns)` for aggregates and grouped expressions the enum cannot express. `Sql` is a template with `{n}` placeholders (`Internals/ColumnTemplate` parses and formats them, skipping quoted text; `{{`/`}}` escape braces). Annotations `AggregateExpressions` / `GroupByExpressions` hold JSON lists with model names (`Internals/ContinuousAggregateExpressionJson`); the extractor resolves aliases against the view and columns against the parent, throwing when a column does not resolve. Group-by expressions are selected with their alias and repeated in GROUP BY.
 
 ## 8. Expression-Based Configuration
 

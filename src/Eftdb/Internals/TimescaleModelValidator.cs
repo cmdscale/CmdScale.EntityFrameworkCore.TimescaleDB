@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals.Features.ContinuousAggregates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -26,6 +27,40 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
             foreach (IEntityType entityType in model.GetEntityTypes())
             {
                 WarnWhenBucketColumnUnmapped(entityType, logger);
+                WarnWhenAggregateEntryIgnored(model, entityType, logger);
+            }
+        }
+
+        /// <summary>
+        /// Warns for each <see cref="ContinuousAggregateAnnotations.AggregateFunctions"/> entry the model extractor
+        /// leaves out of the view, using the extractor's own resolution. A warning rather than an exception keeps
+        /// models that already migrate working.
+        /// </summary>
+        private static void WarnWhenAggregateEntryIgnored(IModel model, IEntityType entityType, IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
+        {
+            string? materializedViewName = entityType.FindAnnotation(ContinuousAggregateAnnotations.MaterializedViewName)?.Value as string;
+            if (string.IsNullOrWhiteSpace(materializedViewName)
+                || !string.IsNullOrWhiteSpace(entityType.FindAnnotation(ContinuousAggregateAnnotations.ViewDefinition)?.Value as string)
+                || entityType.FindAnnotation(ContinuousAggregateAnnotations.AggregateFunctions)?.Value is not List<string> entries)
+            {
+                return;
+            }
+
+            IEntityType? parent = ParentEntityTypeResolver.Resolve(model, entityType.FindAnnotation(ContinuousAggregateAnnotations.ParentName)?.Value as string);
+            StoreObjectIdentifier? parentStoreIdentifier = parent == null ? null : EntityStoreObjectResolver.GetStoreObjectIdentifier(parent);
+            StoreObjectIdentifier? aggregateStoreIdentifier = EntityStoreObjectResolver.GetStoreObjectIdentifier(entityType);
+            if (parent == null || parentStoreIdentifier == null || aggregateStoreIdentifier == null)
+            {
+                return;
+            }
+
+            foreach (string entry in entries)
+            {
+                if (ContinuousAggregateModelExtractor.ResolveAggregateFunctionEntry(
+                        entry, entityType, parent, parentStoreIdentifier.Value, aggregateStoreIdentifier.Value, out string? reason) == null)
+                {
+                    logger.ContinuousAggregateEntryIgnored(EntityStoreObjectResolver.DisplayName(entityType), materializedViewName, entry, reason!);
+                }
             }
         }
 

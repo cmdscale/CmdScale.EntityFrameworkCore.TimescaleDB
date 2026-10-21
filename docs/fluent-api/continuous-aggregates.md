@@ -86,6 +86,35 @@ public void Configure(EntityTypeBuilder<TradeAggregate> builder)
 }
 ```
 
+### Aggregate Expressions
+
+For aggregates outside `EAggregateFunction`, such as filtered counts, `bool_or` or [timescaledb_toolkit](https://docs.tigerdata.com/api/latest/hyperfunctions/) sketches, use `.AddAggregateExpression()`. The SQL is a template whose column references are `{0}`, `{1}`, … placeholders bound to the selectors that follow it, so each reference resolves to its mapped column name (including naming conventions such as snake case). Literal braces are written as `{{` and `}}`; braces inside string literals and quoted identifiers are left alone.
+
+```csharp
+public void Configure(EntityTypeBuilder<TradeAggregate> builder)
+{
+    builder.HasNoKey();
+
+    builder.IsContinuousAggregate<TradeAggregate, Trade>(
+            "trade_daily_stats",
+            "1 day",
+            x => x.Timestamp)
+        .AddAggregateExpression(x => x.LargeTrades, "count(*) FILTER (WHERE {0} >= 1000)", x => x.Size)
+        .AddAggregateExpression(x => x.PriceRange, "max({0}) - min({0})", x => x.Price)
+        // Requires the timescaledb_toolkit extension: modelBuilder.HasPostgresExtension("timescaledb_toolkit")
+        .AddAggregateExpression(x => x.TopTickers, "mcv_agg(10, {0})", x => x.Ticker);
+}
+```
+
+The model fails to build when a placeholder has no selector, a selector is never referenced, or a selector does not resolve to a column of the source. A change to an expression's template or columns drops and recreates the aggregate, as with any other structural change.
+
+Hierarchical aggregates combine sketches from their parent with the matching rollup function, referencing the parent aggregate's property:
+
+```csharp
+builder.IsContinuousAggregate<TradeWeekly, TradeAggregate>("trade_weekly_stats", "7 days", x => x.Bucket)
+    .AddAggregateExpression(x => x.TopTickers, "rollup({0})", x => x.TopTickers);
+```
+
 ## Grouping Data
 
 Beyond the time bucket, continuous aggregates can group data by additional columns from the source hypertable. In Data Annotations configuration, the same is expressed with the property-level [`[GroupByColumn]` attribute](../data-annotations/continuous-aggregates#grouping-by-additional-columns); raw SQL expressions are Fluent-API-only.
@@ -124,6 +153,40 @@ public void Configure(EntityTypeBuilder<TradeAggregate> builder)
         // Group by ordinal positions in SELECT list
         .AddGroupByColumn("1, 2");
 }
+```
+
+A raw `AddGroupByColumn` expression appears only in `GROUP BY`, so no property can read it. To select a grouped expression as a column, use `.AddGroupByExpression()`, which takes a placeholder template like `.AddAggregateExpression()`:
+
+```csharp
+public void Configure(EntityTypeBuilder<TradeAggregate> builder)
+{
+    builder.HasNoKey();
+
+    builder.IsContinuousAggregate<TradeAggregate, Trade>(
+            "trade_hourly_stats_by_size",
+            "1 hour",
+            x => x.Timestamp)
+        .AddAggregateFunction(x => x.AveragePrice, x => x.Price, EAggregateFunction.Avg)
+        // SELECT "size" >= 1000 AS "is_block_trade" ... GROUP BY 1, ("size" >= 1000)
+        .AddGroupByExpression(x => x.IsBlockTrade, "{0} >= 1000", x => x.Size);
+}
+```
+
+## Defining the View in SQL
+
+When a definition cannot be expressed through the builder, `.IsContinuousAggregateFromSql()` takes the SELECT statement verbatim. Identifiers in it are not resolved through the model, so it must use database column names. Options such as `.MaterializedOnly()`, `.WithNoData()`, compression and policies still apply.
+
+```csharp
+builder.IsContinuousAggregateFromSql(
+        "trade_daily_vwap",
+        nameof(Trade),
+        """
+        SELECT time_bucket('1 day', "timestamp") AS "bucket", "ticker",
+               sum("price" * "size") / nullif(sum("size"), 0) AS "vwap"
+        FROM "trades"
+        GROUP BY 1, "ticker"
+        """)
+    .MaterializedOnly(false);
 ```
 
 ## Filtering Source Data
@@ -201,11 +264,13 @@ The string-based builder used by scaffolded code exposes an equivalent `.WithTim
 
 Structured aggregates (those configured through the builders rather than a raw view definition) are validated at model finalization:
 
-- Duplicate output column names are rejected with an `InvalidOperationException`. The check compares the bucket column, all GROUP BY columns, and every aggregate alias after resolving them to database column names. A source column that collides with the bucket column name is caught at model build.
+- Duplicate output column names are rejected with an `InvalidOperationException`. The check compares the bucket column, all GROUP BY columns, every aggregate alias and every expression alias after resolving them to database column names. A source column that collides with the bucket column name is caught at model build.
+- An expression column that does not resolve to a column of the source, or expressions combined with `IsContinuousAggregateFromSql`, raise an `InvalidOperationException`.
+- An `.AddAggregateFunction(...)` or `[Aggregate]` entry that is malformed, or whose source column does not resolve, is left out of the view and raises the `TimescaleDbEventId.ContinuousAggregateEntryIgnored` warning, which can be escalated with `ConfigureWarnings(w => w.Throw(...))`.
 - A property designated via `.WithTimeBucketProperty(...)` that does not exist on the entity raises an `InvalidOperationException`.
 - An aggregate with no time-bucket designation (`.WithTimeBucketProperty(...)`) and no property mapping to the default bucket column `time_bucket` emits a warning through the configured EF logger. The view still exposes a `time_bucket` column, but it cannot be queried through the entity; previously this surfaced only at query time as an opaque Postgres "column does not exist" error. Remedy by designating a property or mapping one to `time_bucket`. This is a warning rather than an exception because deliberately not exposing the bucket is legal. The warning is raised as `TimescaleDbEventId.TimeBucketColumnUnmapped` and can be suppressed with `ConfigureWarnings(w => w.Ignore(...))` or escalated to an exception with `w.Throw(...)`.
 
-> :warning: **Note:** Entities scaffolded with a raw view definition are exempt from all checks, because the structured projection fields are unused on that path.
+> :warning: **Note:** Aggregates defined with `IsContinuousAggregateFromSql` (including scaffolded ones) are exempt from the other checks, because the structured projection fields are unused on that path.
 
 ## Hierarchical Continuous Aggregates
 

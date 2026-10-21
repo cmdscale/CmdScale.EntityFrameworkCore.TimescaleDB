@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Design.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using static CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.AnnotationRendererHelper;
 
@@ -17,8 +18,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
     /// Renders ContinuousAggregate annotations as <c>IsContinuousAggregate(...)</c> Fluent API chains or
     /// <c>[ContinuousAggregate]</c> attributes. The <c>ViewDefinition</c> annotation is parsed to reconstruct
     /// the structured configuration; on success it is consumed so no raw SQL leaks into the generated file.
-    /// When the view definition cannot be parsed, a warning is reported and the annotations are left in
-    /// place so the <c>.HasAnnotation(...)</c> fallback preserves the configuration.
+    /// A view the structured builder cannot express (unparseable, or with columns such as toolkit sketches)
+    /// is rendered as <c>IsContinuousAggregateFromSql(...)</c> with its SQL verbatim, and a warning is
+    /// reported. In data-annotations mode such a view keeps its annotations, so the <c>.HasAnnotation(...)</c>
+    /// fallback preserves the configuration.
     /// </summary>
     internal sealed class ContinuousAggregateAnnotationRenderer(IOperationReporter reporter) : IFeatureAnnotationRenderer
     {
@@ -27,6 +30,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 .GetMethods(BindingFlags.Public | BindingFlags.Static)
                 .First(m => m.Name == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregate)
                          && m.GetParameters().Length == 5);
+
+        private static readonly MethodInfo IsContinuousAggregateFromSqlMethod =
+            typeof(ContinuousAggregateTypeBuilder).GetMethod(nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregateFromSql))!;
 
         private static MethodInfo BuilderMethod(string name) =>
             typeof(ContinuousAggregateStringBuilder<>)
@@ -55,23 +61,19 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             }
 
             string? viewDefinition = GetString(annotations, ContinuousAggregateAnnotations.ViewDefinition);
+            if (viewDefinition is null)
+            {
+                ReportUnparseableViewDefinition(materializedViewName);
+                return [];
+            }
+
             string? parentName = GetString(annotations, ContinuousAggregateAnnotations.ParentName);
             string? chunkInterval = GetString(annotations, ContinuousAggregateAnnotations.ChunkInterval);
             bool materializedOnly = Find(annotations, ContinuousAggregateAnnotations.MaterializedOnly)?.Value is true;
             bool withNoData = Find(annotations, ContinuousAggregateAnnotations.WithNoData)?.Value is true;
             bool? createGroupIndexes = Find(annotations, ContinuousAggregateAnnotations.CreateGroupIndexes)?.Value as bool?;
 
-            ViewDefinitionParser.ParsedViewDefinition? parsed = viewDefinition is not null
-                ? ViewDefinitionParser.Parse(viewDefinition)
-                : null;
-
-            if (parsed?.TimeBucketWidth is null || parsed.TimeBucketSourceColumn is null)
-            {
-                ReportUnparseableViewDefinition(materializedViewName);
-                return [];
-            }
-
-            string humanizedWidth = IntervalParsingHelper.NormalizeInterval(parsed.TimeBucketWidth);
+            ViewDefinitionParser.ParsedViewDefinition parsed = ViewDefinitionParser.Parse(viewDefinition);
 
             IEntityType? parentEntityType = ParentEntityTypeResolver.Resolve(entityType.Model, parentName);
             string parentClrName = parentEntityType?.ShortName() ?? parentName ?? materializedViewName;
@@ -80,14 +82,48 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 ? new NameOfCodeFragment(parentClrName)
                 : (object)(parentName ?? string.Empty);
 
-            object timeBucketArg = ResolveParentColumnArg(parentEntityType, parentClrName, parsed.TimeBucketSourceColumn);
-
-            MethodCallCodeFragment call = new(IsContinuousAggregateMethod, materializedViewName, parentNameArg, humanizedWidth, timeBucketArg);
-
             string caEntityClrName = entityType.ShortName();
-            if (TryResolveTimeBucketProperty(entityType, parsed.TimeBucketAlias, out string bucketProperty))
+            MethodCallCodeFragment call;
+            if (!IsStructurallyRepresentable(parsed))
             {
-                call = call.Chain(WithTimeBucketPropertyMethod, new NameOfCodeFragment($"{caEntityClrName}.{bucketProperty}"));
+                reporter.WriteWarning(
+                    $"The view definition of continuous aggregate '{materializedViewName}' has columns the structured " +
+                    "builder cannot express. It is scaffolded with IsContinuousAggregateFromSql(...) and its SQL is kept verbatim.");
+                call = new MethodCallCodeFragment(IsContinuousAggregateFromSqlMethod, materializedViewName, parentNameArg, viewDefinition.Trim());
+            }
+            else
+            {
+                string humanizedWidth = IntervalParsingHelper.NormalizeInterval(parsed.TimeBucketWidth!);
+                object timeBucketArg = ResolveParentColumnArg(parentEntityType, parentClrName, parsed.TimeBucketSourceColumn!);
+                call = new(IsContinuousAggregateMethod, materializedViewName, parentNameArg, humanizedWidth, timeBucketArg);
+
+                if (TryResolveTimeBucketProperty(entityType, parsed.TimeBucketAlias, out string bucketProperty))
+                {
+                    call = call.Chain(WithTimeBucketPropertyMethod, new NameOfCodeFragment($"{caEntityClrName}.{bucketProperty}"));
+                }
+
+                foreach (ViewDefinitionParser.ParsedAggregate agg in parsed.Aggregates)
+                {
+                    object aliasArg = TryResolvePropertyName(entityType, agg.Alias, out string aliasProperty)
+                        ? new NameOfCodeFragment($"{caEntityClrName}.{aliasProperty}")
+                        : (object)agg.Alias;
+
+                    object sourceArg = agg.SourceColumn == "*"
+                        ? (object)"*"
+                        : ResolveParentColumnArg(parentEntityType, parentClrName, agg.SourceColumn);
+
+                    call = call.Chain(AddAggregateFunctionMethod, [aliasArg, sourceArg, agg.Function]);
+                }
+
+                foreach (string col in parsed.GroupByColumns)
+                {
+                    call = call.Chain(AddGroupByColumnMethod, ResolveParentColumnArg(parentEntityType, parentClrName, col));
+                }
+
+                if (!string.IsNullOrWhiteSpace(parsed.WhereClause))
+                {
+                    call = call.Chain(WhereMethod, parsed.WhereClause);
+                }
             }
 
             if (materializedOnly)
@@ -103,29 +139,6 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             if (createGroupIndexes is false)
             {
                 call = call.Chain(CreateGroupIndexesMethod, false);
-            }
-
-            foreach (ViewDefinitionParser.ParsedAggregate agg in parsed.Aggregates)
-            {
-                object aliasArg = TryResolvePropertyName(entityType, agg.Alias, out string aliasProperty)
-                    ? new NameOfCodeFragment($"{caEntityClrName}.{aliasProperty}")
-                    : (object)agg.Alias;
-
-                object sourceArg = agg.SourceColumn == "*"
-                    ? (object)"*"
-                    : ResolveParentColumnArg(parentEntityType, parentClrName, agg.SourceColumn);
-
-                call = call.Chain(AddAggregateFunctionMethod, [aliasArg, sourceArg, agg.Function]);
-            }
-
-            foreach (string col in parsed.GroupByColumns)
-            {
-                call = call.Chain(AddGroupByColumnMethod, ResolveParentColumnArg(parentEntityType, parentClrName, col));
-            }
-
-            if (!string.IsNullOrWhiteSpace(parsed.WhereClause))
-            {
-                call = call.Chain(WhereMethod, parsed.WhereClause);
             }
 
             if (!string.IsNullOrWhiteSpace(chunkInterval) && !IsDerivedDefaultChunkInterval(chunkInterval, parentEntityType))
@@ -178,7 +191,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 ? ViewDefinitionParser.Parse(viewDefinition)
                 : null;
 
-            if (parsed?.TimeBucketWidth is null || parsed.TimeBucketSourceColumn is null)
+            if (!IsStructurallyRepresentable(parsed))
             {
                 return [];
             }
@@ -189,7 +202,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
 
             ConsumeAllCaAnnotations(annotations);
 
-            string humanizedWidth = IntervalParsingHelper.NormalizeInterval(parsed.TimeBucketWidth);
+            string humanizedWidth = IntervalParsingHelper.NormalizeInterval(parsed.TimeBucketWidth!);
 
             IEntityType? parentEntityType = ParentEntityTypeResolver.Resolve(entityType.Model, parentName);
             string parentClrName = parentEntityType?.ShortName() ?? parentName ?? materializedViewName;
@@ -198,7 +211,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 ? new NameOfCodeFragment(parentClrName)
                 : (object)(parentName ?? string.Empty);
 
-            object timeBucketArg = ResolveParentColumnArg(parentEntityType, parentClrName, parsed.TimeBucketSourceColumn);
+            object timeBucketArg = ResolveParentColumnArg(parentEntityType, parentClrName, parsed.TimeBucketSourceColumn!);
 
             ReportUnrepresentableGroupByEntries(entityType, materializedViewName, parsed.GroupByColumns);
 
@@ -277,7 +290,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
                 ? ViewDefinitionParser.Parse(viewDefinition)
                 : null;
 
-            if (parsed?.TimeBucketWidth is null || parsed.TimeBucketSourceColumn is null)
+            if (!IsStructurallyRepresentable(parsed))
             {
                 ReportUnparseableViewDefinition(materializedViewName);
                 return;
@@ -285,6 +298,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
 
             ConsumeAllCaAnnotations(annotations);
         }
+
+        private static bool IsStructurallyRepresentable([NotNullWhen(true)] ViewDefinitionParser.ParsedViewDefinition? parsed)
+            => parsed is { TimeBucketWidth: not null, TimeBucketSourceColumn: not null, IsComplete: true };
 
         /// <summary>
         /// A continuous aggregate's chunk interval defaults to 10x the parent hypertable's chunk

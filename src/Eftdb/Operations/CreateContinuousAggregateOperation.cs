@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations.Operations;
+﻿using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
 {
@@ -23,6 +24,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Operations
         public IReadOnlyList<string> AggregateFunctions { get; set; } = [];
         public IReadOnlyList<string> GroupByColumns { get; set; } = [];
         public string? WhereClause { get; set; }
+
+        /// <summary>
+        /// Aggregate columns computed by SQL expressions, with placeholders bound to database column names.
+        /// </summary>
+        public IReadOnlyList<ContinuousAggregateExpression> AggregateExpressions { get; set; } = [];
+
+        /// <summary>
+        /// GROUP BY expressions selected as aliased columns, with placeholders bound to database column names.
+        /// </summary>
+        public IReadOnlyList<ContinuousAggregateExpression> GroupByExpressions { get; set; } = [];
 
         /// <summary>
         /// Raw SQL body for the materialized view. When non-null the generator uses this

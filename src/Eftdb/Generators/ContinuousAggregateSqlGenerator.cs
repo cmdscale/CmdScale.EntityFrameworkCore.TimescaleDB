@@ -1,3 +1,5 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Operations;
 using System.Text;
 
@@ -107,6 +109,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 }
             }
 
+            foreach (ContinuousAggregateExpression groupByExpression in operation.GroupByExpressions)
+            {
+                selectList.Add($"{FormatExpression(groupByExpression)} AS {SqlBuilderHelper.QuoteIdentifier(groupByExpression.Alias)}");
+            }
+
             // Build aggregate functions
             foreach (string aggInfo in operation.AggregateFunctions)
             {
@@ -140,6 +147,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 selectList.Add($"{aggregateExpression} AS {quotedAlias}");
             }
 
+            foreach (ContinuousAggregateExpression aggregate in operation.AggregateExpressions)
+            {
+                selectList.Add($"{FormatExpression(aggregate)} AS {SqlBuilderHelper.QuoteIdentifier(aggregate.Alias)}");
+            }
+
             // Build the GROUP BY list
             List<string> groupByList = [];
             if (operation.TimeBucketGroupBy)
@@ -157,6 +169,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
                 {
                     groupByList.Add($"{SqlBuilderHelper.QuoteIdentifier(groupByColumn)}");
                 }
+            }
+
+            foreach (ContinuousAggregateExpression groupByExpression in operation.GroupByExpressions)
+            {
+                groupByList.Add($"({FormatExpression(groupByExpression)})");
             }
 
             // Build the complete CREATE MATERIALIZED VIEW statement as a single string
@@ -263,6 +280,9 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Generators
 
             return statements;
         }
+
+        private static string FormatExpression(ContinuousAggregateExpression expression)
+            => ColumnTemplate.Format(expression.Sql, i => SqlBuilderHelper.QuoteIdentifier(expression.Columns[i]));
 
         /// <summary>
         /// Translates the string representation of EAggregateFunction into a SQL function.

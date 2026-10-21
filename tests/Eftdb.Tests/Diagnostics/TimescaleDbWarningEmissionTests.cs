@@ -267,6 +267,7 @@ public class TimescaleDbWarningEmissionTests
         Assert.Equal(63000, TimescaleDbEventId.CommunityFeatureSkipped.Id);
         Assert.Equal(63001, TimescaleDbEventId.TimeBucketColumnUnmapped.Id);
         Assert.Equal(63002, TimescaleDbEventId.UnsupportedHypertableChangeSkipped.Id);
+        Assert.Equal(63003, TimescaleDbEventId.ContinuousAggregateEntryIgnored.Id);
     }
 
     #endregion

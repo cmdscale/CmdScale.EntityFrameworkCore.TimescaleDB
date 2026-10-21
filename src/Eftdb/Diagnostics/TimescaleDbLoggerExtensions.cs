@@ -94,6 +94,60 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics
             }
         }
 
+        /// <summary>
+        /// Warns that a continuous aggregate entry is left out of the view.
+        /// </summary>
+        /// <param name="diagnostics">The model-validation diagnostics logger.</param>
+        /// <param name="aggregate">The continuous aggregate entity display name.</param>
+        /// <param name="materializedView">The materialized view name.</param>
+        /// <param name="entry">The ignored entry, in <c>alias:Function:sourceColumn</c> form.</param>
+        /// <param name="reason">Why the entry is ignored.</param>
+        public static void ContinuousAggregateEntryIgnored(
+            this IDiagnosticsLogger<DbLoggerCategory.Model.Validation> diagnostics,
+            string aggregate,
+            string materializedView,
+            string entry,
+            string reason)
+        {
+            EventDefinition<string, string, string, string> definition = LogContinuousAggregateEntryIgnored(diagnostics);
+
+            if (diagnostics.ShouldLog(definition))
+            {
+                definition.Log(diagnostics, aggregate, materializedView, entry, reason);
+            }
+
+            if (diagnostics.NeedsEventData(definition, out bool diagnosticSourceEnabled, out bool simpleLogEnabled))
+            {
+                EventData eventData = new(
+                    definition,
+                    (d, _) => ((EventDefinition<string, string, string, string>)d).GenerateMessage(aggregate, materializedView, entry, reason));
+                diagnostics.DispatchEventData(definition, eventData, diagnosticSourceEnabled, simpleLogEnabled);
+            }
+        }
+
+        private static EventDefinition<string, string, string, string> LogContinuousAggregateEntryIgnored(IDiagnosticsLogger diagnostics)
+        {
+            TimescaleDbLoggingDefinitions definitions = GetDefinitions(diagnostics);
+            EventDefinitionBase? definition = definitions.LogContinuousAggregateEntryIgnored;
+            if (definition == null)
+            {
+                EventDefinition<string, string, string, string> created = new(
+                    diagnostics.Options,
+                    TimescaleDbEventId.ContinuousAggregateEntryIgnored,
+                    LogLevel.Warning,
+                    "TimescaleDbEventId.ContinuousAggregateEntryIgnored",
+                    static level => LoggerMessage.Define<string, string, string, string>(
+                        level,
+                        TimescaleDbEventId.ContinuousAggregateEntryIgnored,
+                        "The continuous aggregate '{Aggregate}' (materialized view '{MaterializedView}') leaves out the aggregate " +
+                        "entry '{Entry}': {Reason} Use AddAggregateExpression for aggregates that AddAggregateFunction cannot express."));
+
+                definition = Interlocked.CompareExchange(ref definitions.LogContinuousAggregateEntryIgnored, created, null) ?? created;
+            }
+
+            return (EventDefinition<string, string, string, string>)definition;
+        }
+
         private static EventDefinition<string> LogCommunityFeatureSkipped(IDiagnosticsLogger diagnostics)
         {
             TimescaleDbLoggingDefinitions definitions = GetDefinitions(diagnostics);

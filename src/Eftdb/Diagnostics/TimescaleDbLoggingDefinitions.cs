@@ -25,6 +25,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics
         /// Cached definition for <see cref="TimescaleDbEventId.UnsupportedHypertableChangeSkipped"/>.
         /// </summary>
         public EventDefinitionBase? LogUnsupportedHypertableChangeSkipped;
+
+        /// <summary>
+        /// Cached definition for <see cref="TimescaleDbEventId.ContinuousAggregateEntryIgnored"/>.
+        /// </summary>
+        public EventDefinitionBase? LogContinuousAggregateEntryIgnored;
     }
 #pragma warning restore EF1001
 }

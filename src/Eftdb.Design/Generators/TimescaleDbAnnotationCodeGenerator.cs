@@ -173,6 +173,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators
             if (entityType.FindAnnotation(ContinuousAggregateAnnotations.ViewDefinition)?.Value is not string viewDefinition) return [];
 
             ViewDefinitionParser.ParsedViewDefinition parsed = ViewDefinitionParser.Parse(viewDefinition);
+            if (!parsed.IsComplete) return [];
 
             string viewName = entityType.GetViewName() ?? entityType.GetTableName() ?? entityType.Name;
             string? viewSchema = entityType.GetViewSchema() ?? entityType.GetSchema();

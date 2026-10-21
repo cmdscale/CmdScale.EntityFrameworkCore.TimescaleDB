@@ -145,6 +145,38 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
             return new ContinuousAggregateStringBuilder<TEntity>(entityTypeBuilder);
         }
 
+        /// <summary>
+        /// Configures the entity as a TimescaleDB continuous aggregate whose body is the given SELECT
+        /// statement, used verbatim. Identifiers in it are not resolved through the model, so it must use
+        /// database column names. Prefer the structured overloads; this one covers definitions they cannot
+        /// express.
+        /// </summary>
+        /// <typeparam name="TEntity">The continuous aggregate entity type.</typeparam>
+        /// <param name="entityTypeBuilder">The entity type builder.</param>
+        /// <param name="materializedViewName">The name of the materialized view.</param>
+        /// <param name="parentName">The name of the source hypertable entity or its database table name.</param>
+        /// <param name="viewDefinition">The SELECT statement that defines the view.</param>
+        /// <returns>A builder for further continuous aggregate configuration.</returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="viewDefinition"/> is empty.</exception>
+        public static ContinuousAggregateStringBuilder<TEntity> IsContinuousAggregateFromSql<TEntity>(
+            this EntityTypeBuilder<TEntity> entityTypeBuilder,
+            string materializedViewName,
+            string parentName,
+            string viewDefinition)
+            where TEntity : class
+        {
+            if (string.IsNullOrWhiteSpace(viewDefinition))
+            {
+                throw new ArgumentException("The view definition must not be empty.", nameof(viewDefinition));
+            }
+
+            entityTypeBuilder.ToView(materializedViewName, entityTypeBuilder.Metadata.GetViewSchema());
+            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.MaterializedViewName, materializedViewName);
+            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.ParentName, parentName);
+            entityTypeBuilder.HasAnnotation(ContinuousAggregateAnnotations.ViewDefinition, viewDefinition);
+            return new ContinuousAggregateStringBuilder<TEntity>(entityTypeBuilder);
+        }
+
         private static ContinuousAggregateBuilder<TEntity, TSourceEntity> IsContinuousAggregateCore<TEntity, TSourceEntity, TProperty>(
             EntityTypeBuilder<TEntity> entityTypeBuilder,
             string materializedViewName,

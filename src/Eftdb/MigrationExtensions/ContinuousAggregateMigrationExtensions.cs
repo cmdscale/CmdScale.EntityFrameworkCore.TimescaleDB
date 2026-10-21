@@ -25,7 +25,9 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             string? viewDefinition = null,
             bool enableCompression = false,
             IReadOnlyList<string>? compressionSegmentBy = null,
-            IReadOnlyList<string>? compressionOrderBy = null)
+            IReadOnlyList<string>? compressionOrderBy = null,
+            IReadOnlyList<ContinuousAggregateExpression>? aggregateExpressions = null,
+            IReadOnlyList<ContinuousAggregateExpression>? groupByExpressions = null)
         {
             CreateContinuousAggregateOperation operation = new()
             {
@@ -47,6 +49,8 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 EnableCompression = enableCompression,
                 CompressionSegmentBy = compressionSegmentBy,
                 CompressionOrderBy = compressionOrderBy,
+                AggregateExpressions = aggregateExpressions ?? [],
+                GroupByExpressions = groupByExpressions ?? [],
             };
 
             migrationBuilder.Operations.Add(operation);

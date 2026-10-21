@@ -1,3 +1,4 @@
+using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggregate;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
 {
     /// <summary>
     /// Guards against colliding output column names in a structured continuous aggregate view.
-    /// The bucket column, group-by columns and aggregate aliases share the view's projection, so
+    /// The bucket column, group-by columns, aggregate aliases and expression aliases share the view's projection, so
     /// two of them resolving to the same database column would produce ambiguous SQL. Validation
     /// runs at model finalization against resolved store column names.
     /// </summary>
@@ -37,10 +38,20 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
                 return;
             }
 
+            List<ContinuousAggregateExpression> aggregateExpressions = ContinuousAggregateExpressionJson.Read(entityType, ContinuousAggregateAnnotations.AggregateExpressions);
+            List<ContinuousAggregateExpression> groupByExpressions = ContinuousAggregateExpressionJson.Read(entityType, ContinuousAggregateAnnotations.GroupByExpressions);
+
             // The raw view-definition path does not use the structured projection fields.
             string? viewDefinition = entityType.FindAnnotation(ContinuousAggregateAnnotations.ViewDefinition)?.Value as string;
             if (!string.IsNullOrWhiteSpace(viewDefinition))
             {
+                if (aggregateExpressions.Count > 0 || groupByExpressions.Count > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"The continuous aggregate '{EntityStoreObjectResolver.DisplayName(entityType)}' (materialized view '{materializedViewName}') " +
+                        $"has a raw view definition, which replaces its aggregate and group-by expressions. Remove one or the other.");
+                }
+
                 return;
             }
 
@@ -58,6 +69,11 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
             List<string> outputColumns = [bucketColumnName];
             outputColumns.AddRange(ResolveGroupByColumns(entityType, parentEntityType, parentStoreIdentifier));
             outputColumns.AddRange(ResolveAggregateAliasColumns(entityType, aggregateStoreIdentifier.Value));
+            foreach (ContinuousAggregateExpression expression in groupByExpressions.Concat(aggregateExpressions))
+            {
+                ValidateExpressionColumns(entityType, materializedViewName, expression, parentEntityType, parentStoreIdentifier);
+                outputColumns.Add(ColumnNameResolver.Resolve(entityType, expression.Alias, aggregateStoreIdentifier.Value) ?? expression.Alias);
+            }
 
             HashSet<string> seen = [];
             foreach (string column in outputColumns)
@@ -146,6 +162,30 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration
                 string aliasModelName = parts[0];
                 string? aliasDbName = ColumnNameResolver.Resolve(entityType, aliasModelName, aggregateStoreIdentifier);
                 yield return string.IsNullOrWhiteSpace(aliasDbName) ? aliasModelName : aliasDbName;
+            }
+        }
+
+        private static void ValidateExpressionColumns(
+            IEntityType entityType,
+            string materializedViewName,
+            ContinuousAggregateExpression expression,
+            IEntityType? parentEntityType,
+            StoreObjectIdentifier? parentStoreIdentifier)
+        {
+            if (parentEntityType == null || parentStoreIdentifier == null)
+            {
+                return;
+            }
+
+            foreach (string column in expression.Columns)
+            {
+                if (ColumnNameResolver.Resolve(parentEntityType, column, parentStoreIdentifier.Value) == null)
+                {
+                    throw new InvalidOperationException(
+                        $"The continuous aggregate '{EntityStoreObjectResolver.DisplayName(entityType)}' (materialized view '{materializedViewName}') " +
+                        $"references '{column}' in the expression for '{expression.Alias}', which is not a property or column of " +
+                        $"'{EntityStoreObjectResolver.DisplayName(parentEntityType)}'.");
+                }
             }
         }
 

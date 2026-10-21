@@ -330,10 +330,10 @@ public class ContinuousAggregateAnnotationRendererTests
 
     #endregion
 
-    #region GenerateFluentApiCalls_LeavesAnnotationsUnconsumed_WhenViewDefUnparseable
+    #region GenerateFluentApiCalls_RendersFromSql_WhenViewDefUnparseable
 
     [Fact]
-    public void GenerateFluentApiCalls_LeavesAnnotationsUnconsumed_WhenViewDefUnparseable()
+    public void GenerateFluentApiCalls_RendersFromSql_WhenViewDefUnparseable()
     {
         // Arrange
         using CaTestContext context = new();
@@ -348,10 +348,42 @@ public class ContinuousAggregateAnnotationRendererTests
             .GenerateFluentApiCalls(entityType, annotations);
 
         // Assert
-        Assert.DoesNotContain(result, f => CollectMethodChain(f).Contains("IsContinuousAggregate"));
-        Assert.Contains(ContinuousAggregateAnnotations.MaterializedViewName, annotations.Keys);
-        Assert.Contains(ContinuousAggregateAnnotations.ParentName, annotations.Keys);
-        Assert.Contains(ContinuousAggregateAnnotations.ViewDefinition, annotations.Keys);
+        MethodCallCodeFragment call = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregateFromSql));
+        Assert.Equal("UNPARSEABLE SQL", call.Arguments[2]);
+        Assert.DoesNotContain(annotations.Keys, k => k.StartsWith("TimescaleDB:", StringComparison.Ordinal));
+    }
+
+    #endregion
+
+    #region GenerateFluentApiCalls_RendersFromSql_WhenViewHasToolkitAggregate
+
+    [Fact]
+    public void GenerateFluentApiCalls_RendersFromSql_WhenViewHasToolkitAggregate()
+    {
+        // Arrange
+        const string viewDefinition = """
+             SELECT time_bucket('1 day'::interval, "OccurredAt") AS bucket,
+                (imp IS NOT NULL) AS impersonated,
+                count(*) AS n,
+                mcv_agg(5, actor_id) AS actors
+               FROM ev
+              GROUP BY (time_bucket('1 day'::interval, "OccurredAt")), (imp IS NOT NULL);
+            """;
+        using CaTestContext context = new();
+        IEntityType entityType = GetEntityType<HourlyStatsEntity>(context);
+        Dictionary<string, IAnnotation> annotations = Annotations(
+            (ContinuousAggregateAnnotations.MaterializedViewName, "ranks"),
+            (ContinuousAggregateAnnotations.ParentName, "ev"),
+            (ContinuousAggregateAnnotations.ViewDefinition, viewDefinition));
+
+        // Act
+        IReadOnlyList<MethodCallCodeFragment> result = CreateAnnotationCodeGenerator()
+            .GenerateFluentApiCalls(entityType, annotations);
+
+        // Assert
+        MethodCallCodeFragment call = Assert.Single(result, f => f.Method == nameof(ContinuousAggregateTypeBuilder.IsContinuousAggregateFromSql));
+        Assert.Equal(viewDefinition.Trim(), call.Arguments[2]);
+        Assert.DoesNotContain("AddAggregateFunction", CollectMethodChain(call));
     }
 
     #endregion

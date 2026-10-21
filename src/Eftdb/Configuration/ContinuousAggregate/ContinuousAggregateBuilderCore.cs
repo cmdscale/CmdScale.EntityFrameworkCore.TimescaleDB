@@ -1,5 +1,6 @@
 using CmdScale.EntityFrameworkCore.TimescaleDB.Abstractions;
 using CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.Hypertable;
+using CmdScale.EntityFrameworkCore.TimescaleDB.Internals;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -97,6 +98,21 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Configuration.ContinuousAggre
 
             groupByColumns.Add(groupByExpression);
             builder.HasAnnotation(ContinuousAggregateAnnotations.GroupByColumns, groupByColumns);
+        }
+
+        /// <summary>
+        /// Appends an expression to the <paramref name="annotation"/> JSON list (aggregate or group-by
+        /// expressions). An alias already present is replaced.
+        /// </summary>
+        /// <exception cref="ArgumentException">The template and columns do not match.</exception>
+        public static void AddExpression(EntityTypeBuilder builder, string annotation, string alias, string sql, IReadOnlyList<string> columns)
+        {
+            ContinuousAggregateExpressionJson.Validate(alias, sql, columns);
+
+            List<ContinuousAggregateExpression> expressions = ContinuousAggregateExpressionJson.Read(builder.Metadata, annotation);
+            expressions.RemoveAll(x => x.Alias == alias);
+            expressions.Add(new ContinuousAggregateExpression(alias, sql, [.. columns]));
+            builder.HasAnnotation(annotation, ContinuousAggregateExpressionJson.Write(expressions));
         }
     }
 }

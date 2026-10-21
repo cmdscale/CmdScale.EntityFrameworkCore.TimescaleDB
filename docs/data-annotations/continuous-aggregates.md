@@ -367,7 +367,33 @@ public class TradeHourlyAggregate
 }
 ```
 
-> :warning: **Note:** Raw SQL GROUP BY expressions (e.g. `EXTRACT(HOUR FROM time)`) cannot be expressed as an attribute. Use the [Fluent API](../fluent-api/continuous-aggregates#grouping-data)'s `AddGroupByColumn(string)` overload for those.
+## Aggregate and Group-By Expressions
+
+`[AggregateExpression]` defines a property as a SQL aggregate expression, and `[GroupByExpression]` as a grouped expression selected as a column. Column references in the SQL are `{0}`, `{1}`, … placeholders bound to the source columns that follow, which resolve to mapped column names. Literal braces are written as `{{` and `}}`.
+
+```csharp
+[Keyless]
+[ContinuousAggregate(
+    MaterializedViewName = "trade_daily_stats",
+    ParentName = nameof(Trade))]
+[TimeBucket("1 day", nameof(Trade.Timestamp))]
+public class TradeDailyAggregate
+{
+    [GroupByExpression("{0} >= 1000", nameof(Trade.Size))]
+    public bool IsBlockTrade { get; set; }
+
+    [AggregateExpression("count(*) FILTER (WHERE {0} = 'NASDAQ')", nameof(Trade.Exchange))]
+    public long NasdaqTrades { get; set; }
+
+    // Requires the timescaledb_toolkit extension.
+    [AggregateExpression("mcv_agg(10, {0})", nameof(Trade.Ticker))]
+    public string TopTickers { get; set; } = string.Empty;
+}
+```
+
+See the [Fluent API](../fluent-api/continuous-aggregates#aggregate-expressions) page for validation rules and rollups in hierarchical aggregates.
+
+> :warning: **Note:** A raw `AddGroupByColumn(string)` expression appears only in `GROUP BY` and has no attribute form; use `[GroupByExpression]` to select it as a column instead.
 
 ## Refresh Policies
 

@@ -16,7 +16,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             string SourceColumn);
 
         /// <summary>
-        /// Complete parse result of a continuous aggregate view definition.
+        /// Complete parse result of a continuous aggregate view definition. <see cref="IsComplete"/> is
+        /// <c>false</c> when a SELECT item is neither the time bucket, a recognised aggregate nor a
+        /// GROUP BY column (for example a toolkit sketch or a grouped expression), so the structured
+        /// fields alone would drop it.
         /// </summary>
         internal sealed record ParsedViewDefinition(
             string? TimeBucketWidth,
@@ -24,7 +27,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             string? TimeBucketAlias,
             IReadOnlyList<ParsedAggregate> Aggregates,
             IReadOnlyList<string> GroupByColumns,
-            string? WhereClause);
+            string? WhereClause,
+            bool IsComplete);
 
         private static readonly ConcurrentDictionary<string, ParsedViewDefinition> Cache = new();
 
@@ -33,13 +37,53 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
         /// property against the same SQL; the cache avoids re-parsing the full definition each time.
         /// </summary>
         public static ParsedViewDefinition Parse(string viewDefinition)
-            => Cache.GetOrAdd(viewDefinition, static vd => new ParsedViewDefinition(
-                ParseTimeBucketWidth(vd),
-                ParseTimeBucketSourceColumn(vd),
-                ParseTimeBucketAlias(vd),
-                ParseAggregates(vd),
-                ParseGroupByColumns(vd),
-                ParseWhereClause(vd)));
+            => Cache.GetOrAdd(viewDefinition, static vd =>
+            {
+                IReadOnlyList<ParsedAggregate> aggregates = ParseAggregates(vd);
+                IReadOnlyList<string> groupByColumns = ParseGroupByColumns(vd);
+                return new ParsedViewDefinition(
+                    ParseTimeBucketWidth(vd),
+                    ParseTimeBucketSourceColumn(vd),
+                    ParseTimeBucketAlias(vd),
+                    aggregates,
+                    groupByColumns,
+                    ParseWhereClause(vd),
+                    AccountsForEverySelectItem(vd, aggregates, groupByColumns));
+            });
+
+        /// <summary>
+        /// Checks that each top-level SELECT item is the time bucket, one of <paramref name="aggregates"/>,
+        /// or a plain column listed in <paramref name="groupByColumns"/>.
+        /// </summary>
+        private static bool AccountsForEverySelectItem(string viewDefinition, IReadOnlyList<ParsedAggregate> aggregates, IReadOnlyList<string> groupByColumns)
+        {
+            string selectList = SelectKeywordRegex().Replace(ExtractSelectClause(viewDefinition), string.Empty, 1);
+            HashSet<string> aggregateAliases = [.. aggregates.Select(a => a.Alias)];
+            HashSet<string> groupColumns = [.. groupByColumns];
+
+            foreach (string rawItem in SplitTopLevel(selectList))
+            {
+                string item = rawItem.Trim();
+                if (item.Length == 0 || item.Contains("time_bucket", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                Match aliased = SelectItemAliasRegex().Match(item);
+                string expression = aliased.Success ? aliased.Groups[1].Value.Trim() : item;
+                string alias = aliased.Success ? StripQuotes(aliased.Groups[2].Value) : StripQualifierAndQuotes(item);
+
+                bool isAggregate = aggregateAliases.Contains(alias);
+                bool isGroupColumn = SimpleColumnReferenceRegex().IsMatch(expression)
+                    && groupColumns.Contains(StripQualifierAndQuotes(expression));
+                if (!isAggregate && !isGroupColumn)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
 
         /// <summary>
         /// Extracts the time bucket interval from a <c>time_bucket('interval'::interval, col)</c> call.
@@ -271,6 +315,12 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
 
         [GeneratedRegex(@"\bFROM\b", RegexOptions.IgnoreCase)]
         private static partial Regex FromRegex();
+
+        [GeneratedRegex(@"^\s*SELECT\s+", RegexOptions.IgnoreCase)]
+        private static partial Regex SelectKeywordRegex();
+
+        [GeneratedRegex(@"^(.*)\s+AS\s+(""[^""]+""|\w+)$", RegexOptions.IgnoreCase | RegexOptions.Singleline)]
+        private static partial Regex SelectItemAliasRegex();
 
         [GeneratedRegex(@"^(?:(?:""[^""]+""|\w+)\.)*(""[^""]+""|\w+)$")]
         private static partial Regex SimpleColumnReferenceRegex();

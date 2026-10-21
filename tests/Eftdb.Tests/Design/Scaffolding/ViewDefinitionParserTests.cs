@@ -1323,4 +1323,43 @@ public class ViewDefinitionParserTests
     }
 
     #endregion
+
+    #region Parse_IsComplete_For_Structured_View
+
+    [Fact]
+    public void Parse_IsComplete_For_Structured_View()
+    {
+        // Act
+        ViewDefinitionParser.ParsedViewDefinition parsed = ViewDefinitionParser.Parse(FullViewDef);
+
+        // Assert
+        Assert.True(parsed.IsComplete);
+    }
+
+    #endregion
+
+    #region Parse_IsNotComplete_When_View_Has_Expressions
+
+    [Theory]
+    [InlineData("mcv_agg(5, actor_id) AS actors")]
+    [InlineData("(imp IS NOT NULL) AS impersonated")]
+    [InlineData("count(*) FILTER (WHERE action = 1) AS reads")]
+    public void Parse_IsNotComplete_When_View_Has_Expressions(string item)
+    {
+        // Arrange
+        string viewDefinition =
+            " SELECT time_bucket('1 day'::interval, \"OccurredAt\") AS bucket,\n" +
+            $"    {item},\n" +
+            "    count(*) AS n\n" +
+            "   FROM ev\n" +
+            "  GROUP BY (time_bucket('1 day'::interval, \"OccurredAt\")), (imp IS NOT NULL);";
+
+        // Act
+        ViewDefinitionParser.ParsedViewDefinition parsed = ViewDefinitionParser.Parse(viewDefinition);
+
+        // Assert
+        Assert.False(parsed.IsComplete);
+    }
+
+    #endregion
 }
