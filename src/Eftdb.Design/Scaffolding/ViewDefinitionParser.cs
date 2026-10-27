@@ -64,7 +64,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Scaffolding
             foreach (string rawItem in SplitTopLevel(selectList))
             {
                 string item = rawItem.Trim();
-                if (item.Length == 0 || item.Contains("time_bucket", StringComparison.OrdinalIgnoreCase))
+                if (item.Contains("time_bucket", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }

@@ -317,4 +317,90 @@ public class ContinuousAggregateExpressionExtractorTests
     }
 
     #endregion
+
+    #region Should_Keep_Unmapped_Expression_Alias_Verbatim
+
+    private class UnmappedEvent
+    {
+        public DateTime OccurredAt { get; set; }
+        public string ActorId { get; set; } = "";
+    }
+
+    private class UnmappedRank
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class UnmappedContext : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(ConnectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UnmappedEvent>(e =>
+            {
+                e.HasNoKey();
+                e.IsHypertable(x => x.OccurredAt);
+            });
+            modelBuilder.Entity<UnmappedRank>(e =>
+            {
+                e.HasNoKey();
+                e.IsContinuousAggregate("unmapped_ranks", nameof(UnmappedEvent), "1 day", nameof(UnmappedEvent.OccurredAt))
+                    .AddAggregateExpression("actor_sketch", "mcv_agg(5, {0})", nameof(UnmappedEvent.ActorId));
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Keep_Unmapped_Expression_Alias_Verbatim()
+    {
+        // Arrange
+        using UnmappedContext context = new();
+
+        // Act
+        CreateContinuousAggregateOperation operation = ExtractSingle(context);
+
+        // Assert
+        Assert.Equal(new ContinuousAggregateExpression("actor_sketch", "mcv_agg(5, {0})", ["ActorId"]), Assert.Single(operation.AggregateExpressions));
+    }
+
+    #endregion
+
+    #region Should_Skip_Expression_Validation_When_Parent_Does_Not_Resolve
+
+    private class OrphanRank
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class OrphanContext : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(ConnectionString).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<OrphanRank>(e =>
+            {
+                e.HasNoKey();
+                e.IsContinuousAggregate("orphan_ranks", "missing_parent", "1 day", "OccurredAt")
+                    .AddAggregateExpression("actors", "mcv_agg(5, {0})", "actor_id");
+            });
+    }
+
+    [Fact]
+    public void Should_Skip_Expression_Validation_When_Parent_Does_Not_Resolve()
+    {
+        // Arrange
+        using OrphanContext context = new();
+
+        // Act
+        List<CreateContinuousAggregateOperation> operations = [.. ContinuousAggregateModelExtractor.GetContinuousAggregates(
+            context.GetService<IDesignTimeModel>().Model.GetRelationalModel())];
+
+        // Assert
+        Assert.Empty(operations);
+    }
+
+    #endregion
 }

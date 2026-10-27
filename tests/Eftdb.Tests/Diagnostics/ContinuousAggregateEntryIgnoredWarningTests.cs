@@ -4,6 +4,7 @@ using CmdScale.EntityFrameworkCore.TimescaleDB.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Logging;
 
 namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Diagnostics;
 
@@ -100,6 +101,69 @@ public class ContinuousAggregateEntryIgnoredWarningTests
 
         // Act & Assert
         Assert.Throws<InvalidOperationException>(() => context.Model);
+    }
+
+    #endregion
+
+    #region Should_Reach_ILogger_Sink_For_Ignored_Entry
+
+    private sealed class CapturingLoggerProvider(List<(EventId EventId, string Message)> entries) : ILoggerProvider
+    {
+        public ILogger CreateLogger(string categoryName) => new CapturingLogger(entries);
+
+        public void Dispose() { }
+
+        private sealed class CapturingLogger(List<(EventId, string)> sink) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+                => sink.Add((eventId, formatter(state, exception)));
+        }
+    }
+
+    private class LoggerFactoryContext(ILoggerFactory loggerFactory) : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql("Host=localhost;Database=dummy;Username=x;Password=x")
+                             .UseLoggerFactory(loggerFactory)
+                             .EnableServiceProviderCaching(false)
+                             .UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<IgnoredEvent>(e =>
+            {
+                e.HasNoKey();
+                e.ToTable("ignored_logger_events");
+                e.IsHypertable(x => x.OccurredAt);
+            });
+            modelBuilder.Entity<IgnoredAggregate>(e =>
+            {
+                e.HasNoKey();
+                e.Property(x => x.Bucket).HasColumnName("time_bucket");
+                e.IsContinuousAggregate("ignored_logger_hourly", nameof(IgnoredEvent), "1 hour", nameof(IgnoredEvent.OccurredAt));
+                e.HasAnnotation(ContinuousAggregateAnnotations.AggregateFunctions, new List<string> { "Total:Sum:NoSuchColumn" });
+            });
+        }
+    }
+
+    [Fact]
+    public void Should_Reach_ILogger_Sink_For_Ignored_Entry()
+    {
+        // Arrange
+        List<(EventId EventId, string Message)> entries = [];
+        using ILoggerFactory loggerFactory = LoggerFactory.Create(b => b.AddProvider(new CapturingLoggerProvider(entries)));
+        using LoggerFactoryContext context = new(loggerFactory);
+
+        // Act
+        _ = context.Model;
+
+        // Assert
+        (EventId _, string message) = Assert.Single(entries, e => e.EventId == TimescaleDbEventId.ContinuousAggregateEntryIgnored);
+        Assert.Contains("NoSuchColumn", message);
     }
 
     #endregion

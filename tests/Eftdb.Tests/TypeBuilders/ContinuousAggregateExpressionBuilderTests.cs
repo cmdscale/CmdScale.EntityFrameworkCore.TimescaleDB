@@ -352,4 +352,104 @@ public class ContinuousAggregateExpressionBuilderTests
     }
 
     #endregion
+
+    #region Should_Throw_For_Empty_View_Definition
+
+    private class EmptyRawRank
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class EmptyRawContext : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(ConnectionString).EnableServiceProviderCaching(false).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<EmptyRawRank>(e =>
+            {
+                e.HasNoKey();
+                e.IsContinuousAggregateFromSql("empty_raw_ranks", "events", " ");
+            });
+    }
+
+    [Fact]
+    public void Should_Throw_For_Empty_View_Definition()
+    {
+        // Arrange
+        using EmptyRawContext context = new();
+
+        // Act & Assert
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => GetEntityType<EmptyRawRank>(context));
+        Assert.Equal("viewDefinition", exception.ParamName);
+    }
+
+    #endregion
+
+    #region Should_Throw_For_Empty_Alias_Or_Sql
+
+    private class EmptyPartEvent
+    {
+        public DateTime OccurredAt { get; set; }
+    }
+
+    private class EmptyPartRank
+    {
+        public DateTime Bucket { get; set; }
+    }
+
+    private class EmptyPartContext(string alias, string sql) : DbContext
+    {
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.UseNpgsql(ConnectionString).EnableServiceProviderCaching(false).UseTimescaleDb();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EmptyPartEvent>(e =>
+            {
+                e.HasNoKey();
+                e.IsHypertable(x => x.OccurredAt);
+            });
+            modelBuilder.Entity<EmptyPartRank>(e =>
+            {
+                e.HasNoKey();
+                e.IsContinuousAggregate("empty_part_ranks", nameof(EmptyPartEvent), "1 day", nameof(EmptyPartEvent.OccurredAt))
+                    .AddAggregateExpression(alias, sql);
+            });
+        }
+    }
+
+    [Theory]
+    [InlineData("", "count(*)", "alias")]
+    [InlineData("Total", " ", "sql")]
+    public void Should_Throw_For_Empty_Alias_Or_Sql(string alias, string sql, string parameter)
+    {
+        // Arrange
+        using EmptyPartContext context = new(alias, sql);
+
+        // Act & Assert
+        ArgumentException exception = Assert.Throws<ArgumentException>(() => GetEntityType<EmptyPartRank>(context));
+        Assert.Equal(parameter, exception.ParamName);
+    }
+
+    #endregion
+
+    #region Should_Compare_Expressions_By_Value
+
+    [Fact]
+    public void Should_Compare_Expressions_By_Value()
+    {
+        // Arrange
+        ContinuousAggregateExpression expression = new("actors", "mcv_agg(500, {0})", ["actor_id"]);
+        object same = new ContinuousAggregateExpression("actors", "mcv_agg(500, {0})", ["actor_id"]);
+        object otherColumn = new ContinuousAggregateExpression("actors", "mcv_agg(500, {0})", ["entity_id"]);
+
+        // Act & Assert
+        Assert.True(expression.Equals(same));
+        Assert.Equal(expression.GetHashCode(), same.GetHashCode());
+        Assert.False(expression.Equals(otherColumn));
+        Assert.False(expression.Equals("actors"));
+    }
+
+    #endregion
 }

@@ -76,4 +76,18 @@ public class ColumnTemplateTests
     }
 
     #endregion
+
+    #region Should_Keep_Unterminated_Literal_Verbatim
+
+    [Fact]
+    public void Should_Keep_Unterminated_Literal_Verbatim()
+    {
+        // Act
+        string sql = ColumnTemplate.Format("coalesce({0}, 'open {1}", _ => "\"v\"");
+
+        // Assert
+        Assert.Equal("coalesce(\"v\", 'open {1}", sql);
+    }
+
+    #endregion
 }

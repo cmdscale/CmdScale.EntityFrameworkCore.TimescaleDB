@@ -408,5 +408,32 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Design.Features.Continu
         }
 
         #endregion
+
+        #region CreateContinuousAggregate_MultipleExpressions_SeparatedByCommas
+
+        [Fact]
+        public void CreateContinuousAggregate_MultipleExpressions_SeparatedByCommas()
+        {
+            // Arrange
+            CreateContinuousAggregateOperation op = new()
+            {
+                MaterializedViewName = "ranks",
+                ParentName = "events",
+                AggregateExpressions =
+                [
+                    new("reads", "count(*) FILTER (WHERE {0} = 1)", ["action"]),
+                    new("actors", "mcv_agg(500, {0})", ["actor_id"]),
+                ],
+            };
+
+            // Act
+            string result = Generate(op).ReplaceLineEndings("\n");
+
+            // Assert
+            Assert.Contains("[\"action\"]),\n", result);
+            Assert.Contains("[\"actor_id\"])\n", result);
+        }
+
+        #endregion
     }
 }

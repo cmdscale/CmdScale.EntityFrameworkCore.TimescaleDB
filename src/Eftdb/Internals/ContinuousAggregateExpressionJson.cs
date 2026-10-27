@@ -12,7 +12,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Internals
     {
         public static List<ContinuousAggregateExpression> Read(IReadOnlyAnnotatable annotatable, string annotation)
             => annotatable.FindAnnotation(annotation)?.Value is string { Length: > 0 } json
-                ? JsonSerializer.Deserialize<List<ContinuousAggregateExpression>>(json) ?? []
+                ? JsonSerializer.Deserialize<List<ContinuousAggregateExpression>>(json)!
                 : [];
 
         public static string Write(IReadOnlyList<ContinuousAggregateExpression> expressions)

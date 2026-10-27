@@ -68,10 +68,10 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Design.Features.ContinuousAgg
             if (operation.CompressionOrderBy is { Count: > 0 })
                 call.Arg("compressionOrderBy", CSharpGeneratorHelper.LiteralStringList(code, operation.CompressionOrderBy));
 
-            if (operation.AggregateExpressions is { Count: > 0 })
+            if (operation.AggregateExpressions.Count > 0)
                 call.Arg("aggregateExpressions", b => AppendExpressionList(b, operation.AggregateExpressions));
 
-            if (operation.GroupByExpressions is { Count: > 0 })
+            if (operation.GroupByExpressions.Count > 0)
                 call.Arg("groupByExpressions", b => AppendExpressionList(b, operation.GroupByExpressions));
         }
 
