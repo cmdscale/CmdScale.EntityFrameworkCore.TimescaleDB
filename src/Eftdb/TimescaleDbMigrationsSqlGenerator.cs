@@ -6,6 +6,9 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
+#if NET11_0_OR_GREATER
+using Microsoft.EntityFrameworkCore.Query;
+#endif
 using Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure.Internal;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Migrations;
 
@@ -15,8 +18,16 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
     internal class TimescaleDbMigrationsSqlGenerator(
         MigrationsSqlGeneratorDependencies dependencies,
         INpgsqlSingletonOptions npgsqlSingletonOptions,
+#if NET11_0_OR_GREATER
+        IQuerySqlGeneratorFactory querySqlGeneratorFactory,
+#endif
         TimescaleDbOptions? timescaleDbOptions = null,
-        IDiagnosticsLogger<DbLoggerCategory.Migrations>? migrationsLogger = null) : NpgsqlMigrationsSqlGenerator(dependencies, npgsqlSingletonOptions)
+        IDiagnosticsLogger<DbLoggerCategory.Migrations>? migrationsLogger = null)
+#if NET11_0_OR_GREATER
+        : NpgsqlMigrationsSqlGenerator(dependencies, npgsqlSingletonOptions, querySqlGeneratorFactory)
+#else
+        : NpgsqlMigrationsSqlGenerator(dependencies, npgsqlSingletonOptions)
+#endif
     {
         private static readonly string SkipCommentPrefix = SqlBuilderHelper.SkipComment("Skipping Community Edition feature");
 

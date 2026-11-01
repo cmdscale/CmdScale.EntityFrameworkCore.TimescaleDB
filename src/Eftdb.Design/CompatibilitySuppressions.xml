@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- https://learn.microsoft.com/dotnet/fundamentals/package-validation/diagnostic-ids -->
+<Suppressions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.TimescaleCSharpModelGenerator.#ctor(Microsoft.EntityFrameworkCore.Scaffolding.ModelCodeGeneratorDependencies,Microsoft.EntityFrameworkCore.Design.Internal.IOperationReporter,System.IServiceProvider,Microsoft.EntityFrameworkCore.Design.IAnnotationCodeGenerator)</Target>
+    <Left>lib/net10.0/CmdScale.EntityFrameworkCore.TimescaleDB.Design.dll</Left>
+    <Right>lib/net11.0/CmdScale.EntityFrameworkCore.TimescaleDB.Design.dll</Right>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:CmdScale.EntityFrameworkCore.TimescaleDB.Design.Generators.TimescaleDbAnnotationCodeGenerator.#ctor(Microsoft.EntityFrameworkCore.Design.AnnotationCodeGeneratorDependencies,Microsoft.EntityFrameworkCore.Design.Internal.IOperationReporter)</Target>
+    <Left>lib/net10.0/CmdScale.EntityFrameworkCore.TimescaleDB.Design.dll</Left>
+    <Right>lib/net11.0/CmdScale.EntityFrameworkCore.TimescaleDB.Design.dll</Right>
+  </Suppression>
+</Suppressions>

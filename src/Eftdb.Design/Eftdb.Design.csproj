@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFrameworks>net10.0;net11.0</TargetFrameworks>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<AssemblyName>CmdScale.EntityFrameworkCore.TimescaleDB.Design</AssemblyName>
@@ -23,8 +23,11 @@
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
 		<PackageTags>timescaledb;timescale;efcore;ef-core;entityframeworkcore;postgresql;postgres;time-series;timeseries;data;database;efcore-provider;provider;design;migrations;scaffolding;codegen;cli;tools</PackageTags>
 	</PropertyGroup>
-	<ItemGroup>
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="11.0.0-rc.3.26522.148" />
 	</ItemGroup>
 	<ItemGroup>
 		<None Include="..\..\assets\cmd-nuget-logo.jpg">

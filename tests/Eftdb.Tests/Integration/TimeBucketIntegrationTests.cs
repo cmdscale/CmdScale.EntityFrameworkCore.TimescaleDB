@@ -68,7 +68,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
         for (int i = 0; i < 5; i++)
         {
             DateTime ts = baseTime.AddMinutes(i);
-            await context.Database.ExecuteSqlInterpolatedAsync(
+            await context.Database.ExecuteSqlAsync(
                 $"INSERT INTO \"tb_select_metrics\" (\"Timestamp\", \"Value\") VALUES ({ts}, {(double)(i * 10)})",
                 TestContext.Current.CancellationToken);
         }
@@ -122,7 +122,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
         for (int i = 0; i < 12; i++)
         {
             DateTime ts = baseTime.AddMinutes(i);
-            await context.Database.ExecuteSqlInterpolatedAsync(
+            await context.Database.ExecuteSqlAsync(
                 $"INSERT INTO \"tb_groupby_metrics\" (\"Timestamp\", \"Value\") VALUES ({ts}, {(double)(i + 1)})",
                 TestContext.Current.CancellationToken);
         }
@@ -189,7 +189,7 @@ public class TimeBucketIntegrationTests : MigrationTestBase, IAsyncLifetime
 
         for (int i = 0; i < 20; i++)
         {
-            await context.Database.ExecuteSqlInterpolatedAsync(
+            await context.Database.ExecuteSqlAsync(
                 $"INSERT INTO \"tb_int_metrics\" (\"Id\", \"SequenceNumber\", \"Value\") VALUES ({i + 1}, {i}, {(double)(i * 10)})",
                 TestContext.Current.CancellationToken);
         }
