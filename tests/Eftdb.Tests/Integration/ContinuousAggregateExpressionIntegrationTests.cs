@@ -89,7 +89,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using ExpressionContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
             DateTime day = new(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc);
-            await context.Database.ExecuteSqlInterpolatedAsync($"""
+            await context.Database.ExecuteSqlAsync($"""
                 INSERT INTO expression_events (occurred_at, actor_id, impersonated_actor_id, action)
                 VALUES ({day}, {"a"}, NULL, {(short)1}), ({day}, {"a"}, NULL, {(short)1}), ({day}, {"b"}, {"p"}, {(short)4})
                 """, TestContext.Current.CancellationToken);
@@ -213,7 +213,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await CreateDatabaseViaMigrationAsync(context);
             DateTime monday = new(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc);
             DateTime tuesday = monday.AddDays(1);
-            await context.Database.ExecuteSqlInterpolatedAsync($"""
+            await context.Database.ExecuteSqlAsync($"""
                 INSERT INTO sketch_events (occurred_at, actor_id)
                 VALUES ({monday}, {"busy"}), ({monday}, {"busy"}), ({tuesday}, {"busy"}), ({tuesday}, {"quiet"})
                 """, TestContext.Current.CancellationToken);

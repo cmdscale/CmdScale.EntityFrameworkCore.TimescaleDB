@@ -515,7 +515,7 @@ public class ContinuousAggregatePolicyIntegrationTests : MigrationTestBase, IAsy
         await CreateDatabaseViaMigrationAsync(context);
 
         // Assert
-        await context.Database.ExecuteSqlInterpolatedAsync($@"
+        await context.Database.ExecuteSqlAsync($@"
             INSERT INTO ""Metrics"" (""Timestamp"", ""Value"")
             VALUES ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {100.5})
         ", TestContext.Current.CancellationToken);

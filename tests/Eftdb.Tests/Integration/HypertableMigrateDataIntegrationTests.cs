@@ -300,7 +300,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
         await using InitialRegularTableContext initialContext = new(_connectionString!);
         await CreateDatabaseViaMigrationAsync(initialContext);
 
-        await initialContext.Database.ExecuteSqlInterpolatedAsync($@"
+        await initialContext.Database.ExecuteSqlAsync($@"
             INSERT INTO ""SensorDataMigration"" (""Timestamp"", ""DeviceId"", ""Temperature"")
             VALUES
                 ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {"device_1"}, {20.5}),
@@ -382,7 +382,7 @@ public class HypertableMigrateDataIntegrationTests : MigrationTestBase, IAsyncLi
         await using InitialRegularTableMigrateDataFalseContext initialContext = new(_connectionString!);
         await CreateDatabaseViaMigrationAsync(initialContext);
 
-        await initialContext.Database.ExecuteSqlInterpolatedAsync($@"
+        await initialContext.Database.ExecuteSqlAsync($@"
             INSERT INTO ""SensorDataNoMigration"" (""Timestamp"", ""DeviceId"", ""Temperature"")
             VALUES
                 ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {"device_1"}, {20.5})", TestContext.Current.CancellationToken);
