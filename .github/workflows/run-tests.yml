@@ -38,8 +38,10 @@ jobs:
       - name: Build project
         run: dotnet build --no-restore
 
+      # Absolute project path: the .NET 11 SDK resolves a relative --project against the
+      # project directory again for multi-targeted projects (tests/Eftdb.Tests/tests/Eftdb.Tests/...)
       - name: Run unit and integration tests with coverage
-        run: dotnet test --no-build --project tests/Eftdb.Tests -- --coverage --coverage-output-format cobertura --coverage-settings tests/coverage.config --results-directory ./coverage
+        run: dotnet test --no-build --project ${{ github.workspace }}/tests/Eftdb.Tests/Eftdb.Tests.csproj -- --coverage --coverage-output-format cobertura --coverage-settings tests/coverage.config --results-directory ./coverage
 
       - name: Run functional tests
         working-directory: tests/Eftdb.FunctionalTests
