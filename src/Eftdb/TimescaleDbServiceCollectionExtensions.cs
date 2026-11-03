@@ -18,7 +18,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
             new EntityFrameworkRelationalServicesBuilder(services)
                 .TryAdd<IMigrationsModelDiffer, TimescaleMigrationsModelDiffer>()
                 .TryAdd<IConventionSetPlugin, TimescaleDbContextOptionsBuilderExtensions.TimescaleDbConventionSetPlugin>()
-                .TryAdd<IMethodCallTranslatorPlugin, TimescaleDbMethodCallTranslatorPlugin>();
+                .TryAdd<IMethodCallTranslatorPlugin, TimescaleDbMethodCallTranslatorPlugin>()
+                .TryAdd<IAggregateMethodCallTranslatorPlugin, TimescaleDbAggregateMethodCallTranslatorPlugin>();
 
             return services;
         }
