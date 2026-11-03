@@ -110,6 +110,8 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB
                 services.Replace(ServiceDescriptor.Singleton<LoggingDefinitions, TimescaleDbLoggingDefinitions>());
                 services.TryAddEnumerable(
                     ServiceDescriptor.Scoped<IMethodCallTranslatorPlugin, TimescaleDbMethodCallTranslatorPlugin>());
+                services.TryAddEnumerable(
+                    ServiceDescriptor.Scoped<IAggregateMethodCallTranslatorPlugin, TimescaleDbAggregateMethodCallTranslatorPlugin>());
             }
 
             public void Validate(IDbContextOptions options) { }
