@@ -114,6 +114,25 @@ public class TimescaleDbFirstLastTranslatorTests
 
     #endregion
 
+    #region Should_Return_Null_For_Other_Generic_Method_Of_The_Same_Type
+
+    [Fact]
+    public void Should_Return_Null_For_Other_Generic_Method_Of_The_Same_Type()
+    {
+        // Arrange
+        MethodInfo otherMethod = typeof(TimescaleDbFunctionsExtensions)
+            .GetMethod("Throw", BindingFlags.NonPublic | BindingFlags.Static)!
+            .MakeGenericMethod(typeof(double));
+
+        // Act
+        SqlExpression? result = _translator.Translate(otherMethod, CreateRowSource(), [], _loggerMock.Object);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
     #region Should_Return_Null_When_Selector_Is_Not_A_Row_Of_Two_Values
 
     [Fact]
