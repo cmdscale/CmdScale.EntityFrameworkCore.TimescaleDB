@@ -151,7 +151,7 @@ public abstract class HypertableIntegrationTestsBase : MigrationTestBase, IAsync
 
         DateTime timestamp = new(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc);
         double value = 100.5;
-        await context.Database.ExecuteSqlInterpolatedAsync(
+        await context.Database.ExecuteSqlAsync(
             $"INSERT INTO \"Metrics\" (\"Timestamp\", \"Value\") VALUES ({timestamp}, {value})", TestContext.Current.CancellationToken);
 
         bool isHypertable = await HypertableProbe.IsHypertableAsync(context, "Metrics");
@@ -464,7 +464,7 @@ public abstract class HypertableIntegrationTestsBase : MigrationTestBase, IAsync
         await using DataOperationsContext context = new(_connectionString!);
         await CreateDatabaseViaMigrationAsync(context);
 
-        await context.Database.ExecuteSqlInterpolatedAsync($@"
+        await context.Database.ExecuteSqlAsync($@"
             INSERT INTO ""IoTData"" (""Timestamp"", ""DeviceId"", ""Temperature"", ""Humidity"")
             VALUES
                 ({new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc)}, {"device_1"}, {20.5}, {45.0}),

@@ -101,7 +101,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using BasicAggregatesContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
@@ -183,7 +183,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using FirstLastContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"}),
@@ -260,7 +260,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using GroupByContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"}),
@@ -341,7 +341,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using WhereClauseContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"}),
@@ -415,7 +415,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using WithNoDataContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})", TestContext.Current.CancellationToken);
 
@@ -488,7 +488,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using CustomChunkIntervalContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
@@ -564,7 +564,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using CreateGroupIndexesContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
@@ -637,7 +637,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using MaterializedOnlyFalseContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})", TestContext.Current.CancellationToken);
 
@@ -737,7 +737,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using AlterChunkIntervalInitialContext context1 = new(_connectionString!);
             await context1.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
 
-            await context1.Database.ExecuteSqlInterpolatedAsync($@"
+            await context1.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
@@ -820,7 +820,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using AlterMaterializedOnlyContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
@@ -966,7 +966,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using DropContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
@@ -1045,7 +1045,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using SqlGenerationContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO ""Trades"" (""Timestamp"", ""Ticker"", ""Price"", ""Size"", ""Exchange"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {150.50m}, {100}, {"NYSE"}),
@@ -1120,7 +1120,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using SnakeCaseContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO trades (timestamp, ticker, price, size, exchange)
                 VALUES ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"AAPL"}, {100.00m}, {100}, {"NYSE"})", TestContext.Current.CancellationToken);
 
@@ -1189,7 +1189,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             await using CountStarIntegrationContext context = new(_connectionString!);
             await CreateDatabaseViaMigrationAsync(context);
 
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO count_star_events (""Timestamp"", ""Category"", ""Value"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"sports"}, {1.0m}),
@@ -1462,7 +1462,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             Assert.Contains("hier_chain_1d<-hier_chain_4h", parentLinks);
 
             // Act
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO hier_chain_raw (""Timestamp"", ""Value"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {10.0}),
@@ -1594,7 +1594,7 @@ namespace CmdScale.EntityFrameworkCore.TimescaleDB.Tests.Integration
             Assert.Contains("hier_combo_daily", policyTargets);
 
             // Act
-            await context.Database.ExecuteSqlInterpolatedAsync($@"
+            await context.Database.ExecuteSqlAsync($@"
                 INSERT INTO hier_combo_readings (""Timestamp"", ""MeterId"", ""PowerKw"")
                 VALUES
                     ({new DateTime(2025, 1, 6, 10, 0, 0, DateTimeKind.Utc)}, {"meter-a"}, {1.0}),
